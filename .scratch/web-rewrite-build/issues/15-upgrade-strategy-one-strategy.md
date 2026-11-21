@@ -1,0 +1,20 @@
+# 15: Upgrade Strategy: one strategy, rules and results
+
+**Parent:** [Spec: Echo Helper web app](../../web-rewrite/spec.md) (§8 "Header", "No Weight Table", "One strategy", §10, §15 "Rules")
+
+**What to build:** A player picks a Substat Weight Table on the Upgrade Strategy tab, writes rules for each Tune Stage, and sees live the Discard Rate at each stage and the results panel: Success Rate, where Echoes end, average cost per Successful Echo and the Successful Echoes' Echo Scores. The pass runs in the worker.
+
+**Blocked by:** 04 (Core plain port: Upgrade Strategy pass), 09 (Term and icon tooltips), 13 (Custom Weight Tables)
+
+**Status:** ready-for-agent
+
+- [ ] Header picker: the two groups plus "New Custom Weight Table…" with a sliders button beside it; reads "Choose a Weight Table…" only while no table is selected, and once a table is picked there's no way back to none; a newly saved Custom table started here becomes the strategy's table
+- [ ] No Weight Table: the stages and results are replaced by the one line from ticket 17, the strategy is kept underneath, the example picker and Compare are disabled (placeholders until 16 and 17), and nothing is calculated; while Upgrade Strategy has no table, adding a table on Echo Evaluation also picks it here
+- [ ] All five stages in one column ("Tune Stage N/5 (+5N)" with the stage-colour dot), each with its Discard Rate as a small stage-colour bar and "x% discarded here" (Discard Rate tooltip) or "nothing discarded"
+- [ ] Rules listed directly: rules in a box joined by "and", boxes separated by "or"; "+ and", "+ or" and "+ add a rule" are `<button>`s styled as links; the term Rule Group never appears
+- [ ] A new rule is an unfinished Substat Count rule (N = 1, no Substats) and focuses its first field; the kind picker followed by its phrase: "at least [N 1–5] of [pick Substats]" (multi-select popover, closes on click outside or focus leaving), "[Substat] at least [value select]", "at least [V]", "at least [P]% chance to reach a Target Score of [V]"
+- [ ] Switching kind keeps every kind's fields; × ("Remove this rule") removes a rule and an emptied box disappears; × moves focus to the previous rule's × in that stage, or to "+ add a rule"; impossible rules are allowed
+- [ ] Unfinished rules are highlighted with "Pick at least one Substat.", "Enter an Echo Score.", "Enter a chance in %." or "Enter a Target Score."; invalid numbers show "Enter a number of 0 or more." / "Enter a chance from 0 to 100."; the previous results stay faded with "Results are from before your last change. Finish the highlighted rule at Tune Stage N/5 (+5N) to update them." naming the first such stage
+- [ ] Results panel: Success Rate (large, tooltip); an unlabelled, `aria-hidden` "where Echoes end" stacked bar with a segment per discarding stage plus a gold Successful segment, 2px gaps and a legend entry per segment; "Average cost per Successful Echo" (Cost per Successful Echo tooltip) with Echoes started, Echo EXP, Tuners, Shell Credits; "Average Echo Score of Successful Echoes" and "Lowest Echo Score of a Successful Echo"; with Success Rate 0 the cost and Echo Score parts read "No Echo passes every Tune Stage."
+- [ ] Every valid change recalculates at once with no button or debounce; threshold and rule edits on an unchanged table rebuild no finishing tables
+- [ ] Number formats as in spec §17; a Playwright smoke test builds a one-rule strategy and sees a Success Rate

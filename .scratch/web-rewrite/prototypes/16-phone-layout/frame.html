@@ -1,0 +1,35 @@
+<!doctype html>
+<!-- PROTOTYPE, throwaway. Shows index.html at three phone widths side by side; each iframe is a real narrow viewport. -->
+<html lang="en"><head><meta charset="utf-8"><title>PROTOTYPE · phone widths</title>
+<style>
+body { margin:0; background:#2a2d33; font:13px/1.3 system-ui, sans-serif; color:#ddd; padding:14px 14px 80px; }
+.row { display:flex; gap:22px; justify-content:center; align-items:flex-start; flex-wrap:wrap; }
+.dev { display:flex; flex-direction:column; align-items:center; gap:6px; }
+iframe { border:0; border-radius:18px; background:#fff; box-shadow:0 0 0 8px #111, 0 10px 30px rgba(0,0,0,.5); }
+#bar { position:fixed; left:50%; bottom:12px; transform:translateX(-50%); background:#111; border-radius:14px; padding:6px 10px; display:flex; gap:6px; align-items:center; box-shadow:0 4px 18px rgba(0,0,0,.4); flex-wrap:wrap; justify-content:center; max-width:calc(100vw - 20px); }
+#bar button { background:#333; color:#eee; border:none; border-radius:99px; padding:4px 10px; cursor:pointer; font:inherit; }
+#bar button.on { background:#eee; color:#111; } #bar .sep { width:1px; height:18px; background:#444; margin:0 2px; } #bar b { min-width:80px; text-align:center; }
+</style></head><body>
+<div class="row" id="row"></div><div id="bar"></div>
+<script>
+const W = [360, 390, 430], V = { A: 'Stack', B: 'Cards', C: 'Focused' };
+const qs = new URLSearchParams(location.search);
+const S = { variant: qs.get('variant') || 'A', tab: qs.get('tab') || 'echo-evaluation', theme: qs.get('theme') || 'dark', echo: qs.get('echo') || 'two', strat: qs.get('strat') || 'single', dlg: qs.get('dlg') || '0', calc: qs.get('calc') || '0', side: qs.get('side') || 'B', resopen: qs.get('resopen') || '0', h: +(qs.get('h') || 800) };
+function src() { const p = new URLSearchParams({ variant: S.variant, theme: S.theme, echo: S.echo, strat: S.strat, dlg: S.dlg, calc: S.calc, side: S.side, resopen: S.resopen, embed: '1' }); return 'index.html?' + p + '#' + S.tab; }
+function draw() {
+  document.getElementById('row').innerHTML = W.map(w => `<div class="dev"><span>${w} px</span><iframe width="${w}" height="${S.h}" src="${src()}"></iframe></div>`).join('');
+  const b = (k, v, l) => `<button data-k="${k}" data-v="${v}" class="${S[k] === v ? 'on' : ''}">${l}</button>`;
+  document.getElementById('bar').innerHTML = `<button data-c="-1">◀</button><b>${S.variant} · ${V[S.variant]}</b><button data-c="1">▶</button><span class="sep"></span>
+    ${b('tab', 'echo-evaluation', 'Echo Evaluation')}${b('tab', 'upgrade-strategy', 'Upgrade Strategy')}${b('tab', 'about', 'About')}<span class="sep"></span>
+    ${S.tab === 'upgrade-strategy' ? b('strat', 'single', 'One') + b('strat', 'popup', 'Substat popup') + b('strat', 'unfinished', 'Unfinished') + b('strat', 'compare', 'Compare') + (S.strat === 'compare' ? b('side', 'A', 'side A') + b('side', 'B', 'side B') : '') + b('resopen', S.resopen === '1' ? '0' : '1', 'B: results open')
+      : S.tab === 'echo-evaluation' ? b('echo', 'empty', 'Empty') + b('echo', 'two', '2/5') + b('echo', 'type', 'Pick type') + b('echo', 'value', 'Pick value') + b('echo', 'full', '5/5') + b('dlg', S.dlg === '1' ? '0' : '1', 'Weights') : ''}
+    <span class="sep"></span>${b('calc', S.calc === '1' ? '0' : '1', 'Calculating')}${b('theme', S.theme === 'dark' ? 'light' : 'dark', S.theme === 'dark' ? 'Light' : 'Dark')}`;
+  const u = new URL(location); for (const [k, v] of Object.entries(S)) u.searchParams.set(k, v); history.replaceState(null, '', u);
+}
+document.addEventListener('click', e => {
+  const c = e.target.closest('[data-c]'); if (c) { const ks = Object.keys(V); S.variant = ks[(ks.indexOf(S.variant) + +c.dataset.c + 3) % 3]; return draw(); }
+  const k = e.target.closest('[data-k]'); if (k) { S[k.dataset.k] = k.dataset.v; draw(); }
+});
+document.addEventListener('keydown', e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { const ks = Object.keys(V); S.variant = ks[(ks.indexOf(S.variant) + (e.key === 'ArrowLeft' ? 2 : 1)) % 3]; draw(); } });
+draw();
+</script></body></html>

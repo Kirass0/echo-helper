@@ -1,0 +1,495 @@
+<!doctype html>
+<!--
+  PROTOTYPE, throwaway. Ticket: How Echo Evaluation looks and behaves (.scratch/web-rewrite/issues/07-echo-evaluation-ux.md)
+  Three layouts of the Echo Evaluation screen, switched by ?variant=A|B|C or the bar at the bottom (or the arrow keys).
+  The calculation is real (exact enumeration, scores bucketed to 0.01) so the numbers move as they would, but it is not the Core port.
+  Styling is deliberately neutral: the visual direction is a later ticket. Nothing is saved; reload starts over.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PROTOTYPE · Echo Evaluation</title>
+<script src="tables.js"></script>
+<style>
+  :root { --ink:#1e2530; --mute:#5d6878; --line:#d5dae1; --bg:#f3f5f7; --card:#fff; --acc:#2b6f8f; --good:#2f7d4f; --bad:#a3423a; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.45 "Segoe UI", system-ui, sans-serif; color:var(--ink); background:var(--bg); padding-bottom:80px; }
+  header.app { display:flex; gap:20px; align-items:baseline; padding:12px 20px; background:var(--card); border-bottom:1px solid var(--line); }
+  header.app b { font-size:17px; }
+  header.app a { color:var(--mute); text-decoration:none; } header.app a.on { color:var(--ink); border-bottom:2px solid var(--acc); }
+  main { max-width:1200px; margin:0 auto; padding:20px; }
+  h2 { font-size:16px; margin:0 0 8px; } h3 { font-size:15px; margin:0 0 6px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:6px; padding:16px; }
+  .mute { color:var(--mute); } .small { font-size:13px; }
+  button { font:inherit; padding:4px 10px; border:1px solid var(--line); background:#fff; border-radius:4px; cursor:pointer; }
+  button.primary { background:var(--acc); color:#fff; border-color:var(--acc); }
+  button.link { border:none; background:none; color:var(--acc); padding:0 4px; }
+  button:disabled { opacity:.45; cursor:default; }
+  select, input { font:inherit; padding:3px 6px; border:1px solid var(--line); border-radius:4px; background:#fff; }
+  input.num { width:72px; }
+  :focus-visible { outline:2px solid var(--acc); outline-offset:1px; }
+  .tag { font-size:11px; padding:1px 6px; border-radius:9px; background:#e3eef3; color:var(--acc); margin-left:6px; vertical-align:middle; }
+  .stage { font-weight:600; }
+  .row { display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-bottom:6px; }
+  .good { color:var(--good); } .bad { color:var(--bad); }
+  table.cmp { border-collapse:collapse; width:100%; }
+  table.cmp th, table.cmp td { padding:6px 10px; border-bottom:1px solid var(--line); text-align:right; white-space:nowrap; }
+  table.cmp th:first-child, table.cmp td:first-child { text-align:left; }
+  .scrollx { overflow-x:auto; }
+  .empty { border:1px dashed var(--line); border-radius:6px; padding:24px; text-align:center; color:var(--mute); }
+
+  /* A */
+  .a-top { display:grid; grid-template-columns: minmax(280px, 1fr) 1.4fr; gap:16px; margin-bottom:16px; }
+  .a-drawer { position:fixed; top:0; right:0; bottom:0; width:min(380px, 100%); background:#fff; border-left:1px solid var(--line); box-shadow:-4px 0 16px rgba(0,0,0,.08); padding:16px; overflow:auto; z-index:5; }
+
+  /* B */
+  .b-grid { display:grid; grid-template-columns: 300px 1fr; gap:16px; align-items:start; }
+  .slot { border:1px solid var(--line); border-radius:6px; padding:8px 10px; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center; min-height:44px; }
+  .slot.open { border-style:dashed; color:var(--mute); cursor:pointer; background:#fafbfc; }
+  .slot.next { border-color:var(--acc); color:var(--acc); }
+  .typegrid { display:grid; grid-template-columns:1fr 1fr; gap:4px; margin:6px 0; }
+  .typegrid button { text-align:left; font-size:13px; }
+  .pills { display:flex; flex-wrap:wrap; gap:4px; margin:6px 0; } .pills button { font-size:13px; padding:2px 8px; }
+  .headline { font-size:22px; line-height:1.3; margin:4px 0 10px; }
+  .facts { display:grid; grid-template-columns:repeat(auto-fit, minmax(130px,1fr)); gap:8px; margin:10px 0; }
+  .facts div { background:var(--bg); border-radius:4px; padding:6px 8px; } .facts b { display:block; font-size:17px; }
+  .cmpline { display:flex; gap:12px; align-items:center; padding:8px 4px; border-bottom:1px solid var(--line); cursor:pointer; flex-wrap:wrap; }
+  .cmpline:hover { background:#f7f9fa; } .cmpline.focus { background:#e9f2f6; }
+  .cmpline .nm { flex:1 1 180px; font-weight:600; }
+  .reshero { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); gap:6px; margin-top:10px; }
+  .reshero button { text-align:left; padding:8px; }
+  .modal-bg { position:fixed; inset:0; background:rgba(20,30,40,.35); display:flex; align-items:center; justify-content:center; z-index:5; padding:12px; }
+  .modal { background:#fff; border-radius:8px; padding:18px; width:min(440px,100%); max-height:90vh; overflow:auto; }
+
+  /* C */
+  .c-strip { display:flex; gap:8px; flex-wrap:wrap; align-items:stretch; margin-bottom:16px; }
+  .chip { border:1px solid var(--line); background:#fff; border-radius:6px; padding:6px 8px; display:flex; flex-direction:column; gap:4px; min-width:170px; }
+  .chip.open { border-style:dashed; justify-content:center; align-items:center; color:var(--mute); }
+  .c-rows th { cursor:pointer; user-select:none; } .c-rows th.sorted { color:var(--acc); }
+  .c-rows td { vertical-align:middle; }
+  .c-detail td { background:#fafbfc; text-align:left !important; white-space:normal !important; }
+
+  /* switcher (not part of the design) */
+  .proto-bar { position:fixed; left:50%; bottom:14px; transform:translateX(-50%); background:#111; color:#fff; border-radius:999px; padding:6px 10px; display:flex; gap:8px; align-items:center; box-shadow:0 4px 18px rgba(0,0,0,.35); font-size:13px; z-index:10; white-space:nowrap; }
+  .proto-bar button { background:#333; color:#fff; border:none; border-radius:999px; padding:3px 10px; }
+  .proto-state { position:fixed; right:10px; bottom:64px; width:260px; max-height:40vh; overflow:auto; background:#111; color:#9fd; font:11px/1.3 Consolas, monospace; padding:8px; border-radius:6px; opacity:.88; z-index:9; white-space:pre; }
+
+  @media (max-width: 760px) {
+    main { padding:10px; }
+    .a-top, .b-grid { grid-template-columns:1fr; }
+    .proto-state { display:none; }
+    .proto-bar { font-size:12px; }
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="proto-bar" id="bar"></div>
+<div class="proto-state" id="state" hidden></div>
+<script>
+// ---------- game data (from EchoHelper.Core/Echo.cs at 53ce242) ----------
+const TIER = [680, 777, 2039, 2428, 1748, 1457, 582, 291], TIER_CRIT = [2333, 2333, 2333, 800, 800, 800, 300, 300];
+const TYPES = [
+  ['Critical_Rate','Crit Rate',[6.3,6.9,7.5,8.1,8.7,9.3,9.9,10.5],true],
+  ['Critical_Damage','Crit DMG',[12.6,13.8,15,16.2,17.4,18.6,19.8,21],true],
+  ['Atk_Percent','ATK',[6.4,7.1,7.9,8.6,9.4,10.1,10.9,11.6],true],
+  ['Atk_Flat','ATK',[30,30,40,40,50,50,60,60],false],
+  ['Hp_Percent','HP',[6.4,7.1,7.9,8.6,9.4,10.1,10.9,11.6],true],
+  ['Hp_Flat','HP',[320,360,390,430,470,510,540,580],false],
+  ['Def_Percent','DEF',[8.1,9,10,10.9,11.8,12.8,13.8,14.7],true],
+  ['Def_Flat','DEF',[40,40,50,50,60,60,70,70],false],
+  ['Energy_Regen','Energy Regen',[6.8,7.6,8.4,9.2,10,10.8,11.6,12.4],true],
+  ['Basic_Attack','Basic Attack DMG Bonus',[6.4,7.1,7.9,8.6,9.4,10.1,10.9,11.6],true],
+  ['Heavy','Heavy Attack DMG Bonus',[6.4,7.1,7.9,8.6,9.4,10.1,10.9,11.6],true],
+  ['Skill','Resonance Skill DMG Bonus',[6.4,7.1,7.9,8.6,9.4,10.1,10.9,11.6],true],
+  ['Liberation','Resonance Liberation DMG Bonus',[6.4,7.1,7.9,8.6,9.4,10.1,10.9,11.6],true],
+].map(([key, base, tiers, pct]) => {
+  const w = (key === 'Critical_Rate' || key === 'Critical_Damage') ? TIER_CRIT : TIER, sum = w.reduce((a,b)=>a+b);
+  const rolls = [];
+  tiers.forEach((v, i) => { const r = rolls.find(r => r.v === v); if (r) r.p += w[i]/sum; else rolls.push({ v, p: w[i]/sum }); });
+  let c = 0; const ref = rolls.find(r => (c += r.p) >= 0.5 - 1e-12).v; // Reference Roll: chance-weighted median
+  const name = pct ? (['Atk_Percent','Hp_Percent','Def_Percent'].includes(key) ? base + '%' : base) : 'Flat ' + base;
+  return { key, name, pct, rolls, ref };
+});
+const T = Object.fromEntries(TYPES.map(t => [t.key, t]));
+const fmtRoll = (t, v) => T[t].pct ? v + '%' : String(v);
+
+// ---------- calculation ----------
+const binom = (n, k) => { let r = 1; for (let i = 1; i <= k; i++) r = r * (n - k + i) / i; return r; };
+const scoreOf = (type, v, tbl) => (tbl.weights[type] || 0) * v / T[type].ref;
+const echoScore = (echo, tbl) => echo.reduce((a, s) => a + scoreOf(s.type, s.value, tbl), 0);
+const cache = new Map();
+// Every Echo Score the Echo can finish with once fully tuned, with its chance and whether it has Energy Regen.
+function finishes(echo, tbl) {
+  const ck = tbl.name + JSON.stringify(tbl.weights) + '|' + echo.map(s => s.type + s.value).join(',');
+  if (cache.has(ck)) return cache.get(ck);
+  const used = new Set(echo.map(s => s.type)), unused = TYPES.filter(t => !used.has(t.key)), k = 5 - echo.length;
+  const dp = Array.from({ length: k + 1 }, () => new Map());
+  dp[0].set(used.has('Energy_Regen') ? 1 : 0, 1);
+  for (const t of unused) {
+    const rolls = new Map();
+    for (const r of t.rolls) { const rk = Math.round(scoreOf(t.key, r.v, tbl) * 100); rolls.set(rk, (rolls.get(rk) || 0) + r.p); }
+    const isEr = t.key === 'Energy_Regen' ? 1 : 0;
+    for (let j = k - 1; j >= 0; j--) for (const [key, p] of dp[j]) {
+      const er = key & 1, s = (key - er) / 2;
+      for (const [rk, rp] of rolls) { const nk = (s + rk) * 2 + (er | isEr); dp[j + 1].set(nk, (dp[j + 1].get(nk) || 0) + p * rp); }
+    }
+  }
+  const base = echoScore(echo, tbl), total = binom(unused.length, k);
+  const out = [...dp[k]].map(([key, p]) => ({ score: base + ((key - (key & 1)) / 2) / 100, er: !!(key & 1), p: p / total })).sort((a, b) => a.score - b.score);
+  cache.set(ck, out); return out;
+}
+function evaluate(echo, row) {
+  const tbl = tableByName(row.name), cur = echoScore(echo, tbl), fresh = finishes([], tbl), hasEr = echo.some(s => s.type === 'Energy_Regen');
+  const tgt = num(row.target), ert = num(row.erTarget);
+  const r = { tbl, cur, hasEr, tgt, ert, full: echo.length === 5 };
+  if (cur > 0) { r.top = fresh.filter(f => f.score > cur + 0.005).reduce((a, f) => a + f.p, 0); if (hasEr) r.erTop = fresh.filter(f => f.er && f.score > cur + 0.005).reduce((a, f) => a + f.p, 0); }
+  if (r.full) { if (tgt != null) r.reaches = cur >= tgt - 1e-9; if (ert != null && hasEr) r.reachesEr = cur >= ert - 1e-9; return r; }
+  const d = finishes(echo, tbl); r.dist = d;
+  r.best = d[d.length - 1].score; r.worst = d[0].score; r.avg = d.reduce((a, f) => a + f.p * f.score, 0);
+  let c = 0; r.median = d.find(f => (c += f.p) >= 0.5 - 1e-12).score;
+  if (tgt != null) r.chance = d.filter(f => f.score >= tgt - 1e-9).reduce((a, f) => a + f.p, 0);
+  if (ert != null) r.erChance = d.filter(f => f.er && f.score >= ert - 1e-9).reduce((a, f) => a + f.p, 0);
+  return r;
+}
+const num = s => (s === '' || s == null || !isFinite(+s)) ? null : +s;
+const pct = p => p == null ? '—' : p === 0 ? '0%' : p < 0.0001 ? '<0.01%' : (p * 100).toFixed(2) + '%';
+const sc = v => v == null ? '—' : v.toFixed(2);
+const stageText = n => `Tune Stage ${n}/5 (+${n * 5})`;
+
+// ---------- state (in memory only) ----------
+const EXAMPLE = [{ type: 'Critical_Rate', value: 8.1 }, { type: 'Atk_Percent', value: 9.4 }];
+let S;
+function reset(example) {
+  const encore = BUILTIN.find(t => t.name === 'Encore');
+  S = {
+    echo: example ? EXAMPLE.map(s => ({ ...s })) : [],
+    rows: example ? [{ name: 'Encore', target: '25', erTarget: '20' }, { name: 'Encore (my rotation)', target: '25', erTarget: '' }] : [],
+    custom: [{ name: 'Encore (my rotation)', weights: { ...encore.weights, Critical_Damage: 6.1, Basic_Attack: 1.2 } }],
+    memo: {}, focus: 0, band: 'fixed', sort: null, expanded: {}, pending: null, editor: null,
+  };
+}
+const builtinSorted = () => [...BUILTIN].sort((a, b) => a.name.localeCompare(b.name));
+const customSorted = () => [...S.custom].sort((a, b) => a.name.localeCompare(b.name));
+const tableByName = n => S.custom.find(t => t.name === n) || BUILTIN.find(t => t.name === n);
+const isCustom = n => S.custom.some(t => t.name === n);
+const tagFor = n => isCustom(n) ? '<span class="tag">Custom</span>' : '';
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+// One picker list in two labelled groups, own tables first (ticket 05). Tables already on screen are left out.
+function picker(id, current, placeholder) {
+  const taken = new Set(S.rows.map(r => r.name)); taken.delete(current);
+  const opt = t => taken.has(t.name) ? '' : `<option value="${esc(t.name)}" ${t.name === current ? 'selected' : ''}>${esc(t.name)}</option>`;
+  const cust = customSorted().map(opt).join('');
+  return `<select id="${id}">${placeholder ? `<option value="">${placeholder}</option>` : ''}${cust ? `<optgroup label="Custom">${cust}</optgroup>` : ''}<optgroup label="Built-in">${builtinSorted().map(opt).join('')}</optgroup></select>`;
+}
+function setRowTable(i, name) {
+  const row = S.rows[i]; S.memo[row.name] = { target: row.target, erTarget: row.erTarget };
+  const m = S.memo[name] || { target: '', erTarget: '' }; S.rows[i] = { name, ...m };
+}
+function addRow(name) { const m = S.memo[name] || { target: '', erTarget: '' }; S.rows.push({ name, ...m }); }
+function removeRow(i) { const r = S.rows[i]; S.memo[r.name] = { target: r.target, erTarget: r.erTarget }; S.rows.splice(i, 1); S.focus = Math.min(S.focus, Math.max(0, S.rows.length - 1)); }
+const freeTypes = except => TYPES.filter(t => t.key === except || !S.echo.some(s => s.type === t.key));
+function typeSelect(id, cur, placeholder) {
+  return `<select id="${id}">${placeholder ? `<option value="">${placeholder}</option>` : ''}${freeTypes(cur).map(t => `<option value="${t.key}" ${t.key === cur ? 'selected' : ''}>${t.name}</option>`).join('')}</select>`;
+}
+function valueSelect(id, type, cur) {
+  return `<select id="${id}">${T[type].rolls.map(r => `<option value="${r.v}" ${r.v === cur ? 'selected' : ''}>${fmtRoll(type, r.v)}</option>`).join('')}</select>`;
+}
+
+// ---------- Weight Table editor (shared body; each variant hosts it differently) ----------
+function editorBody() {
+  const e = S.editor, t = tableByName(e.name), custom = isCustom(e.name), d = e.draft;
+  const w = d ? d.weights : t.weights;
+  const rows = TYPES.map(tp => `<tr><td>${tp.name}</td><td style="text-align:right">${d ? `<input class="num" id="ed-w-${tp.key}" value="${w[tp.key] ?? 0}">` : (w[tp.key] || 0)}</td></tr>`).join('');
+  return `<h3>${d ? (d.isNew ? 'New Custom Weight Table' : 'Edit ' + esc(e.name)) : esc(e.name) + tagFor(e.name)}</h3>
+    ${d ? `<div class="row"><label>Name <input id="ed-name" value="${esc(d.name)}" maxlength="40"></label></div>` : `<p class="small mute">${custom ? 'Your own table. Only this browser has it.' : 'Built-in baseline from theorycrafters\' calculations. Duplicate it to change the weights.'}</p>`}
+    <p class="small mute">How much one Reference Roll of each Substat is worth.</p>
+    <table class="cmp small">${rows}</table>
+    ${e.error ? `<p class="bad small">${e.error}</p>` : ''}
+    <div class="row" style="margin-top:10px">
+      ${d ? `<button class="primary" data-act="ed-save">Save</button><button data-act="ed-cancel">Cancel</button>`
+          : `<button data-act="ed-dup">Duplicate</button>${custom ? `<button data-act="ed-edit">Edit</button><button data-act="ed-del">Delete</button>` : ''}<button data-act="ed-close">Close</button>`}
+    </div>`;
+}
+function editorAct(act) {
+  const e = S.editor;
+  if (act === 'ed-close') S.editor = null;
+  if (act === 'ed-dup') { const t = tableByName(e.name); let n = t.name + ' (copy)'; e.draft = { name: n, weights: { ...t.weights }, isNew: true }; }
+  if (act === 'ed-edit') { const t = tableByName(e.name); e.draft = { name: t.name, weights: { ...t.weights } }; }
+  if (act === 'ed-cancel') { e.draft = null; e.error = null; }
+  if (act === 'ed-del') { S.custom = S.custom.filter(t => t.name !== e.name); S.rows = S.rows.filter(r => r.name !== e.name); delete S.memo[e.name]; S.editor = null; S.focus = 0; }
+  if (act === 'ed-save') {
+    const name = document.getElementById('ed-name').value.trim(), weights = {};
+    for (const tp of TYPES) { const v = +document.getElementById('ed-w-' + tp.key).value; if (!isFinite(v) || v < 0) { e.error = tp.name + ' needs a number of 0 or more.'; return; } weights[tp.key] = v; }
+    const clash = [...BUILTIN, ...S.custom].some(t => t.name.toLowerCase() === name.toLowerCase() && !(!e.draft.isNew && t.name === e.name));
+    if (!name || name.length > 40) { e.error = 'Give it a name of 1 to 40 characters.'; return; }
+    if (clash) { e.error = 'Another Weight Table already has that name.'; return; }
+    if (e.draft.isNew) { S.custom.push({ name, weights }); if (!S.rows.some(r => r.name === name)) addRow(name); S.focus = S.rows.findIndex(r => r.name === name); }
+    else { const t = S.custom.find(t => t.name === e.name); t.name = name; t.weights = weights; S.rows.forEach(r => { if (r.name === e.name) r.name = name; }); if (S.memo[e.name]) { S.memo[name] = S.memo[e.name]; delete S.memo[e.name]; } }
+    cache.clear(); S.editor = { name };
+  }
+}
+
+// ---------- chart ----------
+const COLORS = ['#2b6f8f', '#c0763a', '#6a5aa8', '#3d8a5a', '#a3423a', '#7a7f2a'];
+function chart(series, h = 220, mini = false) {
+  series = series.filter(s => s.r.dist); if (!series.length) return '';
+  const W = mini ? 160 : 720, H = mini ? 34 : h, pl = mini ? 2 : 44, pb = mini ? 2 : 26, pt = mini ? 2 : 8, pr = mini ? 2 : 10;
+  let lo = Infinity, hi = -Infinity;
+  series.forEach(s => { lo = Math.min(lo, s.r.worst, s.r.tgt ?? Infinity, s.r.ert ?? Infinity); hi = Math.max(hi, s.r.best, s.r.tgt ?? -Infinity, s.r.ert ?? -Infinity); });
+  if (hi - lo < 1) hi = lo + 1;
+  const fixed = !mini && S.band === 'fixed';
+  if (fixed) { lo = Math.floor(lo); hi = Math.max(Math.ceil(hi), lo + 1); if (hi === Math.max(...series.map(s => s.r.best))) hi += 1; }
+  const B = mini ? 30 : fixed ? hi - lo : 60, bw = (hi - lo) / B;
+  const bins = series.map(s => { const b = new Array(B).fill(0); s.r.dist.forEach(f => b[Math.min(B - 1, Math.floor((f.score - lo) / bw))] += f.p); return b; });
+  const ymax = Math.max(...bins.flat()) || 1;
+  const x = v => pl + (v - lo) / (hi - lo) * (W - pl - pr), y = p => H - pb - p / ymax * (H - pb - pt);
+  let g = '';
+  if (!mini) {
+    for (let i = 0; i <= 5; i++) { const v = lo + (hi - lo) * i / 5; g += `<line x1="${x(v)}" x2="${x(v)}" y1="${pt}" y2="${H - pb}" stroke="#eee"/><text x="${x(v)}" y="${H - 8}" font-size="11" text-anchor="middle" fill="#5d6878">${v.toFixed(0)}</text>`; }
+    g += `<text x="${pl}" y="${pt + 10}" font-size="11" fill="#5d6878" text-anchor="end" dx="-4">${(ymax * 100).toFixed(1)}%</text><text x="${pl + 4}" y="${pt + 10}" font-size="11" fill="#5d6878">${fixed ? 'chance per 1-point band' : 'chance per band (1/60 of the range)'}</text><text x="${(W + pl) / 2}" y="${H}" font-size="11" text-anchor="middle" fill="#5d6878" dy="0">Final Echo Score</text>`;
+  }
+  series.forEach((s, i) => {
+    const c = s.color || COLORS[i % COLORS.length];
+    const pts = bins[i].map((p, j) => `${x(lo + (j + 0.5) * bw).toFixed(1)},${y(p).toFixed(1)}`).join(' ');
+    g += `<polyline points="${pts}" fill="none" stroke="${c}" stroke-width="${mini ? 1.5 : 2}"/>`;
+    if (s.r.tgt != null) g += `<line x1="${x(s.r.tgt)}" x2="${x(s.r.tgt)}" y1="${pt}" y2="${H - pb}" stroke="${c}" stroke-dasharray="4 3"/>`;
+    if (s.r.ert != null && !mini) g += `<line x1="${x(s.r.ert)}" x2="${x(s.r.ert)}" y1="${pt}" y2="${H - pb}" stroke="${c}" stroke-dasharray="1 3"/>`;
+  });
+  const legend = mini ? '' : `<div class="row small">${series.map((s, i) => `<span><span style="color:${s.color || COLORS[i % COLORS.length]}">━━</span> ${esc(s.r.tbl.name)}</span>`).join('')}<span class="mute">- - Target Score &nbsp; ··· ER Target Score</span></div>`;
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" ${mini ? 'height="34" preserveAspectRatio="none" style="width:160px"' : ''} role="img" aria-label="Chance of each final Echo Score">${g}</svg>${legend}`;
+}
+
+// ---------- Variant A: side by side (closest to the WPF tab) ----------
+function VariantA() {
+  const ev = S.rows.map(r => evaluate(S.echo, r)), full = S.echo.length === 5, anyEr = ev.some(r => r.hasEr);
+  const subRows = S.echo.map((s, i) => `<div class="row">${typeSelect('a-type-' + i, s.type)}${valueSelect('a-val-' + i, s.type, s.value)}<button class="link" data-act="sub-del" data-i="${i}" aria-label="Remove Substat">Remove</button></div>`).join('');
+  const tblRows = S.rows.map((r, i) => `<div class="row">${picker('a-tbl-' + i, r.name)}${tagFor(r.name)}
+      <label class="small">Target Score <input class="num" id="tgt-${i}" value="${esc(r.target)}"></label>
+      <label class="small">ER Target Score <input class="num" id="ert-${i}" value="${esc(r.erTarget)}"></label>
+      <button class="link" data-act="open-ed" data-name="${esc(r.name)}">Weights</button>
+      <button class="link" data-act="row-del" data-i="${i}">Remove</button></div>`).join('');
+  const line = (label, f, show = true) => show ? `<tr><td>${label}</td>${ev.map(f).join('')}</tr>` : '';
+  const results = !S.rows.length
+    ? `<div class="empty">Pick a Substat Weight Table to see how this Echo scores for that Resonator.<br><span class="small">You can compare several tables side by side.</span></div>`
+    : `<div class="card scrollx"><table class="cmp"><thead><tr><th></th>${ev.map((r, i) => `<th><span style="color:${COLORS[i % 6]}">●</span> ${esc(r.tbl.name)}${tagFor(r.tbl.name)}</th>`).join('')}</tr></thead><tbody>
+        ${line('Echo Score', r => `<td><b>${sc(r.cur)}</b></td>`)}
+        ${line('Top Percent', r => `<td>${r.top == null ? '—' : 'Top ' + pct(r.top)}</td>`)}
+        ${line('ER Top Percent', r => `<td>${r.erTop == null ? '—' : 'Top ' + pct(r.erTop)}</td>`, anyEr)}
+        ${full ? line('Target Score', r => `<td>${r.reaches == null ? '<span class="mute">not set</span>' : r.reaches ? '<span class="good">Reached</span>' : '<span class="bad">Not reached</span>'}</td>`) : ''}
+        ${full ? line('ER Target Score', r => `<td>${r.reachesEr == null ? '<span class="mute">—</span>' : r.reachesEr ? '<span class="good">Reached</span>' : '<span class="bad">Not reached</span>'}</td>`, anyEr) : ''}
+        ${!full ? line('Target Chance', r => `<td><b>${r.tgt == null ? '<span class="mute">set a Target Score</span>' : pct(r.chance)}</b></td>`) : ''}
+        ${!full ? line('ER Target Chance', r => `<td>${r.ert == null ? '<span class="mute">—</span>' : pct(r.erChance)}</td>`) : ''}
+        ${!full ? line('Best Echo Score', r => `<td>${sc(r.best)}</td>`) : ''}
+        ${!full ? line('Median Echo Score', r => `<td>${sc(r.median)}</td>`) : ''}
+        ${!full ? line('Average Echo Score', r => `<td>${sc(r.avg)}</td>`) : ''}
+        ${!full ? line('Worst Echo Score', r => `<td>${sc(r.worst)}</td>`) : ''}
+      </tbody></table></div>
+      ${!full ? `<div class="card" style="margin-top:16px"><h3>Where this Echo can finish</h3>${chart(ev.map((r, i) => ({ r })))}</div>` : ''}`;
+  return `<div class="a-top">
+      <section class="card"><h2>Your Echo</h2><p class="stage">${stageText(S.echo.length)}</p>${subRows || '<p class="mute small">No Substats yet. Add the ones the Echo has revealed, in any order.</p>'}
+        <button data-act="sub-add" ${S.echo.length >= 5 ? 'disabled' : ''}>Add Substat</button></section>
+      <section class="card"><h2>Substat Weight Tables</h2>${tblRows}
+        <div class="row">${picker('a-add', '', S.rows.length ? 'Add another Weight Table…' : 'Choose a Weight Table…')}<button class="link" data-act="new-blank">New Custom table</button></div></section>
+    </div>${results}
+    ${S.editor ? `<aside class="a-drawer">${editorBody()}</aside>` : ''}`;
+}
+
+// ---------- Variant B: one table in focus, Echo as tune slots ----------
+function VariantB() {
+  if (!S.rows.length) {
+    const cards = [...customSorted(), ...builtinSorted()].map(t => `<button data-act="b-first" data-name="${esc(t.name)}">${esc(t.name)}${tagFor(t.name)}</button>`).join('');
+    return `<section class="card"><h2>Who is this Echo for?</h2><p class="mute">Pick a Substat Weight Table. Each one says how much every Substat is worth to one Resonator, so the same Echo scores differently for each.</p><div class="reshero">${cards}</div></section>`;
+  }
+  S.focus = Math.min(S.focus, S.rows.length - 1);
+  const ev = S.rows.map(r => evaluate(S.echo, r)), f = ev[S.focus], row = S.rows[S.focus], n = S.echo.length;
+  const slots = [0, 1, 2, 3, 4].map(i => {
+    const s = S.echo[i];
+    if (s) return `<div class="slot"><span><span class="small mute">+${(i + 1) * 5}</span> &nbsp;${T[s.type].name} <b>${fmtRoll(s.type, s.value)}</b></span><button class="link" data-act="sub-del" data-i="${i}" aria-label="Remove">✕</button></div>`;
+    if (i === n) {
+      const p = S.pending;
+      if (p && !p.type) return `<div class="slot next" style="display:block"><div class="small">Which Substat did +${(i + 1) * 5} reveal?</div><div class="typegrid">${freeTypes().map(t => `<button data-act="b-type" data-t="${t.key}">${t.name}</button>`).join('')}</div><button class="link" data-act="b-cancel">Cancel</button></div>`;
+      if (p && p.type) return `<div class="slot next" style="display:block"><div class="small">${T[p.type].name}: which value?</div><div class="pills">${T[p.type].rolls.map(r => `<button data-act="b-val" data-v="${r.v}">${fmtRoll(p.type, r.v)}</button>`).join('')}</div><button class="link" data-act="b-cancel">Back</button></div>`;
+      return `<div class="slot open next" data-act="b-open">+ Add the Substat revealed at +${(i + 1) * 5}</div>`;
+    }
+    return `<div class="slot open" style="cursor:default">+${(i + 1) * 5} &nbsp;not tuned yet</div>`;
+  }).join('');
+  let headline;
+  if (n === 5) headline = `Echo Score <b>${sc(f.cur)}</b>${f.top != null ? `, better than all but ${pct(f.top)} of fully tuned Echoes` : ''}. ${f.reaches == null ? '<span class="mute">Set a Target Score to get a verdict.</span>' : f.reaches ? '<span class="good">It reaches your Target Score.</span>' : '<span class="bad">It falls short of your Target Score.</span>'}`;
+  else if (f.tgt == null) headline = `Set a Target Score to see the chance this Echo gets there. <span class="mute">It can finish anywhere from ${sc(f.worst)} to ${sc(f.best)}.</span>`;
+  else headline = `<b>${pct(f.chance)}</b> chance this Echo finishes at Target Score ${f.tgt} or above.`;
+  const facts = n === 5
+    ? [['Echo Score', sc(f.cur)], ['Top Percent', f.top == null ? '—' : 'Top ' + pct(f.top)], ...(f.hasEr ? [['ER Top Percent', f.erTop == null ? '—' : 'Top ' + pct(f.erTop)], ['ER Target Score', f.reachesEr == null ? '—' : f.reachesEr ? 'Reached' : 'Not reached']] : [])]
+    : [['Echo Score now', sc(f.cur)], ['Top Percent now', f.top == null ? '—' : 'Top ' + pct(f.top)], ['ER Target Chance', f.ert == null ? '—' : pct(f.erChance)], ['Median finish', sc(f.median)], ['Best possible', sc(f.best)], ['Worst possible', sc(f.worst)]];
+  const others = ev.map((r, i) => `<div class="cmpline ${i === S.focus ? 'focus' : ''}" data-act="b-focus" data-i="${i}"><span class="nm"><span style="color:${COLORS[i % 6]}">●</span> ${esc(r.tbl.name)}${tagFor(r.tbl.name)}</span>
+      <span>Score ${sc(r.cur)}</span><span>${n === 5 ? (r.reaches == null ? '<span class="mute">no target</span>' : r.reaches ? '<span class="good">reaches target</span>' : '<span class="bad">short of target</span>') : (r.tgt == null ? '<span class="mute">no target</span>' : pct(r.chance) + ' Target Chance')}</span>
+      ${S.rows.length > 1 ? `<button class="link" data-act="row-del" data-i="${i}">Remove</button>` : ''}</div>`).join('');
+  return `<div class="b-grid">
+    <section class="card"><h2>Your Echo</h2><p class="stage">${stageText(n)}</p>${slots}</section>
+    <section>
+      <div class="card">
+        <div class="row">${picker('b-tbl', row.name)}${tagFor(row.name)}<button class="link" data-act="open-ed" data-name="${esc(row.name)}">See weights</button></div>
+        <div class="headline">${headline}</div>
+        <div class="row"><label>Target Score <input class="num" id="tgt-${S.focus}" value="${esc(row.target)}"></label><label>ER Target Score <input class="num" id="ert-${S.focus}" value="${esc(row.erTarget)}"></label></div>
+        <div class="facts">${facts.map(([k, v]) => `<div><span class="small mute">${k}</span><b>${v}</b></div>`).join('')}</div>
+        ${n < 5 ? chart(ev.map((r, i) => ({ r, color: i === S.focus ? COLORS[i % 6] : '#c9ced6' })).sort((a, b) => (a.color === '#c9ced6') - (b.color === '#c9ced6')).reverse()) : ''}
+      </div>
+      <div class="card" style="margin-top:16px"><h3>Compare with other Weight Tables</h3>${others}<div class="row" style="margin-top:8px">${picker('b-add', '', 'Add a Weight Table to compare…')}</div></div>
+    </section></div>
+    ${S.editor ? `<div class="modal-bg"><div class="modal" role="dialog" aria-modal="true">${editorBody()}</div></div>` : ''}`;
+}
+
+// ---------- Variant C: one row per table, sortable, sparkline per row ----------
+function VariantC() {
+  const n = S.echo.length, full = n === 5;
+  const chips = S.echo.map((s, i) => `<div class="chip"><span class="small mute">+${(i + 1) * 5}</span>${typeSelect('c-type-' + i, s.type)}<div class="row" style="margin:0">${valueSelect('c-val-' + i, s.type, s.value)}<button class="link" data-act="sub-del" data-i="${i}">✕</button></div></div>`).join('')
+    + (n < 5 ? `<div class="chip open"><span class="small">+${(n + 1) * 5}</span>${typeSelect('c-new', '', 'Add Substat…')}</div>` : '');
+  let ev = S.rows.map((r, i) => ({ i, r: evaluate(S.echo, r) }));
+  const cols = full
+    ? [['Echo Score', e => e.r.cur, e => `<b>${sc(e.r.cur)}</b>`], ['Top Percent', e => -(e.r.top ?? 1), e => e.r.top == null ? '—' : 'Top ' + pct(e.r.top)], ['Target Score', e => e.r.reaches ? 1 : 0, e => e.r.reaches == null ? '<span class="mute">—</span>' : e.r.reaches ? '<span class="good">Reached</span>' : '<span class="bad">Not reached</span>'], ['ER Target Score', e => e.r.reachesEr ? 1 : 0, e => e.r.reachesEr == null ? '<span class="mute">—</span>' : e.r.reachesEr ? '<span class="good">Reached</span>' : '<span class="bad">Not reached</span>']]
+    : [['Echo Score', e => e.r.cur, e => sc(e.r.cur)], ['Top Percent', e => -(e.r.top ?? 1), e => e.r.top == null ? '—' : 'Top ' + pct(e.r.top)], ['Target Chance', e => e.r.chance ?? -1, e => `<b>${e.r.tgt == null ? '<span class="mute">—</span>' : pct(e.r.chance)}</b>`], ['ER Target Chance', e => e.r.erChance ?? -1, e => e.r.ert == null ? '<span class="mute">—</span>' : pct(e.r.erChance)], ['Finish range', e => e.r.median, e => `<span title="worst / median / best">${sc(e.r.worst)} · ${sc(e.r.median)} · ${sc(e.r.best)}</span>`]];
+  if (S.sort != null && cols[S.sort]) ev.sort((a, b) => cols[S.sort][1](b) - cols[S.sort][1](a));
+  const body = ev.map(e => `<tr><td><button class="link" data-act="c-exp" data-i="${e.i}" aria-label="Details">${S.expanded[e.i] ? '▾' : '▸'}</button>${picker('c-tbl-' + e.i, e.r.tbl.name)}${tagFor(e.r.tbl.name)}</td>
+      <td><input class="num" id="tgt-${e.i}" value="${esc(S.rows[e.i].target)}" aria-label="Target Score"></td><td><input class="num" id="ert-${e.i}" value="${esc(S.rows[e.i].erTarget)}" aria-label="ER Target Score"></td>
+      ${cols.map(c => `<td>${c[2](e)}</td>`).join('')}${full ? '' : `<td>${chart([{ r: e.r }], 0, true)}</td>`}<td><button class="link" data-act="row-del" data-i="${e.i}">✕</button></td></tr>
+      ${S.expanded[e.i] ? `<tr class="c-detail"><td colspan="${cols.length + 5}"><div style="display:grid;grid-template-columns:minmax(220px,1fr) 2fr;gap:16px">
+        <div>${S.editor && S.editor.name === e.r.tbl.name ? editorBody() : `<div class="small">${TYPES.filter(t => e.r.tbl.weights[t.key]).map(t => `${t.name} ${e.r.tbl.weights[t.key]}`).join(', ')}</div><button class="link" data-act="open-ed" data-name="${esc(e.r.tbl.name)}">Open weights</button>`}</div>
+        <div>${full ? '' : chart([{ r: e.r }], 160)}${full ? '' : `<p class="small mute">Average Echo Score ${sc(e.r.avg)}</p>`}</div></div></td></tr>` : ''}`).join('');
+  return `<section><h2>Your Echo <span class="stage mute" style="font-size:14px">${stageText(n)}</span></h2><div class="c-strip">${chips}</div></section>
+    <section class="card scrollx"><table class="cmp c-rows"><thead><tr><th>Substat Weight Table</th><th>Target Score</th><th>ER Target</th>${cols.map((c, j) => `<th data-act="c-sort" data-j="${j}" class="${S.sort === j ? 'sorted' : ''}">${c[0]}${S.sort === j ? ' ▾' : ''}</th>`).join('')}${full ? '' : '<th>Where it can finish</th>'}<th></th></tr></thead>
+      <tbody>${body || `<tr><td colspan="9"><div class="empty" style="border:none">Add a Substat Weight Table below. Each one scores the Echo for one Resonator; add several to compare.</div></td></tr>`}</tbody></table>
+      <div class="row" style="margin-top:10px">${picker('c-add', '', 'Add a Weight Table…')}<button class="link" data-act="new-blank">New Custom table</button></div>
+      ${S.editor && !S.rows.some((r, i) => S.expanded[i] && r.name === S.editor.name) ? `<div class="card" style="margin-top:10px">${editorBody()}</div>` : ''}</section>`;
+}
+
+// ---------- Variant D: B revised after feedback (round 2) ----------
+// One picker place (the list), each row swaps its table in place and holds its own targets; a cog per Substat re-picks it;
+// results are all boxes in three fixed rows, never hidden, with a reason when there is no number.
+function slotPicker(i, label, cancelText) {
+  const p = S.pending, editing = S.echo[i] ? S.echo[i].type : undefined;
+  if (!p.type) return `<div class="slot next" style="display:block"><div class="small">${label}</div><div class="typegrid">${freeTypes(editing).map(t => `<button data-act="b-type" data-t="${t.key}" ${t.key === editing ? 'style="border-color:var(--acc)"' : ''}>${t.name}</button>`).join('')}</div><button class="link" data-act="b-cancel">${cancelText}</button></div>`;
+  return `<div class="slot next" style="display:block"><div class="small">${T[p.type].name}: which value?</div><div class="pills">${T[p.type].rolls.map(r => `<button data-act="b-val" data-v="${r.v}" ${S.echo[i] && S.echo[i].type === p.type && S.echo[i].value === r.v ? 'style="border-color:var(--acc)"' : ''}>${fmtRoll(p.type, r.v)}</button>`).join('')}</div><button class="link" data-act="b-cancel">Back</button></div>`;
+}
+function VariantD() {
+  const n = S.echo.length, full = n === 5;
+  const slots = [0, 1, 2, 3, 4].map(i => {
+    const s = S.echo[i], p = S.pending;
+    if (p && p.i === i) return slotPicker(i, s ? `Change the Substat at +${(i + 1) * 5}` : `Which Substat did +${(i + 1) * 5} reveal?`, 'Cancel');
+    if (s) return `<div class="slot"><span><span class="small mute">+${(i + 1) * 5}</span> &nbsp;${T[s.type].name} <b>${fmtRoll(s.type, s.value)}</b></span><span><button class="link" data-act="d-edit-sub" data-i="${i}" aria-label="Change this Substat" title="Change" style="font-size:17px">⚙</button><button class="link" data-act="sub-del" data-i="${i}" aria-label="Remove">✕</button></span></div>`;
+    if (i === n) return `<div class="slot open next" data-act="d-open" data-i="${i}">+ Add the Substat revealed at +${(i + 1) * 5}</div>`;
+    return `<div class="slot open" style="cursor:default">+${(i + 1) * 5} &nbsp;not tuned yet</div>`;
+  }).join('');
+  const addPicker = (() => {
+    const taken = new Set(S.rows.map(r => r.name));
+    const opt = t => taken.has(t.name) ? '' : `<option value="${esc(t.name)}">${esc(t.name)}</option>`;
+    const cust = customSorted().map(opt).join('');
+    return `<select id="d-add"><option value="">${S.rows.length ? 'Add another Weight Table…' : 'Choose a Weight Table…'}</option><option value="__new">New Custom Weight Table…</option>${cust ? `<optgroup label="Custom">${cust}</optgroup>` : ''}<optgroup label="Built-in">${builtinSorted().map(opt).join('')}</optgroup></select>`;
+  })();
+  const ev = S.rows.map(r => evaluate(S.echo, r));
+  const reached = b => b ? '<span class="good">Reached</span>' : '<span class="bad">Not reached</span>';
+  const tc = r => full ? (r.reaches == null ? null : reached(r.reaches)) : (r.tgt == null ? null : pct(r.chance));
+  const etc = r => full ? (!r.hasEr ? null : r.reachesEr == null ? null : reached(r.reachesEr)) : (r.ert == null ? null : pct(r.erChance));
+  let focusCard;
+  if (!S.rows.length) {
+    focusCard = `<div class="empty">Pick a Substat Weight Table below to see how this Echo scores for that Resonator.<br><span class="small">Each table says how much every Substat is worth to one Resonator. You can add more than one and switch between them.</span></div>`;
+  } else {
+    S.focus = Math.min(S.focus, S.rows.length - 1);
+    const f = ev[S.focus], box = (label, v, why, span, big) => `<div style="grid-column:span ${span}"><span class="small mute">${label}</span><b style="${big ? 'font-size:22px' : ''}">${v ?? '—'}</b>${v == null ? `<span class="small mute">${why}</span>` : ''}</div>`;
+    const top = v => v == null ? null : 'Top ' + pct(v);
+    focusCard = `<h2>${esc(f.tbl.name)}${tagFor(f.tbl.name)}</h2>
+      <div class="facts" style="grid-template-columns:repeat(6,1fr)">
+        ${box(full ? 'Target Score' : 'Target Chance', tc(f), 'Set a Target Score below', 3, true)}
+        ${box(full ? 'ER Target Score' : 'ER Target Chance', etc(f), full && !f.hasEr ? 'No Energy Regen' : 'Set an ER Target Score below', 3, true)}
+        ${box('Echo Score', sc(f.cur), '', 2)}
+        ${box('Top Percent', top(f.top), 'Echo Score is 0', 2)}
+        ${box('ER Top Percent', top(f.erTop), f.hasEr ? 'Echo Score is 0' : 'No Energy Regen', 2)}
+        ${box('Median Echo Score', full ? sc(f.cur) : sc(f.median), '', 2)}
+        ${box('Average Echo Score', full ? sc(f.cur) : sc(f.avg), '', 2)}
+        ${box('Best Echo Score', full ? sc(f.cur) : sc(f.best), '', 2)}
+      </div>
+      ${full ? '<p class="small mute">Fully tuned: the Echo Score is final.</p>' : `<div class="row small" style="justify-content:flex-end">Bands: <button data-act="d-band" ${S.band === 'fixed' ? 'class="primary"' : ''}>1 Echo Score point</button><button data-act="d-band" ${S.band !== 'fixed' ? 'class="primary"' : ''}>1/60 of the range (as before)</button></div>` + chart(ev.map((r, i) => ({ r, color: i === S.focus ? COLORS[0] : '#c9ced6', f: i === S.focus })).sort((a, b) => a.f - b.f))}`;
+  }
+  const list = S.rows.map((r, i) => { const e = ev[i]; return `<tr class="${i === S.focus ? 'd-focus' : ''}" data-act="b-focus" data-i="${i}">
+      <td>${picker('d-tbl-' + i, r.name)}${tagFor(r.name)}</td>
+      <td><input class="num" id="tgt-${i}" value="${esc(r.target)}" aria-label="Target Score for ${esc(r.name)}"></td>
+      <td><input class="num" id="ert-${i}" value="${esc(r.erTarget)}" aria-label="ER Target Score for ${esc(r.name)}"></td>
+      <td>${sc(e.cur)}</td><td>${tc(e) ?? '<span class="mute">—</span>'}</td><td>${etc(e) ?? '<span class="mute">—</span>'}</td>
+      <td style="white-space:nowrap"><button class="link" data-act="open-ed" data-name="${esc(r.name)}" aria-label="Weights of ${esc(r.name)}" title="Weights" style="font-size:17px">⚙</button><button class="link" data-act="row-del" data-i="${i}" aria-label="Remove ${esc(r.name)}">✕</button></td></tr>`; }).join('');
+  const head = `<tr><th>Substat Weight Table</th><th>Target Score</th><th>ER Target Score</th><th>Echo Score</th><th>${full ? 'Target Score' : 'Target Chance'}</th><th>${full ? 'ER Target Score' : 'ER Target Chance'}</th><th></th></tr>`;
+  return `<style>.facts div{display:flex;flex-direction:column} tr.d-focus td{background:#e9f2f6} tr[data-act=b-focus]{cursor:pointer} .d-list th{font-weight:600;font-size:13px;color:var(--mute)}</style>
+    <div class="b-grid">
+    <section class="card"><h2>Your Echo</h2><p class="stage">${stageText(n)}</p>${slots}</section>
+    <section>
+      <div class="card">${focusCard}</div>
+      <div class="card scrollx" style="margin-top:16px"><h3>Substat Weight Tables</h3>
+        ${S.rows.length ? `<table class="cmp d-list">${head}${list}</table>` : ''}
+        <div class="row" style="margin-top:8px">${addPicker}</div></div>
+    </section></div>
+    ${S.editor ? `<div class="modal-bg"><div class="modal" role="dialog" aria-modal="true">${editorBody()}</div></div>` : ''}`;
+}
+
+// ---------- wiring ----------
+const VARIANTS = [['A', 'Side by side', VariantA], ['B', 'One table in focus', VariantB], ['C', 'One row per table', VariantC], ['D', 'B revised', VariantD]];
+let cur = new URLSearchParams(location.search).get('variant') || 'A';
+function render() {
+  const a = document.activeElement, id = a && a.id, sel = a && a.selectionStart;
+  const v = VARIANTS.find(v => v[0] === cur) || VARIANTS[0];
+  document.getElementById('app').innerHTML = `<header class="app"><b>Echo Helper</b><a class="on">Echo Evaluation</a><a>Upgrade Strategy</a></header><main>${v[2]()}</main>`;
+  document.getElementById('bar').innerHTML = `<button data-bar="-1" aria-label="Previous variant">◀</button><span>${v[0]} (${v[1]})</span><button data-bar="1" aria-label="Next variant">▶</button>
+    <button data-bar="reset">First open</button><button data-bar="example">Example Echo</button><button data-bar="state">State</button>`;
+  const st = document.getElementById('state'); st.textContent = JSON.stringify({ echo: S.echo, rows: S.rows, memo: S.memo, custom: S.custom.map(c => c.name) }, null, 1);
+  if (id) { const el = document.getElementById(id); if (el) { el.focus(); if (sel != null && el.setSelectionRange) try { el.setSelectionRange(sel, sel); } catch { } } }
+}
+function go(d) { const i = VARIANTS.findIndex(v => v[0] === cur); cur = VARIANTS[(i + d + VARIANTS.length) % VARIANTS.length][0]; const u = new URL(location); u.searchParams.set('variant', cur); history.replaceState(null, '', u); S.editor = null; render(); }
+document.addEventListener('click', ev => {
+  const b = ev.target.closest('[data-bar]');
+  if (b) { const k = b.dataset.bar; if (k === 'reset') { reset(false); render(); } else if (k === 'example') { reset(true); render(); } else if (k === 'state') document.getElementById('state').hidden ^= 1; else go(+k); return; }
+  const t = ev.target.closest('[data-act]'); if (!t) return;
+  const act = t.dataset.act, i = +t.dataset.i;
+  if (act === 'b-focus' && ev.target.closest('button, input, select')) return;
+  if (act.startsWith('ed-')) editorAct(act);
+  if (act === 'sub-add') { S.echo.push({ type: freeTypes()[0].key, value: freeTypes()[0].rolls[0].v }); }
+  if (act === 'sub-del') S.echo.splice(i, 1);
+  if (act === 'row-del') removeRow(i);
+  if (act === 'open-ed') S.editor = { name: t.dataset.name };
+  if (act === 'new-blank') { S.editor = { name: (S.rows[0] || {}).name || 'Encore', draft: { name: 'My table', weights: Object.fromEntries(TYPES.map(t => [t.key, 0])), isNew: true } }; }
+  if (act === 'b-first') addRow(t.dataset.name);
+  if (act === 'b-open') S.pending = {};
+  if (act === 'b-type') S.pending = { ...S.pending, type: t.dataset.t };
+  if (act === 'd-open' || act === 'd-edit-sub') S.pending = { i };
+  if (act === 'b-val') { const s = { type: S.pending.type, value: +t.dataset.v }; if (S.pending.i != null && S.echo[S.pending.i]) S.echo[S.pending.i] = s; else S.echo.push(s); S.pending = null; }
+  if (act === 'b-cancel') S.pending = S.pending && S.pending.type ? { i: S.pending.i } : null;
+  if (act === 'b-focus') S.focus = i;
+  if (act === 'c-sort') S.sort = S.sort === +t.dataset.j ? null : +t.dataset.j;
+  if (act === 'd-band') S.band = S.band === 'fixed' ? 'scaled' : 'fixed';
+  if (act === 'c-exp') S.expanded[i] = !S.expanded[i];
+  render();
+});
+document.addEventListener('change', ev => {
+  const id = ev.target.id, v = ev.target.value, m = id.match(/-(\d+)$/), i = m ? +m[1] : null;
+  if (/^(a|c)-type-/.test(id)) { S.echo[i] = { type: v, value: T[v].rolls[0].v }; }
+  else if (/^(a|c)-val-/.test(id)) S.echo[i].value = +v;
+  else if (id === 'c-new' && v) S.echo.push({ type: v, value: T[v].rolls[0].v });
+  else if (/^(a|c|d)-tbl-/.test(id)) setRowTable(i, v);
+  else if (id === 'b-tbl') setRowTable(S.focus, v);
+  else if (id === 'd-add' && v === '__new') { S.editor = { name: (S.rows[0] || {}).name || 'Encore', draft: { name: 'My table', weights: Object.fromEntries(TYPES.map(t => [t.key, 0])), isNew: true } }; }
+  else if (id === 'd-add' && v) { addRow(v); S.focus = S.rows.length - 1; }
+  else if (/^(a|b|c)-add$/.test(id) && v) { addRow(v); if (id === 'b-add') S.focus = S.rows.length - 1; }
+  else return;
+  render();
+});
+document.addEventListener('input', ev => { // results follow every keystroke
+  const m = ev.target.id.match(/^(tgt|ert)-(\d+)$/); if (!m) return;
+  S.rows[+m[2]][m[1] === 'tgt' ? 'target' : 'erTarget'] = ev.target.value; render();
+});
+document.addEventListener('keydown', ev => {
+  if (ev.target.closest('input, textarea, select, [contenteditable]')) return;
+  if (ev.key === 'ArrowLeft') go(-1); if (ev.key === 'ArrowRight') go(1);
+  if (ev.key === 'Escape' && S.editor) { S.editor = null; render(); }
+});
+reset(true); render();
+</script>
+</body>
+</html>
