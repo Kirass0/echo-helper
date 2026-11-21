@@ -37,6 +37,10 @@ function firstFreeName(
 export const defaultCopyName = (name: string, takenNames: readonly string[]) =>
   firstFreeName(name, (n) => (n === 1 ? ' (copy)' : ` (copy ${n})`), takenNames);
 
+/** "X (custom)", then "X (custom 2)" and so on: for a stored table whose name is taken. */
+export const defaultCustomName = (name: string, takenNames: readonly string[]) =>
+  firstFreeName(name, (n) => (n === 1 ? ' (custom)' : ` (custom ${n})`), takenNames);
+
 /** "New Weight Table", then "New Weight Table 2" and so on. */
 export const defaultNewName = (takenNames: readonly string[]) =>
   firstFreeName('New Weight Table', (n) => (n === 1 ? '' : ` ${n}`), takenNames);

@@ -21,6 +21,10 @@ import styles from './EchoEvaluation.module.css';
 export interface EchoEvaluationProps {
   calculator: Calculator;
   builtInTables?: readonly WeightTableData[];
+  /** The saved Custom tables. Calculations only see saved tables. */
+  customTables: readonly WeightTableData[];
+  /** Called with all Custom tables after one is saved, renamed or deleted. */
+  onCustomTablesChange: (tables: readonly WeightTableData[]) => void;
 }
 
 const NO_TARGETS: TargetTexts = { targetText: '', erTargetText: '' };
@@ -29,9 +33,9 @@ const NO_TARGETS: TargetTexts = { targetText: '', erTargetText: '' };
 export function EchoEvaluation({
   calculator,
   builtInTables = BUILT_IN_TABLES,
+  customTables,
+  onCustomTablesChange: setCustomTables,
 }: EchoEvaluationProps) {
-  /** The saved Custom tables, kept in memory for now. Calculations only see saved tables. */
-  const [customTables, setCustomTables] = useState<readonly WeightTableData[]>([]);
   const exists = useCallback(
     (name: string) => [...customTables, ...builtInTables].some((table) => table.name === name),
     [customTables, builtInTables],

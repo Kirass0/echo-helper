@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import type { WeightTableData } from '../catalogue/catalogue';
 import { inProcessCalculator } from '../test/inProcessCalculator';
-import { EchoEvaluation } from './EchoEvaluation';
+import { EchoEvaluationTab } from '../test/EchoEvaluationTab';
 import { ECHO_EVALUATION_KEY } from './echoEvaluationEntry';
 
 const TABLES: readonly WeightTableData[] = [
@@ -16,7 +16,7 @@ const TABLES: readonly WeightTableData[] = [
 function open(builtInTables = TABLES) {
   const user = userEvent.setup();
   const view = render(
-    <EchoEvaluation calculator={inProcessCalculator()} builtInTables={builtInTables} />,
+    <EchoEvaluationTab calculator={inProcessCalculator()} builtInTables={builtInTables} />,
   );
   return { user, ...view };
 }

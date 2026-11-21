@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
+import type { RenamedTable } from '../customTables/customTablesEntry';
 import { createStoredEntry } from '../storage/storedEntry';
 import { useStoredEntry } from '../storage/useStoredEntry';
+import { renameTable } from './customTables';
 import {
   echoEvaluationDefinition,
   withoutVanishedTables,
@@ -19,4 +21,14 @@ export function useRememberedEchoEvaluation(
   const [stored, save] = useStoredEntry(echoEvaluationEntry);
   const state = useMemo(() => withoutVanishedTables(stored, exists), [stored, exists]);
   return [state, (change) => save({ ...state, ...change })];
+}
+
+/** Carries what Echo Evaluation remembers under each renamed table's old name to its new one, in the stored copy. */
+export function followRenamesInEchoEvaluation(renamed: readonly RenamedTable[]) {
+  const state = echoEvaluationEntry.load();
+  const followed = renamed.reduce<EchoEvaluationState>(
+    (remembered, { from, to }) => ({ ...remembered, ...renameTable(remembered, from, to) }),
+    state,
+  );
+  echoEvaluationEntry.save(followed);
 }

@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import type { WeightTableData } from '../catalogue/catalogue';
 import { inProcessCalculator } from '../test/inProcessCalculator';
-import { EchoEvaluation } from './EchoEvaluation';
+import { EchoEvaluationTab } from '../test/EchoEvaluationTab';
 
 // Small tables, so each calculation is instant. Crit Rate only weighs Crit Rate 6.0 per Reference Roll (7.5).
 const TABLES: readonly WeightTableData[] = [
@@ -16,7 +16,7 @@ type User = ReturnType<typeof userEvent.setup>;
 
 function open() {
   const user = userEvent.setup();
-  render(<EchoEvaluation calculator={inProcessCalculator()} builtInTables={TABLES} />);
+  render(<EchoEvaluationTab calculator={inProcessCalculator()} builtInTables={TABLES} />);
   return user;
 }
 

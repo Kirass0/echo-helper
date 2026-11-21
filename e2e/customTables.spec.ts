@@ -37,5 +37,9 @@ test.describe('Custom Weight Tables', () => {
     await dialog.getByRole('textbox', { name: 'Crit Rate', exact: true }).fill('5');
     await dialog.getByRole('button', { name: 'Save' }).click();
     await expect(copy.getByRole('cell').nth(3)).toHaveText('5.40');
+
+    await page.reload();
+    await expect(page.getByRole('button', { name: 'Weights of Mornye (copy)' })).toBeVisible();
+    await expect(rows.nth(2).getByRole('cell').nth(3)).toHaveText('5.40');
   });
 });

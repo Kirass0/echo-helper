@@ -1,0 +1,27 @@
+.bar {
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+
+.list {
+  max-width: 1220px;
+  margin: 0 auto;
+  padding: 0 var(--pad);
+  list-style: none;
+}
+
+.notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.notice + .notice {
+  border-top: 1px solid var(--line);
+}
+
+.text {
+  flex: 1;
+  min-width: 0;
+}
