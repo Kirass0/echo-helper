@@ -6,7 +6,7 @@
 
 **Blocked by:** 10 (Several Weight Tables in the list)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [ ] One weights dialog, opened by the sliders button on each Echo Evaluation row; native `<dialog>` with `showModal()`, centred on desktop
 - [ ] A Built-in table shows its weights read-only with "Built-in tables can't be changed. Duplicate it to make your own." and Duplicate; a Custom table offers Edit, Duplicate and Delete
