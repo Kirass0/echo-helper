@@ -32,6 +32,8 @@ export default tseslint.config(
     // Core is plain TypeScript: it runs in Node for tests and in a Web Worker in the app.
     files: ['src/core/**/*.ts'],
     rules: {
+      // Core indexes arrays in its table loops; with noUncheckedIndexedAccess every such index needs a `!`.
+      '@typescript-eslint/no-non-null-assertion': 'off',
       'no-restricted-globals': [
         'error',
         ...['window', 'document', 'navigator', 'localStorage', 'sessionStorage', 'location'].map(
