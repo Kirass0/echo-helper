@@ -9,3 +9,4 @@ package-lock.json
 .claude
 docs
 *.md
+tests/fixtures/golden

@@ -59,12 +59,6 @@
   white-space: nowrap;
 }
 
-.themeSlot {
-  display: inline-block;
-  width: 32px;
-  height: 32px;
-}
-
 @media (max-width: 600px) {
   .inner {
     grid-template-columns: 1fr auto;
