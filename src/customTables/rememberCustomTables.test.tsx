@@ -1,5 +1,6 @@
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { StrictMode } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { App } from '../app/App';
 import type { WeightTableData } from '../catalogue/catalogue';
@@ -135,6 +136,29 @@ describe('remembering Custom Weight Tables', () => {
       expect(notices()).toEqual([
         "A new built-in Substat Weight Table is called 'Atk only', so your Custom table was renamed to 'Atk only (custom)'.",
       ]);
+    });
+
+    it('is repaired and told the same way under StrictMode', () => {
+      storeBeforeTheDeploy();
+      const first = render(
+        <StrictMode>
+          <App
+            buildDate="2026-11-20T09:30:00.000Z"
+            calculator={inProcessCalculator()}
+            builtInTables={TABLES}
+          />
+        </StrictMode>,
+      );
+      expect(rowNames()).toEqual(['Atk only (custom)']);
+      expect(notices()).toHaveLength(1);
+      expect((savedTables() as { name: string }[]).map((saved) => saved.name)).toEqual([
+        'Atk only (custom)',
+      ]);
+      first.unmount();
+
+      open(TABLES);
+      expect(screen.queryByRole('region', { name: 'Notices' })).not.toBeInTheDocument();
+      expect(rowNames()).toEqual(['Atk only (custom)']);
     });
 
     it('is told once, and never again even if not closed', () => {

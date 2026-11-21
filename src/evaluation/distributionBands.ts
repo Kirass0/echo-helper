@@ -10,8 +10,8 @@ const TOLERANCE = 1e-9;
 /** A listed table as the chart draws it: where the Echo can finish for it, and its targets. */
 export interface ChartedTable {
   readonly name: string;
-  /** The chance of finishing at or above real Echo Scores, from Worst to Best. */
-  readonly distribution: readonly ChanceAtOrAbove[];
+  /** The chance of finishing at or above real Echo Scores, from Worst to Best; null until its result arrives. */
+  readonly distribution: readonly ChanceAtOrAbove[] | null;
   readonly targetScore: number | null;
   readonly erTargetScore: number | null;
 }
@@ -22,7 +22,7 @@ export interface DistributionBands {
   readonly to: number;
   /** The 61 band edges, from `from` to `to`. */
   readonly edges: readonly number[];
-  /** Each table's chance of finishing in each band, by table name. The last band includes its upper edge. */
+  /** Each table's chance of finishing in each band, by name, for tables with a result. The last band includes its upper edge. */
   readonly chances: ReadonlyMap<string, readonly number[]>;
   /** The highest chance of any band of any table: the top of the vertical axis. */
   readonly highestChance: number;
@@ -30,12 +30,12 @@ export interface DistributionBands {
 
 /**
  * The range runs from the lowest Worst to the highest Best Echo Score of all the tables, widened to include every
- * table's Target Score and ER Target Score. It depends only on the tables, never on which one is in focus. A range of
- * a single Echo Score is widened to one Echo Score above it.
+ * table's Target Score and ER Target Score, also of a table whose result hasn't arrived. It depends only on the tables,
+ * never on which one is in focus. A range of a single Echo Score is widened to one Echo Score above it.
  */
 export function distributionBands(tables: readonly ChartedTable[]): DistributionBands {
   const ends = tables.flatMap(({ distribution, targetScore, erTargetScore }) => [
-    ...distribution.map(({ threshold }) => threshold),
+    ...(distribution ?? []).map(({ threshold }) => threshold),
     ...(targetScore === null ? [] : [targetScore]),
     ...(erTargetScore === null ? [] : [erTargetScore]),
   ]);
@@ -51,6 +51,7 @@ export function distributionBands(tables: readonly ChartedTable[]): Distribution
   let highestChance = 0;
   const chances = new Map<string, readonly number[]>();
   for (const { name, distribution } of tables) {
+    if (distribution === null) continue;
     const atOrAbove = edges.map((edge, i) =>
       i === BAND_COUNT ? 0 : chanceAtOrAbove(distribution, edge),
     );

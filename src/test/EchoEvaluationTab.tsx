@@ -12,7 +12,8 @@ export function EchoEvaluationTab({
   calculator: Calculator;
   builtInTables: readonly WeightTableData[];
 }) {
-  const { tables, save } = useCustomTables(builtInTables, followRenamesInEchoEvaluation);
+  const { tables, save, ready } = useCustomTables(builtInTables, followRenamesInEchoEvaluation);
+  if (!ready) return null;
   return (
     <EchoEvaluation
       calculator={calculator}

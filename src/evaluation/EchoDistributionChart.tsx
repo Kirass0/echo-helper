@@ -2,7 +2,12 @@ import { scaleLinear } from 'd3-scale';
 import { area, line } from 'd3-shape';
 import type { EchoEvaluationResult } from '../calculation/protocol';
 import { useTooltip } from '../ui/Tooltip';
-import { BAND_COUNT, distributionBands, type ChartedTable } from './distributionBands';
+import {
+  BAND_COUNT,
+  distributionBands,
+  type ChartedTable,
+  type DistributionBands,
+} from './distributionBands';
 import styles from './EchoDistributionChart.module.css';
 
 /** A listed table, its targets as entered, and its newest result, if any has arrived. */
@@ -31,11 +36,17 @@ const PLOT_BOTTOM = HEIGHT - MARGIN.bottom;
  * as grey lines. The axis depends only on the listed tables and their targets, so switching focus never moves it.
  */
 export function EchoDistributionChart({ tables, focused }: EchoDistributionChartProps) {
-  const charted = tables.flatMap(({ name, targetScore, erTargetScore, result }): ChartedTable[] =>
-    result ? [{ name, distribution: result.distribution, targetScore, erTargetScore }] : [],
-  );
+  // Every listed table's targets set the axis; only tables with a result have a curve.
+  const charted = tables.map(({ name, targetScore, erTargetScore, result }): ChartedTable => ({
+    name,
+    distribution: result?.distribution ?? null,
+    targetScore,
+    erTargetScore,
+  }));
   const focusedTable = tables.find((table) => table.name === focused) ?? null;
-  const bands = charted.length > 0 ? distributionBands(charted) : null;
+  const bands = charted.some((table) => table.distribution !== null)
+    ? distributionBands(charted)
+    : null;
 
   return (
     <section className={styles.chart} aria-labelledby="echo-distribution-heading">
@@ -77,7 +88,7 @@ function Plot({
   focused,
   focusedTable,
 }: {
-  bands: ReturnType<typeof distributionBands>;
+  bands: DistributionBands;
   focused: string;
   focusedTable: ChartedListedTable | null;
 }) {

@@ -82,6 +82,19 @@ describe('the Echo distribution chart', () => {
     );
   });
 
+  it('widens the axis to a listed table’s targets before its result arrives', () => {
+    const waiting: ChartedListedTable = {
+      name: 'Waiting',
+      targetScore: 40,
+      erTargetScore: 2.5,
+      result: null,
+    };
+    render(<EchoDistributionChart tables={[cantarella, waiting]} focused="Cantarella" />);
+    expect(chart()).toHaveAccessibleName(
+      'Echo distribution for Cantarella: final Echo Score from 2.5 to 40.0, Target Score 20 at 34% chance.',
+    );
+  });
+
   it('never moves the axis when the focus switches', () => {
     const { rerender } = render(
       <EchoDistributionChart tables={[cantarella, carlotta]} focused="Cantarella" />,

@@ -42,12 +42,14 @@ export function App({ buildDate, calculator, builtInTables = BUILT_IN_TABLES }: 
         )}
         {/* Kept mounted while hidden, so switching tabs loses nothing. */}
         <div hidden={tab !== 'evaluation'}>
-          <EchoEvaluation
-            calculator={calculator}
-            builtInTables={builtInTables}
-            customTables={customTables.tables}
-            onCustomTablesChange={customTables.save}
-          />
+          {customTables.ready && (
+            <EchoEvaluation
+              calculator={calculator}
+              builtInTables={builtInTables}
+              customTables={customTables.tables}
+              onCustomTablesChange={customTables.save}
+            />
+          )}
         </div>
       </main>
     </>
