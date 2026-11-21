@@ -6,7 +6,7 @@
 
 **Blocked by:** 02 (Visual tokens, theme switch and the stored-entry foundation), 10 (Several Weight Tables in the list)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [ ] The Echo Evaluation entry uses the stored-entry mechanism from ticket 02 and holds the Substats in slot order, the listed tables in order (by name), the table in focus, and Target Score / ER Target Score per table name, including targets for unlisted tables and for built-ins that have left the catalogue
 - [ ] Written whenever that part changes; other tabs take on changes through the `storage` event

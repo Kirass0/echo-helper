@@ -88,4 +88,31 @@ test.describe('Echo Evaluation', () => {
     ).toHaveAttribute('aria-invalid', 'true');
     expect(await layout()).toEqual(before);
   });
+
+  test('finds the same Echo, tables, focus and targets after a reload', async ({ page }) => {
+    await page.goto('#evaluation');
+    await page.getByRole('button', { name: 'Add the Substat revealed at +5' }).click();
+    await page.getByRole('button', { name: 'Crit Rate', exact: true }).click();
+    await page.getByRole('button', { name: '8.1%' }).click();
+    const add = page.getByRole('combobox', { name: 'Add a Weight Table' });
+    await add.selectOption('Mornye');
+    await page.getByRole('textbox', { name: 'Target Score for Mornye', exact: true }).fill('20');
+    await add.selectOption('Jinhsi');
+    await page.getByRole('textbox', { name: 'ER Target Score for Jinhsi', exact: true }).fill('5');
+
+    await page.reload();
+
+    await expect(page.getByText('Tune Stage 1/5 (+5)')).toBeVisible();
+    await expect(page.getByRole('list', { name: 'Tune slots' })).toContainText('8.1%');
+    await expect(page.getByRole('heading', { name: 'Jinhsi' })).toBeVisible();
+    await expect(
+      page.getByRole('combobox', { name: /^Swap .* for another Weight Table$/ }),
+    ).toHaveCount(2);
+    await expect(
+      page.getByRole('textbox', { name: 'Target Score for Mornye', exact: true }),
+    ).toHaveValue('20');
+    await expect(
+      page.getByRole('textbox', { name: 'ER Target Score for Jinhsi', exact: true }),
+    ).toHaveValue('5');
+  });
 });
