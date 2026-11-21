@@ -56,3 +56,7 @@ Decided with the owner in a grilling session on 2026-11-20.
 
 No ADR: each choice is cheap to reverse (the repo name least so, but a rename only moves the URL).
 
+
+## Comments (after resolution)
+
+- 2026-11-21: The repo is `Kirass0/echo-helper`, served at `https://kirass0.github.io/echo-helper/`, the owner's GitHub account, instead of `Kirass/echo-helper`. Vite `base` stays `/echo-helper/`. The Answer above keeps the original wording.

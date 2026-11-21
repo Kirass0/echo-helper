@@ -691,7 +691,7 @@ From [Hosting and delivery on GitHub Pages](issues/12-hosting-and-delivery.md).
 
 **Repo and site.**
 
-- Public repo `Kirass/echo-helper`, served at `https://kirass.github.io/echo-helper/`. Vite `base` is `/echo-helper/`, and there is no custom domain.
+- Public repo `Kirass0/echo-helper`, served at `https://kirass0.github.io/echo-helper/`. Vite `base` is `/echo-helper/`, and there is no custom domain.
 - MIT licence. The catalogue's weights are credited, with no separate licence.
 
 **Deploy workflow.**
@@ -778,4 +778,4 @@ These block nothing in the build.
   - Rescale weights copied from Maygi's sheet: Crit Rate and Crit Damage × 7.5/8.1, Flat DEF × 50/40.
   - Rescale weights copied from ChemX32's sheet: DEF% × 10.9/10.0.
   - Round to 2 decimals, and complete the catalogue.
-- **Create the public repo** `Kirass/echo-helper` and set Pages to "GitHub Actions".
+- ~~**Create the public repo** `Kirass0/echo-helper` and set Pages to "GitHub Actions".~~ Done on 2026-11-21.
