@@ -51,6 +51,30 @@ describe('an Echo Evaluation job', () => {
     expect(withEr.erTopPercent).toBeLessThanOrEqual(withEr.topPercent);
   });
 
+  it('says where a partly tuned Echo can finish, from Worst to Best', () => {
+    const result = runEchoEvaluation(input({ substats: [{ type: 'Atk_Flat', value: 40 }] }));
+    // Without Crit Rate the Echo finishes at 0; the best Crit Rate roll, 10.5, gives 6 × 10.5 / 7.5 = 8.4.
+    const [worst] = result.distribution;
+    expect(worst?.threshold).toBe(0);
+    expect(worst?.chance).toBeCloseTo(1, 12);
+    const best = result.distribution.at(-1);
+    expect(best?.threshold).toBeCloseTo(8.4, 12);
+    expect(best?.chance).toBeGreaterThan(0);
+    expect(best?.chance).toBeLessThan(1);
+  });
+
+  it('puts a 5/5 Echo at its final Echo Score for sure', () => {
+    const substats = [
+      { type: 'Critical_Rate', value: 7.5 },
+      { type: 'Atk_Flat', value: 40 },
+      { type: 'Hp_Flat', value: 430 },
+      { type: 'Def_Flat', value: 50 },
+      { type: 'Energy_Regen', value: 9.2 },
+    ] as const;
+    const result = runEchoEvaluation(input({ substats: [...substats] }));
+    expect(result.distribution).toEqual([{ threshold: 6, chance: 1 }]);
+  });
+
   it('gives a 5/5 Echo verdicts and its final Echo Score', () => {
     const substats = [
       { type: 'Critical_Rate', value: 7.5 },

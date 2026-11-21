@@ -25,6 +25,11 @@ test.describe('Echo Evaluation', () => {
     await expect(page.getByRole('group', { name: 'Top Percent', exact: true })).toContainText(
       /Top /,
     );
+    await expect(
+      page.getByRole('img', {
+        name: /^Echo distribution for Mornye: final Echo Score from \d+\.\d to \d+\.\d, Target Score 20 at/,
+      }),
+    ).toBeVisible();
   });
 
   test('compares several tables, and nothing moves when focus, a table or a target changes', async ({
@@ -51,12 +56,14 @@ test.describe('Echo Evaluation', () => {
       page.evaluate(() =>
         [
           ...document.querySelectorAll('section[aria-label="Results"] [role="group"]'),
+          ...document.querySelectorAll('svg[role="img"][aria-label^="Echo distribution"]'),
           ...document.querySelectorAll(
             'table tr, table th, select[aria-label="Add a Weight Table"]',
           ),
         ].map((element) => {
+          // In page coordinates: clicking a row may scroll it into view.
           const { x, y, width, height } = element.getBoundingClientRect();
-          return [x, y, width, height].map(Math.round).join(',');
+          return [x + scrollX, y + scrollY, width, height].map(Math.round).join(',');
         }),
       );
     const before = await layout();

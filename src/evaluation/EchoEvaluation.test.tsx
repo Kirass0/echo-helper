@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import type { WeightTableData } from '../catalogue/catalogue';
@@ -324,5 +324,30 @@ describe('Term tooltips', () => {
     await chooseTable(user, 'Crit Rate only');
     expect(within(box('Echo Score')).getByRole('button', { name: 'Echo Score' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Substat Weight Tables' })).toBeVisible();
+  });
+});
+
+describe('Echo distribution', () => {
+  const chart = () => screen.queryByRole('img', { name: /^Echo distribution/ });
+
+  it('is shown once a table is listed, spanning every listed table and its targets', async () => {
+    const user = open();
+    expect(chart()).not.toBeInTheDocument();
+
+    await chooseTable(user, 'Atk only');
+    await chooseTable(user, 'Crit Rate only');
+    // A fresh Echo finishes from 0 up to the best Crit Rate roll: 6 × 10.5 / 7.5 = 8.4.
+    await waitFor(() =>
+      expect(chart()).toHaveAccessibleName(
+        'Echo distribution for Crit Rate only: final Echo Score from 0.0 to 8.4.',
+      ),
+    );
+
+    await user.type(screen.getByRole('textbox', { name: 'Target Score for Atk only' }), '10');
+    await waitFor(() =>
+      expect(chart()).toHaveAccessibleName(
+        'Echo distribution for Crit Rate only: final Echo Score from 0.0 to 10.0.',
+      ),
+    );
   });
 });

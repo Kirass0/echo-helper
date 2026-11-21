@@ -8,6 +8,7 @@ import type {
   SubstatEntry,
 } from '../calculation/protocol';
 import surfaces from '../ui/surfaces.module.css';
+import { EchoDistributionChart } from './EchoDistributionChart';
 import { ResultBoxes } from './ResultBoxes';
 import { parseTarget } from './targetScore';
 import { WeightTableList, type TargetTexts } from './WeightTableList';
@@ -94,6 +95,19 @@ export function EchoEvaluation({
             </div>
           )}
         </section>
+        {focused !== null && (
+          <div className={surfaces.panel}>
+            <EchoDistributionChart
+              focused={focused}
+              tables={listed.map((name) => ({
+                name,
+                targetScore: parseTarget(targetsOf(name).targetText).value,
+                erTargetScore: parseTarget(targetsOf(name).erTargetText).value,
+                result: results[name] ?? null,
+              }))}
+            />
+          </div>
+        )}
         <div className={surfaces.panel}>
           <WeightTableList
             builtInTables={builtInTables}

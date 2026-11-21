@@ -99,6 +99,7 @@ export function createEchoEvaluationJobs(): EchoEvaluationJobs {
         median: outlook?.median ?? score,
         average: outlook?.average ?? score,
         best: outlook?.best ?? score,
+        distribution: outlook?.distribution ?? [{ threshold: score, chance: 1 }],
       };
     },
   };

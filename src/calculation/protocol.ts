@@ -54,6 +54,17 @@ export interface EchoEvaluationResult {
   readonly median: number;
   readonly average: number;
   readonly best: number;
+  /**
+   * Where the Echo can finish: the chance of finishing at or above each of a few hundred real Echo Scores, from Worst
+   * to Best, so the first threshold is the Worst Echo Score. At 5/5 it is the final Echo Score, for sure.
+   */
+  readonly distribution: readonly ChanceAtOrAbove[];
+}
+
+/** The chance, in [0, 1], that the Echo finishes with an Echo Score at or above the threshold. */
+export interface ChanceAtOrAbove {
+  readonly threshold: number;
+  readonly chance: number;
 }
 
 export interface EchoEvaluationRequest {
