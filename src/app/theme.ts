@@ -1,23 +1,10 @@
 import { useLayoutEffect } from 'react';
-import { createStoredEntry, type EntryDefinition } from '../storage/storedEntry';
+import { createStoredEntry } from '../storage/storedEntry';
 import { useStoredEntry } from '../storage/useStoredEntry';
+import { themeDefinition, type Theme } from './themeDefinition';
 
-export type Theme = 'dark' | 'light';
-
-/**
- * The `localStorage` key of the Theme entry. The inline script in `index.html` reads the same key
- * and envelope (`{ "version": 1, "data": "light" }`) to apply the theme before first paint.
- */
-export const THEME_KEY = 'echo-helper.theme';
-
-export const themeDefinition: EntryDefinition<Theme> = {
-  key: THEME_KEY,
-  version: 1,
-  // The first open is always dark; the OS setting is ignored.
-  fallback: () => 'dark',
-  // Anything unreadable means dark.
-  validate: (data) => (data === 'light' ? 'light' : 'dark'),
-};
+// The inline script built by themeBootScript.ts reads the same entry to apply the theme before first paint.
+export { THEME_KEY, themeDefinition, type Theme } from './themeDefinition';
 
 const themeEntry = createStoredEntry(themeDefinition);
 

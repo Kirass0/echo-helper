@@ -4,14 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Echo Helper — Wuthering Waves Echo tuning calculator</title>
-    <!-- Applies the stored theme before first paint (the Theme entry, see src/app/theme.ts). -->
-    <script>
-      try {
-        var e = JSON.parse(localStorage.getItem('echo-helper.theme'));
-        if (e && e.version === 1 && e.data === 'light')
-          document.documentElement.dataset.theme = 'light';
-      } catch (_) {}
-    </script>
+    <!-- The build injects the script that applies the stored theme before first paint (src/app/themeBootScript.ts). -->
   </head>
   <body>
     <div id="root"></div>

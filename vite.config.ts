@@ -1,10 +1,11 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { themeBootScriptPlugin } from './src/app/themeBootScript';
 
 export default defineConfig({
   base: '/echo-helper/',
-  plugins: [react()],
+  plugins: [react(), themeBootScriptPlugin()],
   define: {
     // The build date, stamped once when the bundle is built (shown as "Updated <date>").
     __BUILD_DATE__: JSON.stringify(new Date().toISOString()),

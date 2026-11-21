@@ -6,7 +6,8 @@ const PORT = 4173;
 export default defineConfig({
   testDir: 'e2e',
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,
+  // No retries: a flaky test fails the gate (spec §16).
+  retries: 0,
   reporter: process.env.CI ? 'github' : 'list',
   use: {
     baseURL: `http://localhost:${PORT}/echo-helper/`,

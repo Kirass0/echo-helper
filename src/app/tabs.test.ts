@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { tabFromHash } from './tabs';
+import { TABS, tabFromHash } from './tabs';
 
 describe('tabFromHash', () => {
+  it.each(TABS.map((tab) => tab.id))('every tab opens from its own hash (#%s)', (id) => {
+    expect(tabFromHash(`#${id}`)).toBe(id);
+  });
+
   it.each([
     ['#evaluation', 'evaluation'],
     ['#strategy', 'strategy'],
