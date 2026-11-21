@@ -6,7 +6,7 @@
 
 **Blocked by:** 08 (Score an Echo against one built-in table)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [ ] A term with a tooltip has a dotted underline on the term itself (no ⓘ) and is a `<button>` styled as text, linked by `aria-describedby`
 - [ ] It opens on hover, keyboard focus or tap, stays open while the pointer is over it, and closes on a tap elsewhere or Escape (which doesn't move focus)

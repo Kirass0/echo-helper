@@ -5,6 +5,8 @@ import { IconButton } from '../ui/IconButton';
 import { CrossIcon, SlidersIcon } from '../ui/icons';
 import { formatChance, formatEchoScore } from './format';
 import { INVALID_TARGET_MESSAGE, parseTarget } from './targetScore';
+import { Term } from '../ui/Term';
+import { TERM_TOOLTIPS } from './termTooltips';
 import styles from './WeightTableList.module.css';
 
 /** What is typed in a table's two target boxes. */
@@ -64,7 +66,7 @@ export function WeightTableList({
   return (
     <section className={styles.list} aria-labelledby="weight-tables-heading">
       <h2 id="weight-tables-heading" className={styles.heading}>
-        Substat Weight Tables
+        <Term tooltip={TERM_TOOLTIPS['Substat Weight Table']}>Substat Weight Tables</Term>
       </h2>
       {rows.length > 0 && (
         <table ref={tableRef} className={styles.table}>
@@ -81,16 +83,20 @@ export function WeightTableList({
           <thead>
             <tr>
               <th scope="col">Weight Table</th>
-              <th scope="col">Target Score</th>
-              <th scope="col">ER Target Score</th>
-              <th scope="col" className={styles.figureHeader}>
-                Echo Score
+              <th scope="col">
+                <Term tooltip={TERM_TOOLTIPS['Target Score']}>Target Score</Term>
+              </th>
+              <th scope="col">
+                <Term tooltip={TERM_TOOLTIPS['ER Target Score']}>ER Target Score</Term>
               </th>
               <th scope="col" className={styles.figureHeader}>
-                Target Chance
+                <Term tooltip={TERM_TOOLTIPS['Echo Score']}>Echo Score</Term>
               </th>
               <th scope="col" className={styles.figureHeader}>
-                ER Target Chance
+                <Term tooltip={TERM_TOOLTIPS['Target Chance']}>Target Chance</Term>
+              </th>
+              <th scope="col" className={styles.figureHeader}>
+                <Term tooltip={TERM_TOOLTIPS['ER Target Chance']}>ER Target Chance</Term>
               </th>
               <th scope="col">
                 <span className={styles.hidden}>Weights</span>

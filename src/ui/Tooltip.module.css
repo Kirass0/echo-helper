@@ -1,0 +1,26 @@
+/* A plain-text tooltip (spec §10): at most 290px wide, or the viewport less 10px each side on narrower screens. */
+.tooltip {
+  position: fixed;
+  z-index: 100;
+  left: 0;
+  top: 0;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(290px, calc(100vw - 20px));
+  padding: 7px 10px;
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+  font-size: 0.86rem;
+  font-weight: 400;
+  line-height: 1.4;
+  text-align: left;
+  white-space: normal;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.tooltip[hidden] {
+  display: none;
+}
