@@ -1,9 +1,10 @@
 import { scoreRolls, substatScore } from './echo';
-import { medianOf, thresholdsOf, type DistributionPoint } from './evaluateEcho';
-import { finishingEchoScoresFor, type FinishingEchoScores } from './finishingEchoScores';
+import { averageOf, medianOf, thresholdsOf, type DistributionPoint } from './evaluateEcho';
+import { finishingEchoScoresFor, type SortedFinishingEchoScores } from './finishingEchoScores';
 import { MAX_TUNE_STAGE, SUBSTAT_TYPES, possibleRolls, type SubstatType } from './gameData';
 import { roundTo12Decimals } from './rounding';
-import { SCORE_TOLERANCE, addChance, clamp01, firstAtOrAbove } from './search';
+import { CompensatedSum, SCORE_TOLERANCE, clamp01, firstAtOrAbove } from './search';
+import { RunHeap, type SortedTable } from './sortedTable';
 import type { SubstatWeightTable } from './substatWeightTable';
 import { tuningCost, type TuningCost } from './tuningCost';
 import { ruleGroupsByStage, type UpgradeRule, type UpgradeStrategy } from './upgradeStrategy';
@@ -51,9 +52,12 @@ export interface UpgradeStrategyResult {
  * The finishing tables an Upgrade Strategy pass reads, from an Echo Score of 0, keyed by a Weight Table's weights and
  * a Substat type set. Kept by the caller between calculations, it makes threshold and rule edits on an unchanged Weight
  * Table rebuild none of them.
+ *
+ * Substat types weighted 0 add exactly 0 to every Echo Score, so type sets that differ only in which of them they hold
+ * (Energy Regen aside, which the table tracks) have the same finishing table, and share it.
  */
 export class FinishingTableCache {
-  readonly #tables = new Map<string, FinishingEchoScores>();
+  readonly #tables = new Map<string, SortedFinishingEchoScores>();
 
   /** How many finishing tables have been built. */
   get size(): number {
@@ -65,15 +69,37 @@ export class FinishingTableCache {
   }
 
   /** The finishing table of an Echo with the Substat types in the bitmask and an Echo Score of 0. */
-  finishingTable(table: SubstatWeightTable, types: number): FinishingEchoScores {
-    const key = `${SUBSTAT_TYPES.map((type) => table.weightOf(type)).join(',')}|${types}`;
+  finishingTable(table: SubstatWeightTable, types: number): SortedFinishingEchoScores {
+    const weights = SUBSTAT_TYPES.map((type) => table.weightOf(type));
+    const shared = sharedTypes(types, weights);
+    const key = `${weights.join(',')}|${shared}`;
     let finishing = this.#tables.get(key);
     if (!finishing) {
-      finishing = finishingEchoScoresFor(typesOf(types), 0, table);
+      finishing = finishingEchoScoresFor(typesOf(shared), 0, table);
       this.#tables.set(key, finishing);
     }
     return finishing;
   }
+}
+
+/**
+ * The type set whose finishing table a type set shares: its Substat types weighted 0, other than Energy Regen, are
+ * replaced by as many of the first such types.
+ */
+function sharedTypes(types: number, weights: readonly number[]): number {
+  let shared = types;
+  let unweighted = 0;
+  SUBSTAT_TYPES.forEach((type, i) => {
+    if (weights[i] !== 0 || type === 'Energy_Regen') return;
+    if ((types & (1 << i)) !== 0) unweighted++;
+    shared &= ~(1 << i);
+  });
+  SUBSTAT_TYPES.forEach((type, i) => {
+    if (unweighted === 0 || weights[i] !== 0 || type === 'Energy_Regen') return;
+    shared |= 1 << i;
+    unweighted--;
+  });
+  return shared;
 }
 
 export interface UpgradeStrategyOptions {
@@ -88,7 +114,7 @@ export interface UpgradeStrategyOptions {
 // Values this close to a threshold reach it, so floating-point summation order never decides a rule.
 const RULE_TOLERANCE = 1e-9;
 
-// TunedEcho.Rolls holds, per Substat type a Substat Roll rule names, the index of its roll plus one in a base-16 digit.
+// A shape's rolls hold, per Substat type a Substat Roll rule names, the index of its roll plus one in a base-16 digit.
 const ROLL_BASE = 16;
 
 const bit = (type: SubstatType) => 1 << SUBSTAT_TYPES.indexOf(type);
@@ -96,17 +122,7 @@ const has = (types: number, type: SubstatType) => (types & bit(type)) !== 0;
 const typesOf = (types: number) => SUBSTAT_TYPES.filter((type) => has(types, type));
 const popCount = (types: number) => typesOf(types).length;
 
-/**
- * What Upgrade Rules read of an Echo during the forward pass: its Substat types as bits, its Echo Score (0 once no
- * later rule reads it) and the roll digits of the Substat types Substat Roll rules name.
- */
-interface TunedEcho {
-  readonly types: number;
-  readonly score: number;
-  readonly rolls: number;
-}
-
-/** A roll in the forward pass: what it adds to the Echo Score, its chance, and its digit in TunedEcho.rolls. */
+/** A roll in the forward pass: what it adds to the Echo Score, its chance, and its digit in a shape's rolls. */
 interface PassRoll {
   readonly score: number;
   readonly chance: number;
@@ -114,14 +130,40 @@ interface PassRoll {
 }
 
 /**
- * A state's chance, its chance-weighted sum of Echo Scores, the lowest Echo Score merged into it, and its Echo Scores
- * rounded to 12 decimals at each Tune Stage with their chances, behind the Successful Echoes' distribution.
+ * The states of the pass that share their Substat types and the roll digits later rules read (the source's TunedEcho
+ * without its Echo Score), keyed by the pair of numbers. Its table holds one entry per Echo Score rounded to 12
+ * decimals, with columns for the chance, the chance-weighted sum of unrounded Echo Scores and the lowest unrounded Echo
+ * Score merged into it. While a later rule reads the Echo Score, an entry is a state of the source's pass; after that,
+ * the entries are what the source keeps per state for the Successful Echoes' distribution.
  */
-interface StateChance {
-  chance: number;
-  scoreSum: number;
-  minScore: number;
-  readonly scores: Map<number, number>;
+interface Shape {
+  readonly types: number;
+  readonly rolls: number;
+  readonly table: SortedTable;
+}
+
+const CHANCE = 0;
+const SCORE_SUM = 1;
+const MIN_SCORE = 2;
+
+/** Shapes keyed by their Substat types, then by their roll digits. */
+class ShapeMap<T> {
+  readonly #byTypes = new Map<number, Map<number, T>>();
+
+  get(types: number, rolls: number): T | undefined {
+    return this.#byTypes.get(types)?.get(rolls);
+  }
+
+  set(types: number, rolls: number, value: T): void {
+    let byRolls = this.#byTypes.get(types);
+    if (!byRolls) this.#byTypes.set(types, (byRolls = new Map()));
+    byRolls.set(rolls, value);
+  }
+
+  *entries(): Generator<[types: number, rolls: number, value: T]> {
+    for (const [types, byRolls] of this.#byTypes)
+      for (const [rolls, value] of byRolls) yield [types, rolls, value];
+  }
 }
 
 /**
@@ -141,90 +183,89 @@ export function calculateUpgradeStrategy(
   for (let tuneStage = 1; tuneStage <= MAX_TUNE_STAGE; tuneStage++)
     if (byStage[tuneStage]!.length > 0) lastRuleStage = tuneStage;
   const context = new RuleContext(table, byStage, cache);
-  const keyOf = (echo: TunedEcho) => `${echo.types},${echo.score},${echo.rolls}`;
-  let states = new Map<string, [TunedEcho, StateChance]>([
-    [
-      keyOf({ types: 0, score: 0, rolls: 0 }),
-      [
-        { types: 0, score: 0, rolls: 0 },
-        { chance: 1, scoreSum: 0, minScore: 0, scores: new Map([[0, 1]]) },
-      ],
-    ],
-  ]);
-  const discardRates = new Array<number>(MAX_TUNE_STAGE + 1).fill(0);
+  let shapes: Shape[] = [
+    {
+      types: 0,
+      rolls: 0,
+      table: {
+        scores: Float64Array.of(0),
+        columns: [Float64Array.of(1), Float64Array.of(0), Float64Array.of(0)],
+      },
+    },
+  ];
+  const discards = Array.from({ length: MAX_TUNE_STAGE + 1 }, () => new CompensatedSum());
 
   for (let tuneStage = 1; tuneStage <= lastRuleStage; tuneStage++) {
-    const ruleGroups = byStage[tuneStage]!;
-    const keepsScore = context.scoreReadFrom(tuneStage + 1);
+    const ruleGroups = context.ruleGroupsAt(tuneStage);
     const typeChance = 1.0 / (SUBSTAT_TYPES.length - tuneStage + 1);
-    const next = new Map<string, [TunedEcho, StateChance]>();
+    const next = new ShapeMap<Run[]>();
 
-    for (const [echo, state] of states.values()) {
+    for (const shape of shapes) {
       signal?.throwIfAborted();
+      const chanceBelow = chancesBelow(shape.table);
+      const length = shape.table.scores.length;
       for (const type of SUBSTAT_TYPES) {
-        if (has(echo.types, type)) continue;
+        if (has(shape.types, type)) continue;
+        const types = shape.types | bit(type);
         for (const roll of context.rollsAt(tuneStage, type)) {
-          const tuned: TunedEcho = {
-            types: echo.types | bit(type),
-            score: echo.score + roll.score,
-            rolls: echo.rolls + roll.digits,
-          };
+          const rolls = shape.rolls + roll.digits;
           const chance = typeChance * roll.chance;
-          if (!passesAnyRuleGroup(ruleGroups, tuned, context)) {
-            discardRates[tuneStage]! += state.chance * chance;
-            continue;
+          // Rule Groups whose Substat Count and Substat Roll rules pass; their other rules read the Echo Score.
+          const scoreGroups: CompiledGroup[] = [];
+          let passesAll = ruleGroups.length === 0;
+          for (const group of ruleGroups) {
+            if (!group.shapeRules.every((rule) => rule(types, rolls))) continue;
+            if (group.scoreRules.length === 0) passesAll = true;
+            else scoreGroups.push(group);
           }
+          let start = length;
+          if (passesAll) start = 0;
+          else if (scoreGroups.length > 0)
+            start = firstPassing(shape.table.scores, roll.score, (score) =>
+              scoreGroups.some((group) => group.scoreRules.every((rule) => rule(types, score))),
+            );
+          discards[tuneStage]!.add(chance * chanceBelow[start]!);
+          if (start === length) continue;
 
-          const kept: TunedEcho = {
-            types: tuned.types,
-            score: keepsScore ? roundTo12Decimals(tuned.score) : 0,
-            rolls: context.keptRolls(tuned.rolls, tuneStage + 1),
-          };
-          const key = keyOf(kept);
-          const merged = next.get(key)?.[1];
-          const addedChance = state.chance * chance;
-          const addedSum = (state.scoreSum + state.chance * roll.score) * chance;
-          const addedMin = state.minScore + roll.score;
-          const scores = merged?.scores ?? new Map<number, number>();
-          for (const [score, scoreChance] of state.scores)
-            addChance(scores, roundTo12Decimals(score + roll.score), scoreChance * chance);
-          if (merged) {
-            merged.chance += addedChance;
-            merged.scoreSum += addedSum;
-            merged.minScore = Math.min(merged.minScore, addedMin);
-          } else {
-            next.set(key, [
-              kept,
-              { chance: addedChance, scoreSum: addedSum, minScore: addedMin, scores },
-            ]);
-          }
+          const keptRolls = context.keptRolls(rolls, tuneStage + 1);
+          let runs = next.get(types, keptRolls);
+          if (!runs) next.set(types, keptRolls, (runs = []));
+          runs.push({ table: shape.table, start, shift: roll.score, chance });
         }
       }
     }
 
-    states = next;
+    shapes = [];
+    for (const [types, rolls, runs] of next.entries())
+      shapes.push({ types, rolls, table: mergedRuns(runs) });
     onProgress?.(tuneStage / MAX_TUNE_STAGE);
   }
 
   // No rule reads the Tune Stages after the last one with rules, so every state left is Successful, and finishes with
   // any of the missing types.
   signal?.throwIfAborted();
-  let successRate = 0;
-  let scoreSum = 0;
+  const successSum = new CompensatedSum();
+  const scoreSum = new CompensatedSum();
   let lowestScore = Number.MAX_VALUE;
-  for (const [echo, state] of states.values()) {
-    const { average, min } = context.scoreAddedToFinish(echo.types);
-    successRate += state.chance;
-    scoreSum += state.scoreSum + state.chance * average;
-    lowestScore = Math.min(lowestScore, state.minScore + min);
+  for (const { types, table: shapeTable } of shapes) {
+    const { average, min } = context.scoreAddedToFinish(types);
+    const chances = shapeTable.columns[CHANCE]!;
+    const sums = shapeTable.columns[SCORE_SUM]!;
+    const mins = shapeTable.columns[MIN_SCORE]!;
+    for (let i = 0; i < chances.length; i++) {
+      successSum.add(chances[i]!);
+      scoreSum.add(sums[i]! + chances[i]! * average);
+      lowestScore = Math.min(lowestScore, mins[i]! + min);
+    }
   }
-  const anySuccessful = states.size > 0;
+  const anySuccessful = shapes.length > 0;
   const successfulEchoScores = anySuccessful
-    ? successfulEchoScoresOf(states, context, signal)
+    ? successfulEchoScoresOf(shapes, context, signal)
     : null;
   if (lastRuleStage < MAX_TUNE_STAGE) onProgress?.(1);
 
-  successRate = clamp01(successRate);
+  const successRate = clamp01(successSum.value);
+  const discardRates = discards.map((sum) => sum.value);
   return {
     successRate,
     discards: Array.from({ length: MAX_TUNE_STAGE }, (_, i) => ({
@@ -232,40 +273,106 @@ export function calculateUpgradeStrategy(
       discardRate: clamp01(discardRates[i + 1]!),
     })),
     costPerSuccessfulEcho: anySuccessful ? costPerSuccessfulEcho(discardRates, successRate) : null,
-    averageSuccessfulEchoScore: anySuccessful ? scoreSum / successRate : null,
+    averageSuccessfulEchoScore: anySuccessful ? scoreSum.value / successSum.value : null,
     lowestSuccessfulEchoScore: anySuccessful ? lowestScore : null,
     successfulEchoScores,
   };
 }
 
-// A Tune Stage without Rule Groups lets every Echo through.
-function passesAnyRuleGroup(
-  ruleGroups: readonly (readonly UpgradeRule[])[],
-  echo: TunedEcho,
-  context: RuleContext,
-): boolean {
-  return (
-    ruleGroups.length === 0 ||
-    ruleGroups.some((rules) => rules.every((rule) => passes(rule, echo, context)))
-  );
+// The chance of a shape's entries below each index, with the total last.
+function chancesBelow(table: SortedTable): Float64Array {
+  const chances = table.columns[CHANCE]!;
+  const below = new Float64Array(chances.length + 1);
+  const sum = new CompensatedSum();
+  for (let i = 0; i < chances.length; i++) {
+    sum.add(chances[i]!);
+    below[i + 1] = sum.value;
+  }
+  return below;
 }
 
-function passes(rule: UpgradeRule, echo: TunedEcho, context: RuleContext): boolean {
-  switch (rule.kind) {
-    case 'substatCount':
-      return rule.substatTypes.filter((type) => has(echo.types, type)).length >= rule.count;
-    case 'substatRoll': {
-      const value = context.valueOf(echo, rule.substatType);
-      return value !== null && value >= rule.minValue - RULE_TOLERANCE;
-    }
-    case 'echoScore':
-      return echo.score >= rule.minEchoScore - RULE_TOLERANCE;
-    case 'targetChance':
-      return (
-        context.chanceToReach(echo, rule.targetScore) >=
-        rule.minChancePercent / 100 - RULE_TOLERANCE
-      );
+/**
+ * The first entry whose Echo Score plus a roll passes. Echo Score and Target Chance rules pass from some Echo Score
+ * up, so the entries that pass are a suffix of the ascending table, found by bisection.
+ */
+function firstPassing(
+  scores: Float64Array,
+  rollScore: number,
+  passes: (score: number) => boolean,
+): number {
+  let low = 0;
+  let high = scores.length;
+  while (low < high) {
+    const middle = (low + high) >>> 1;
+    if (passes(scores[middle]! + rollScore)) high = middle;
+    else low = middle + 1;
   }
+  return low;
+}
+
+/** A shape's entries from `start` on, after a roll that adds `shift` to the Echo Score, with the roll's chance. */
+interface Run {
+  readonly table: SortedTable;
+  readonly start: number;
+  readonly shift: number;
+  readonly chance: number;
+}
+
+/**
+ * The runs that tune into one shape, merged: each entry's Echo Score is rounded to 12 decimals, which keeps a run in
+ * order, and entries with exactly equal Echo Scores combine.
+ */
+function mergedRuns(runs: readonly Run[]): SortedTable {
+  const count = runs.length;
+  const runScores = runs.map((run) => run.table.scores);
+  const runChances = runs.map((run) => run.table.columns[CHANCE]!);
+  const runSums = runs.map((run) => run.table.columns[SCORE_SUM]!);
+  const runMins = runs.map((run) => run.table.columns[MIN_SCORE]!);
+  const shifts = Float64Array.from(runs, (run) => run.shift);
+  const rollChances = Float64Array.from(runs, (run) => run.chance);
+  const at = Int32Array.from(runs, (run) => run.start);
+  let capacity = 0;
+  for (const run of runs) capacity += run.table.scores.length - run.start;
+  const scores = new Float64Array(capacity);
+  const chances = new Float64Array(capacity);
+  const sums = new Float64Array(capacity);
+  const mins = new Float64Array(capacity);
+  const heap = new RunHeap(count);
+  for (let r = 0; r < count; r++)
+    heap.push(r, roundTo12Decimals(runScores[r]![at[r]!]! + shifts[r]!));
+  let n = -1;
+  let last = NaN;
+  while (heap.size > 0) {
+    const r = heap.topRun;
+    const score = heap.topKey;
+    const i = at[r]!;
+    const shift = shifts[r]!;
+    const chance = rollChances[r]!;
+    const entryChance = runChances[r]![i]!;
+    const keptChance = entryChance * chance;
+    const keptSum = (runSums[r]![i]! + entryChance * shift) * chance;
+    const keptMin = runMins[r]![i]! + shift;
+    if (score === last) {
+      chances[n]! += keptChance;
+      sums[n]! += keptSum;
+      if (keptMin < mins[n]!) mins[n] = keptMin;
+    } else {
+      scores[++n] = last = score;
+      chances[n] = keptChance;
+      sums[n] = keptSum;
+      mins[n] = keptMin;
+    }
+    const source = runScores[r]!;
+    if (i + 1 < source.length) {
+      at[r] = i + 1;
+      heap.advanceTop(roundTo12Decimals(source[i + 1]! + shift));
+    } else heap.popTop();
+  }
+  const length = n + 1;
+  return {
+    scores: scores.slice(0, length),
+    columns: [chances.slice(0, length), sums.slice(0, length), mins.slice(0, length)],
+  };
 }
 
 // The expected Tuning Cost per started Echo, divided by the Success Rate.
@@ -294,65 +401,130 @@ function costPerSuccessfulEcho(
 
 // The source returns no distribution; this follows the golden exporter's SuccessfulEchoScores. Each Substat type set
 // is finished once, from an Echo Score of 0, and shifted by every Echo Score of the states with that set; the final
-// Echo Scores are rounded to 12 decimals so that those differing only by summation order merge.
+// Echo Scores are rounded to 12 decimals so that those differing only by summation order merge. Shifting the sets that
+// share a finishing table together gives exactly the same Echo Scores.
 function successfulEchoScoresOf(
-  states: ReadonlyMap<string, [TunedEcho, StateChance]>,
+  shapes: readonly Shape[],
   context: RuleContext,
   signal: AbortSignal | undefined,
 ): SuccessfulEchoScores {
-  const currentByTypes = new Map<number, Map<number, number>>();
-  for (const [echo, state] of states.values()) {
-    let current = currentByTypes.get(echo.types);
-    if (!current) currentByTypes.set(echo.types, (current = new Map()));
-    for (const [score, chance] of state.scores) addChance(current, score, chance);
+  // Type sets that share a finishing table are finished together.
+  const currentByFinishing = new Map<SortedFinishingEchoScores, ShiftedRun[]>();
+  for (const { types, table } of shapes) {
+    const finishing = context.finishingTable(types);
+    let current = currentByFinishing.get(finishing);
+    if (!current) currentByFinishing.set(finishing, (current = []));
+    current.push({ scores: table.scores, chances: table.columns[CHANCE]!, shift: 0, scale: 1 });
   }
-  const finalChances = new Map<number, number>();
-  for (const [types, current] of currentByTypes) {
+  const finalRuns: ShiftedRun[] = [];
+  for (const [finishing, runs] of currentByFinishing) {
     signal?.throwIfAborted();
-    const outcomes = context.finishingTable(types).outcomes;
-    for (const [score, chance] of current)
-      for (const outcome of outcomes)
-        addChance(finalChances, roundTo12Decimals(score + outcome.score), chance * outcome.chance);
+    const current = mergedShiftedRuns(runs, false);
+    // Every pair of a current and a finishing Echo Score; the one with fewer entries shifts the other.
+    const [shifts, shifted] =
+      current.scores.length <= finishing.scores.length
+        ? [current, finishing]
+        : [finishing, current];
+    for (let i = 0; i < shifts.scores.length; i++)
+      finalRuns.push({
+        scores: shifted.scores,
+        chances: shifted.chances,
+        shift: shifts.scores[i]!,
+        scale: shifts.chances[i]!,
+      });
   }
+  signal?.throwIfAborted();
+  const { scores, chances: summed } = mergedShiftedRuns(finalRuns, true);
 
   let total = 0;
-  for (const chance of finalChances.values()) total += chance;
-  const outcomes = [...finalChances]
-    .map(([score, chance]) => ({ score, chance: chance / total }))
-    .sort((a, b) => a.score - b.score);
-  const scores = Float64Array.from(outcomes, (outcome) => outcome.score);
-  const atOrAbove = new Float64Array(outcomes.length + 1);
-  for (let i = outcomes.length - 1; i >= 0; i--)
-    atOrAbove[i] = atOrAbove[i + 1]! + outcomes[i]!.chance;
+  for (const chance of summed) total += chance;
+  const chances = summed.map((chance) => chance / total);
+  const atOrAbove = new Float64Array(scores.length + 1);
+  for (let i = scores.length - 1; i >= 0; i--) atOrAbove[i] = atOrAbove[i + 1]! + chances[i]!;
   const chanceAtOrAbove = (score: number) =>
     clamp01(atOrAbove[firstAtOrAbove(scores, score - SCORE_TOLERANCE)]!);
 
   return {
-    best: outcomes.at(-1)!.score,
-    worst: outcomes[0]!.score,
-    average: outcomes.reduce((sum, outcome) => sum + outcome.score * outcome.chance, 0),
-    median: medianOf(outcomes),
-    distribution: thresholdsOf(outcomes).map((threshold) => ({
+    best: scores.at(-1)!,
+    worst: scores[0]!,
+    average: averageOf(scores, chances),
+    median: medianOf(scores, chances),
+    distribution: thresholdsOf(scores).map((threshold) => ({
       threshold,
       chance: chanceAtOrAbove(threshold),
     })),
   };
 }
 
+/** Ascending Echo Scores with their chances, all shifted by an Echo Score and scaled by a chance. */
+interface ShiftedRun {
+  readonly scores: Float64Array;
+  readonly chances: Float64Array;
+  readonly shift: number;
+  readonly scale: number;
+}
+
+/** The runs merged, combining exactly equal Echo Scores; rounded to 12 decimals after the shift when asked. */
+function mergedShiftedRuns(
+  runs: readonly ShiftedRun[],
+  round: boolean,
+): { scores: Float64Array; chances: Float64Array } {
+  const scoreOf = (run: ShiftedRun, i: number) =>
+    round ? roundTo12Decimals(run.shift + run.scores[i]!) : run.shift + run.scores[i]!;
+  let capacity = 0;
+  for (const run of runs) capacity += run.scores.length;
+  const scores = new Float64Array(capacity);
+  const chances = new Float64Array(capacity);
+  const at = new Int32Array(runs.length);
+  const heap = new RunHeap(runs.length);
+  runs.forEach((run, r) => {
+    if (run.scores.length > 0) heap.push(r, scoreOf(run, 0));
+  });
+  let n = -1;
+  let last = NaN;
+  while (heap.size > 0) {
+    const r = heap.topRun;
+    const score = heap.topKey;
+    const run = runs[r]!;
+    const i = at[r]!;
+    const chance = run.scale * run.chances[i]!;
+    if (score === last) chances[n]! += chance;
+    else {
+      scores[++n] = last = score;
+      chances[n] = chance;
+    }
+    if (i + 1 < run.scores.length) {
+      at[r] = i + 1;
+      heap.advanceTop(scoreOf(run, i + 1));
+    } else heap.popTop();
+  }
+  return { scores: scores.slice(0, n + 1), chances: chances.slice(0, n + 1) };
+}
+
+type ShapeRule = (types: number, rolls: number) => boolean;
+type ScoreRule = (types: number, score: number) => boolean;
+
+/** A Rule Group split into the rules that read only the Substat types and rolls, and those that read the Echo Score. */
+interface CompiledGroup {
+  readonly shapeRules: readonly ShapeRule[];
+  readonly scoreRules: readonly ScoreRule[];
+}
+
 /** What the rules of one Upgrade Strategy read besides the Echo, and which parts of it they read from each Tune Stage on. */
 class RuleContext {
   readonly #table: SubstatWeightTable;
   readonly #cache: FinishingTableCache;
-  // The digit of each Substat type a Substat Roll rule names in TunedEcho.rolls, or -1.
+  // The digit of each Substat type a Substat Roll rule names in a shape's rolls.
   readonly #rollSlots = new Map<SubstatType, number>();
-  // Indexed by Tune Stage, with an extra entry past the last: what rules at that Tune Stage or later read.
-  readonly #scoreReadFrom = new Array<boolean>(MAX_TUNE_STAGE + 2).fill(false);
+  // Indexed by Tune Stage, with an extra entry past the last: the roll digits rules at that Tune Stage or later read.
   readonly #slotsReadFrom: Set<number>[] = Array.from(
     { length: MAX_TUNE_STAGE + 2 },
     () => new Set(),
   );
   // Indexed by Tune Stage, then Substat type.
   readonly #rollsAt: Map<SubstatType, PassRoll[]>[];
+  readonly #ruleGroupsAt: CompiledGroup[][];
+  readonly #finishing = new Map<number, SortedFinishingEchoScores>();
   readonly #addedToFinish = new Map<number, { average: number; min: number }>();
 
   constructor(
@@ -363,11 +535,8 @@ class RuleContext {
     this.#table = table;
     this.#cache = cache;
     for (let tuneStage = MAX_TUNE_STAGE; tuneStage >= 1; tuneStage--) {
-      this.#scoreReadFrom[tuneStage] = this.#scoreReadFrom[tuneStage + 1]!;
       this.#slotsReadFrom[tuneStage] = new Set(this.#slotsReadFrom[tuneStage + 1]);
       for (const rule of byStage[tuneStage]!.flat()) {
-        if (rule.kind === 'echoScore' || rule.kind === 'targetChance')
-          this.#scoreReadFrom[tuneStage] = true;
         if (rule.kind === 'substatRoll') {
           let slot = this.#rollSlots.get(rule.substatType);
           if (slot === undefined)
@@ -381,10 +550,11 @@ class RuleContext {
       (_, tuneStage) =>
         new Map(SUBSTAT_TYPES.map((type) => [type, this.#rollsOf(type, tuneStage)])),
     );
+    this.#ruleGroupsAt = byStage.map((groups) => groups.map((rules) => this.#compile(rules)));
   }
 
-  scoreReadFrom(tuneStage: number): boolean {
-    return this.#scoreReadFrom[tuneStage]!;
+  ruleGroupsAt(tuneStage: number): readonly CompiledGroup[] {
+    return this.#ruleGroupsAt[tuneStage]!;
   }
 
   /** Only the roll digits a rule at this Tune Stage or later reads. */
@@ -399,19 +569,13 @@ class RuleContext {
     return this.#rollsAt[tuneStage]!.get(type)!;
   }
 
-  /** Null when the Echo doesn't have the Substat type. */
-  valueOf(echo: TunedEcho, type: SubstatType): number | null {
-    if (!has(echo.types, type)) return null;
-    const index = digitOf(echo.rolls, this.#rollSlots.get(type)!) - 1;
-    return possibleRolls(type)[index]!.value;
-  }
-
-  finishingTable(types: number): FinishingEchoScores {
-    return this.#cache.finishingTable(this.#table, types);
-  }
-
-  chanceToReach(echo: TunedEcho, targetScore: number): number {
-    return this.finishingTable(echo.types).chanceAtOrAbove(targetScore - echo.score);
+  finishingTable(types: number): SortedFinishingEchoScores {
+    let finishing = this.#finishing.get(types);
+    if (!finishing) {
+      finishing = this.#cache.finishingTable(this.#table, types);
+      this.#finishing.set(types, finishing);
+    }
+    return finishing;
   }
 
   /** What finishing an Echo with these Substat types adds to its Echo Score: on average, and at least. */
@@ -422,6 +586,54 @@ class RuleContext {
       this.#addedToFinish.set(types, added);
     }
     return added;
+  }
+
+  #compile(rules: readonly UpgradeRule[]): CompiledGroup {
+    const shapeRules: ShapeRule[] = [];
+    const scoreRules: ScoreRule[] = [];
+    for (const rule of rules) {
+      switch (rule.kind) {
+        case 'substatCount': {
+          const bits = rule.substatTypes.map(bit);
+          shapeRules.push((types) => {
+            let count = 0;
+            for (const typeBit of bits) if ((types & typeBit) !== 0) count++;
+            return count >= rule.count;
+          });
+          break;
+        }
+        case 'substatRoll': {
+          const { substatType, minValue } = rule;
+          const typeBit = bit(substatType);
+          const slot = this.#rollSlots.get(substatType)!;
+          // The roll digits (index plus one) whose value reaches the threshold; values are ascending.
+          const lowestDigit =
+            possibleRolls(substatType).findIndex(
+              (roll) => roll.value >= minValue - RULE_TOLERANCE,
+            ) + 1;
+          shapeRules.push(
+            (types, rolls) =>
+              (types & typeBit) !== 0 && lowestDigit > 0 && digitOf(rolls, slot) >= lowestDigit,
+          );
+          break;
+        }
+        case 'echoScore': {
+          const lowest = rule.minEchoScore - RULE_TOLERANCE;
+          scoreRules.push((_, score) => score >= lowest);
+          break;
+        }
+        case 'targetChance': {
+          const { targetScore } = rule;
+          const lowest = rule.minChancePercent / 100 - RULE_TOLERANCE;
+          scoreRules.push(
+            (types, score) =>
+              this.finishingTable(types).chanceAtOrAbove(targetScore - score) >= lowest,
+          );
+          break;
+        }
+      }
+    }
+    return { shapeRules, scoreRules };
   }
 
   #calculateScoreAddedToFinish(types: number): { average: number; min: number } {

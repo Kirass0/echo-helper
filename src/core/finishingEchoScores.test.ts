@@ -6,8 +6,15 @@ import {
   substatWeightTable,
   type SubstatType,
 } from './index';
+import * as plain from './testing/plain';
 
-// Ported from FinishingEchoValuesTests.
+// Ported from FinishingEchoValuesTests. They run against the shipped Core and the plain reference it is checked
+// against (fastVersusPlain.test.ts).
+
+const implementations = [
+  ['fast Core', finishingEchoScores],
+  ['plain reference', plain.finishingEchoScores],
+] as const;
 
 // Only Crit Rate is weighted: 6.0 per Reference Roll (7.5), so the Echo Score is just the Crit Rate roll scaled.
 const critRateTable = substatWeightTable('Crit Rate', { Critical_Rate: 6.0 });
@@ -21,7 +28,7 @@ function echoWith(...substats: [SubstatType, number][]): Echo {
 const critRateScore = (critRate: number) =>
   echoScore(echoWith(['Critical_Rate', critRate]), critRateTable);
 
-describe('finishingEchoScores', () => {
+describe.each(implementations)('finishingEchoScores, %s', (_, finishingEchoScores) => {
   it('an untuned Echo finishes with Crit Rate 5 times in 13', () => {
     const finishing = finishingEchoScores(new Echo(), critRateTable);
 

@@ -1,6 +1,7 @@
-import { echoScore, scoreRolls, type Echo } from './echo';
+import { echoScore, type Echo } from './echo';
 import { MAX_TUNE_STAGE, SUBSTAT_TYPES, type SubstatType } from './gameData';
 import { SCORE_TOLERANCE, clamp01, firstAtOrAbove } from './search';
+import { addedEchoScores } from './sortedTable';
 import type { SubstatWeightTable } from './substatWeightTable';
 
 /** An Echo Score an Echo can finish with, and the chances, in [0, 1], of finishing there with and without Energy Regen. */
@@ -25,14 +26,23 @@ export interface FinishingEchoScores {
   chanceWithErAtOrAbove(score: number): number;
 }
 
-/** The finishing table of an Echo for a Weight Table. */
-export function finishingEchoScores(echo: Echo, table: SubstatWeightTable): FinishingEchoScores {
-  return finishingEchoScoresFor([...echo.substats.keys()], echoScore(echo, table), table);
+/** A finishing table as the Core reads it: its outcomes as parallel typed arrays, ascending by Echo Score. */
+export interface SortedFinishingEchoScores extends FinishingEchoScores {
+  readonly scores: Float64Array;
+  readonly chances: Float64Array;
+  readonly chancesWithEr: Float64Array;
 }
 
-interface ErSplit {
-  withEr: number;
-  withoutEr: number;
+/** The finishing table of an Echo for a Weight Table. */
+export function finishingEchoScores(echo: Echo, table: SubstatWeightTable): FinishingEchoScores {
+  return sortedFinishingEchoScores(echo, table);
+}
+
+export function sortedFinishingEchoScores(
+  echo: Echo,
+  table: SubstatWeightTable,
+): SortedFinishingEchoScores {
+  return finishingEchoScoresFor([...echo.substats.keys()], echoScore(echo, table), table);
 }
 
 /**
@@ -44,68 +54,54 @@ export function finishingEchoScoresFor(
   types: readonly SubstatType[],
   currentScore: number,
   table: SubstatWeightTable,
-): FinishingEchoScores {
-  const toAdd = MAX_TUNE_STAGE - types.length;
-  // bySize[k] maps an added Echo Score to its chances, with and without Energy Regen added, summed over every set of
-  // k of the missing types added so far.
-  const bySize: Map<number, ErSplit>[] = Array.from({ length: toAdd + 1 }, () => new Map());
-  bySize[0]!.set(0.0, { withEr: 0, withoutEr: 1 });
-
-  for (const type of SUBSTAT_TYPES.filter((type) => !types.includes(type))) {
-    const rolls = scoreRolls(type, table);
-    const isEr = type === 'Energy_Regen';
-    for (let size = toAdd; size >= 1; size--) {
-      const larger = bySize[size]!;
-      for (const [score, split] of bySize[size - 1]!) {
-        const added = isEr ? { withEr: split.withEr + split.withoutEr, withoutEr: 0 } : split;
-        for (const roll of rolls) {
-          const key = score + roll.score;
-          const chances = larger.get(key);
-          if (chances) {
-            chances.withEr += added.withEr * roll.chance;
-            chances.withoutEr += added.withoutEr * roll.chance;
-          } else {
-            larger.set(key, {
-              withEr: added.withEr * roll.chance,
-              withoutEr: added.withoutEr * roll.chance,
-            });
-          }
-        }
-      }
-    }
-  }
+): SortedFinishingEchoScores {
+  const missing = SUBSTAT_TYPES.filter((type) => !types.includes(type));
+  const added = addedEchoScores(missing, MAX_TUNE_STAGE - types.length, table);
+  const length = added.scores.length;
 
   // Each set of missing types is equally likely, so the summed chances are divided by the number of sets.
-  const finished = bySize[toAdd]!;
   let setCount = 0;
-  for (const split of finished.values()) setCount += split.withEr + split.withoutEr;
+  for (let i = 0; i < length; i++) setCount += added.withEr[i]! + added.withoutEr[i]!;
   const hasEr = types.includes('Energy_Regen');
-  const outcomes = [...finished]
-    .map(([added, split]): FinishingOutcome => {
-      const chanceWithEr = (hasEr ? split.withEr + split.withoutEr : split.withEr) / setCount;
-      const chanceWithoutEr = (hasEr ? 0 : split.withoutEr) / setCount;
-      return {
-        score: currentScore + added,
-        chanceWithEr,
-        chanceWithoutEr,
-        chance: chanceWithEr + chanceWithoutEr,
-      };
-    })
-    .sort((a, b) => a.score - b.score);
-
-  const scores = Float64Array.from(outcomes, (outcome) => outcome.score);
-  // The chance of finishing at or above each Echo Score; both have a trailing 0.
-  const atOrAbove = new Float64Array(outcomes.length + 1);
-  const withErAtOrAbove = new Float64Array(outcomes.length + 1);
-  for (let i = outcomes.length - 1; i >= 0; i--) {
-    atOrAbove[i] = atOrAbove[i + 1]! + outcomes[i]!.chance;
-    withErAtOrAbove[i] = withErAtOrAbove[i + 1]! + outcomes[i]!.chanceWithEr;
+  // Adding the current Echo Score keeps them in order; scores that become equal stay separate outcomes.
+  const scores = new Float64Array(length);
+  const chances = new Float64Array(length);
+  const chancesWithEr = new Float64Array(length);
+  const chancesWithoutEr = new Float64Array(length);
+  for (let i = 0; i < length; i++) {
+    const withEr = hasEr ? added.withEr[i]! + added.withoutEr[i]! : added.withEr[i]!;
+    const withoutEr = hasEr ? 0 : added.withoutEr[i]!;
+    scores[i] = currentScore + added.scores[i]!;
+    chancesWithEr[i] = withEr / setCount;
+    chancesWithoutEr[i] = withoutEr / setCount;
+    chances[i] = chancesWithEr[i]! + chancesWithoutEr[i]!;
   }
-  const lookUp = (chances: Float64Array, score: number) =>
-    clamp01(chances[firstAtOrAbove(scores, score - SCORE_TOLERANCE)]!);
 
+  // The chance of finishing at or above each Echo Score; both have a trailing 0.
+  const atOrAbove = new Float64Array(length + 1);
+  const withErAtOrAbove = new Float64Array(length + 1);
+  for (let i = length - 1; i >= 0; i--) {
+    atOrAbove[i] = atOrAbove[i + 1]! + chances[i]!;
+    withErAtOrAbove[i] = withErAtOrAbove[i + 1]! + chancesWithEr[i]!;
+  }
+  const lookUp = (chancesAtOrAbove: Float64Array, score: number) =>
+    clamp01(chancesAtOrAbove[firstAtOrAbove(scores, score - SCORE_TOLERANCE)]!);
+
+  let outcomes: FinishingOutcome[] | undefined;
   return {
-    outcomes,
+    scores,
+    chances,
+    chancesWithEr,
+    // Built on first read: the Core itself reads the typed arrays, and a large table has millions of outcomes.
+    get outcomes() {
+      outcomes ??= Array.from(scores, (score, i) => ({
+        score,
+        chanceWithEr: chancesWithEr[i]!,
+        chanceWithoutEr: chancesWithoutEr[i]!,
+        chance: chances[i]!,
+      }));
+      return outcomes;
+    },
     chanceAtOrAbove: (score) => lookUp(atOrAbove, score),
     chanceWithErAtOrAbove: (score) => lookUp(withErAtOrAbove, score),
   };

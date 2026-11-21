@@ -14,6 +14,7 @@ import {
   loadEchoEvaluationFixtures,
   loadTopPercentFixtures,
   loadUpgradeStrategyFixtures,
+  upgradeStrategyDifferences,
 } from './goldenFixtures';
 
 export const GOLDEN_TOLERANCE = 1e-9;
@@ -34,8 +35,9 @@ export const UPGRADE_STRATEGY_TABLES = [
   'Hsin',
 ] as const;
 
-// The plain-port Core takes seconds per case; the fast Core (ticket 07) brings this down.
-const SLOW_CASE_TIMEOUT = 120_000;
+// The heaviest cases, Successful Echo distributions finished from Tune Stage 1 to 3 on large tables, take a few
+// seconds when four test files run at once.
+const SLOW_CASE_TIMEOUT = 60_000;
 
 /** Top Percent and ER Top Percent at every sampled Echo Score, for the Weight Tables in [from, to) of the 28. */
 export function goldenTopPercentSuite(from: number, to: number): void {
@@ -90,8 +92,8 @@ export function goldenEchoEvaluationSuite(
 }
 
 /**
- * The first or second half of the Upgrade Strategies on one Weight Table, in fixture order. A table's cases take up to
- * two minutes on the plain-port Core, so each half has its own test file.
+ * The first or second half of the Upgrade Strategies on one Weight Table, in fixture order. A table's cases take
+ * several seconds together, so each half has its own test file.
  */
 export function goldenUpgradeStrategySuite(
   tableName: (typeof UPGRADE_STRATEGY_TABLES)[number],
@@ -109,7 +111,7 @@ export function goldenUpgradeStrategySuite(
       '%s',
       (_, { weightTable, strategy, result }) => {
         const actual = calculateUpgradeStrategy(strategy, weightTable, { cache });
-        expect(differencesFrom(actual, result, GOLDEN_TOLERANCE)).toEqual([]);
+        expect(upgradeStrategyDifferences(actual, result, GOLDEN_TOLERANCE)).toEqual([]);
       },
       SLOW_CASE_TIMEOUT,
     );

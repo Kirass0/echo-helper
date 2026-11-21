@@ -9,8 +9,15 @@ import {
   type SubstatWeightTable,
 } from './index';
 import { tuneCopiesToMax } from './testing/echoEvaluationSimulator';
+import * as plain from './testing/plain';
 
-// Ported from EchoValueDistributionTests.
+// Ported from EchoValueDistributionTests. They run against the shipped Core and the plain reference it is checked
+// against (fastVersusPlain.test.ts).
+
+const implementations = [
+  ['fast Core', echoScoreDistribution],
+  ['plain reference', plain.echoScoreDistribution],
+] as const;
 
 // Only Crit Rate is weighted: 6.0 per Reference Roll (7.5), so the Echo Score is just the Crit Rate roll scaled.
 const critRateTable = substatWeightTable('Crit Rate', { Critical_Rate: 6.0 });
@@ -45,6 +52,7 @@ const critRateScore = (critRate: number) =>
   echoScore(echoWith(['Critical_Rate', critRate]), critRateTable);
 
 function expectAgreesWithASimulationOfAnEmptyEcho(
+  echoScoreDistribution: (table: SubstatWeightTable) => EchoScoreDistribution,
   table: SubstatWeightTable,
   withErOnly: boolean,
   chanceAbove: (distribution: EchoScoreDistribution, threshold: number) => number,
@@ -66,7 +74,7 @@ function expectAgreesWithASimulationOfAnEmptyEcho(
   }
 }
 
-describe('echoScoreDistribution', () => {
+describe.each(implementations)('echoScoreDistribution, %s', (_, echoScoreDistribution) => {
   it('with only Crit Rate weighted, every Echo with Crit Rate beats an Echo Score of zero', () => {
     const distribution = echoScoreDistribution(critRateTable);
 
@@ -128,8 +136,11 @@ describe('echoScoreDistribution', () => {
       Energy_Regen: 1.5,
     });
 
-    expectAgreesWithASimulationOfAnEmptyEcho(table, true, (distribution, threshold) =>
-      distribution.erTopPercent(threshold),
+    expectAgreesWithASimulationOfAnEmptyEcho(
+      echoScoreDistribution,
+      table,
+      true,
+      (distribution, threshold) => distribution.erTopPercent(threshold),
     );
   });
 
@@ -152,8 +163,11 @@ describe('echoScoreDistribution', () => {
   });
 
   it('the Top Percent agrees with a simulation of an empty Echo', () => {
-    expectAgreesWithASimulationOfAnEmptyEcho(resonatorTable, false, (distribution, threshold) =>
-      distribution.topPercent(threshold),
+    expectAgreesWithASimulationOfAnEmptyEcho(
+      echoScoreDistribution,
+      resonatorTable,
+      false,
+      (distribution, threshold) => distribution.topPercent(threshold),
     );
   });
 });

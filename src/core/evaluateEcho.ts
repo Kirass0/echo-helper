@@ -1,5 +1,5 @@
 import { echoScore, type Echo } from './echo';
-import { finishingEchoScores, type FinishingEchoScores } from './finishingEchoScores';
+import { sortedFinishingEchoScores, type SortedFinishingEchoScores } from './finishingEchoScores';
 import { MAX_TUNE_STAGE } from './gameData';
 import type { SubstatWeightTable } from './substatWeightTable';
 
@@ -64,7 +64,7 @@ export function evaluateEcho(
 ): EchoEvaluation {
   signal?.throwIfAborted();
   const currentScore = echoScore(echo, table);
-  const finishing = finishingEchoScores(echo, table);
+  const finishing = sortedFinishingEchoScores(echo, table);
   signal?.throwIfAborted();
 
   if (echo.tuneStage === MAX_TUNE_STAGE) {
@@ -92,19 +92,19 @@ export function evaluateEcho(
 }
 
 function outlookOf(
-  finishing: FinishingEchoScores,
+  finishing: SortedFinishingEchoScores,
   targetScore: number | null,
   erTargetScore: number | null,
 ): EchoOutlook {
-  const outcomes = finishing.outcomes;
-  const thresholds = thresholdsOf(outcomes);
+  const { scores, chances } = finishing;
+  const thresholds = thresholdsOf(scores);
   const distributionOf = (chanceAtOrAbove: (score: number) => number) =>
     thresholds.map((threshold) => ({ threshold, chance: chanceAtOrAbove(threshold) }));
   return {
-    best: outcomes.at(-1)!.score,
-    worst: outcomes[0]!.score,
-    average: outcomes.reduce((total, outcome) => total + outcome.score * outcome.chance, 0),
-    median: medianOf(outcomes),
+    best: scores.at(-1)!,
+    worst: scores[0]!,
+    average: averageOf(scores, chances),
+    median: medianOf(scores, chances),
     targetChance: targetScore === null ? null : finishing.chanceAtOrAbove(targetScore),
     erTargetChance: erTargetScore === null ? null : finishing.chanceWithErAtOrAbove(erTargetScore),
     distribution: distributionOf(finishing.chanceAtOrAbove),
@@ -113,32 +113,36 @@ function outlookOf(
   };
 }
 
-/** An Echo Score and its chance; a list of them is ascending by score and its chances sum to 1. */
-export interface ScoredChance {
-  readonly score: number;
-  readonly chance: number;
+// The helpers below read Echo Scores ascending, with parallel chances that sum to 1.
+
+/** The chance-weighted average Echo Score. */
+export function averageOf(scores: Float64Array, chances: Float64Array): number {
+  let total = 0;
+  for (let i = 0; i < scores.length; i++) total += scores[i]! * chances[i]!;
+  return total;
 }
 
 // Real Echo Scores from Worst to Best, so the steps stay exact; one closer than the merge gap to the last kept is
 // skipped, except Best.
-export function thresholdsOf(outcomes: readonly ScoredChance[]): number[] {
-  const worst = outcomes[0]!.score;
-  const best = outcomes.at(-1)!.score;
+export function thresholdsOf(scores: Float64Array): number[] {
+  const worst = scores[0]!;
+  const best = scores.at(-1)!;
   const mergeGap = (best - worst) / MAX_DISTRIBUTION_STEPS;
   const thresholds = [worst];
-  for (const outcome of outcomes.slice(1)) {
-    if (outcome.score - thresholds.at(-1)! >= mergeGap) thresholds.push(outcome.score);
+  let last = worst;
+  for (let i = 1; i < scores.length; i++) {
+    if (scores[i]! - last >= mergeGap) thresholds.push((last = scores[i]!));
   }
-  if (thresholds.at(-1)! < best) thresholds.push(best);
+  if (last < best) thresholds.push(best);
   return thresholds;
 }
 
 // The lowest Echo Score with a chance of at least half to finish at or below it.
-export function medianOf(outcomes: readonly ScoredChance[]): number {
+export function medianOf(scores: Float64Array, chances: Float64Array): number {
   let chanceAtOrBelow = 0;
-  for (const outcome of outcomes) {
-    chanceAtOrBelow += outcome.chance;
-    if (chanceAtOrBelow >= 0.5 - CHANCE_TOLERANCE) return outcome.score;
+  for (let i = 0; i < scores.length; i++) {
+    chanceAtOrBelow += chances[i]!;
+    if (chanceAtOrBelow >= 0.5 - CHANCE_TOLERANCE) return scores[i]!;
   }
-  return outcomes.at(-1)!.score;
+  return scores.at(-1)!;
 }

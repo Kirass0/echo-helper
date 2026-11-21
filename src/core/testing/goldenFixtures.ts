@@ -299,3 +299,35 @@ export function differencesFrom(
     ? []
     : [`${path}: expected ${String(expected)}, got ${String(actual)}`];
 }
+
+/**
+ * The differences between two Upgrade Strategy results. Everything is compared as differencesFrom compares it, except
+ * the Cost per Successful Echo, whose fields must be within the tolerance relative to the expected value. They are
+ * Tuning Costs in the hundreds of thousands divided by the Success Rate, so a difference of 1e-15 in a Discard Rate,
+ * which a different summation order gives, is about 1e-7 there; the C# Core's own rates are off by up to 1e-12
+ * (they sum to 1 only within that). Relative to their size they agree within about 1e-12.
+ */
+export function upgradeStrategyDifferences(
+  actual: UpgradeStrategyResult,
+  expected: UpgradeStrategyResult,
+  tolerance: number,
+): string[] {
+  const { costPerSuccessfulEcho: actualCost, ...actualRest } = actual;
+  const { costPerSuccessfulEcho: expectedCost, ...expectedRest } = expected;
+  const differences = differencesFrom(actualRest, expectedRest, tolerance);
+  if (expectedCost === null || actualCost === null) {
+    if (expectedCost !== actualCost)
+      differences.push(
+        `.costPerSuccessfulEcho: expected ${String(expectedCost)}, got ${String(actualCost)}`,
+      );
+    return differences;
+  }
+  for (const key of ['echoes', 'exp', 'tuners', 'shellCredits'] as const) {
+    const scale = Math.max(1, Math.abs(expectedCost[key]));
+    if (!(Math.abs(actualCost[key] - expectedCost[key]) <= tolerance * scale))
+      differences.push(
+        `.costPerSuccessfulEcho.${key}: expected ${expectedCost[key]}, got ${actualCost[key]}`,
+      );
+  }
+  return differences;
+}

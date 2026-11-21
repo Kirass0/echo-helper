@@ -5,6 +5,7 @@ import {
   loadTopPercentFixtures,
   loadUpgradeStrategyFixtures,
   readGoldenFixture,
+  upgradeStrategyDifferences,
 } from '../testing/goldenFixtures';
 import {
   ECHO_EVALUATION_TABLES,
@@ -31,6 +32,39 @@ describe('golden fixture loader', () => {
     expect(differencesFrom({ ...expected, chance: null }, expected, GOLDEN_TOLERANCE)).toHaveLength(
       1,
     );
+  });
+
+  it('compares the Cost per Successful Echo relative to its size, and the rest absolutely', () => {
+    const [fixture] = loadUpgradeStrategyFixtures().filter(
+      (f) => f.result.costPerSuccessfulEcho !== null,
+    );
+    const expected = fixture!.result;
+    const cost = expected.costPerSuccessfulEcho!;
+    const withExp = (exp: number) => ({
+      ...expected,
+      costPerSuccessfulEcho: { ...cost, exp },
+    });
+    expect(cost.exp).toBeGreaterThan(1000);
+    expect(
+      upgradeStrategyDifferences(withExp(cost.exp * (1 + 5e-10)), expected, GOLDEN_TOLERANCE),
+    ).toEqual([]);
+    expect(
+      upgradeStrategyDifferences(withExp(cost.exp * (1 + 2e-9)), expected, GOLDEN_TOLERANCE),
+    ).toHaveLength(1);
+    expect(
+      upgradeStrategyDifferences(
+        { ...expected, successRate: expected.successRate + 2e-9 },
+        expected,
+        GOLDEN_TOLERANCE,
+      ),
+    ).toHaveLength(1);
+    expect(
+      upgradeStrategyDifferences(
+        { ...expected, costPerSuccessfulEcho: null },
+        expected,
+        GOLDEN_TOLERANCE,
+      ),
+    ).toHaveLength(1);
   });
 
   it('maps the C# names to the glossary names', () => {
