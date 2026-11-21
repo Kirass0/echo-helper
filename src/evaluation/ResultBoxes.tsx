@@ -2,6 +2,8 @@ import { useId } from 'react';
 import type { EchoEvaluationResult } from '../calculation/protocol';
 import { formatChance, formatEchoScore, formatTopPercent } from './format';
 import styles from './ResultBoxes.module.css';
+import { Term } from '../ui/Term';
+import { TERM_TOOLTIPS } from './termTooltips';
 
 const SET_TARGET = 'Set a Target Score below';
 const SET_ER_TARGET = 'Set an ER Target Score below';
@@ -91,7 +93,11 @@ function Box({
   return (
     <div role="group" aria-labelledby={labelId} className={classes}>
       <span id={labelId} className={styles.label}>
-        {label}
+        {label in TERM_TOOLTIPS ? (
+          <Term tooltip={TERM_TOOLTIPS[label as keyof typeof TERM_TOOLTIPS]}>{label}</Term>
+        ) : (
+          label
+        )}
       </span>
       {'value' in content ? (
         <span className={[styles.value, content.tone && styles[content.tone]].join(' ')}>

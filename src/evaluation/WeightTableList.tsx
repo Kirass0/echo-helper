@@ -2,6 +2,8 @@ import { useId } from 'react';
 import type { WeightTableData } from '../catalogue/catalogue';
 import { INVALID_TARGET_MESSAGE, parseTarget } from './targetScore';
 import styles from './WeightTableList.module.css';
+import { Term } from '../ui/Term';
+import { TERM_TOOLTIPS } from './termTooltips';
 
 /** A listed table and what is typed in its target boxes. */
 export interface ListedTable {
@@ -27,15 +29,19 @@ export function WeightTableList({
   return (
     <section className={styles.list} aria-labelledby="weight-tables-heading">
       <h2 id="weight-tables-heading" className={styles.heading}>
-        Substat Weight Tables
+        <Term tooltip={TERM_TOOLTIPS['Substat Weight Table']}>Substat Weight Tables</Term>
       </h2>
       {listed && (
         <table className={styles.table}>
           <thead>
             <tr>
               <th scope="col">Weight Table</th>
-              <th scope="col">Target Score</th>
-              <th scope="col">ER Target Score</th>
+              <th scope="col">
+                <Term tooltip={TERM_TOOLTIPS['Target Score']}>Target Score</Term>
+              </th>
+              <th scope="col">
+                <Term tooltip={TERM_TOOLTIPS['ER Target Score']}>ER Target Score</Term>
+              </th>
             </tr>
           </thead>
           <tbody>
