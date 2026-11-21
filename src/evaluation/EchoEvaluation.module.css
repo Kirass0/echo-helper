@@ -16,7 +16,10 @@
   font-size: 1.15em;
   line-height: 1.25;
   margin: 0 0 10px;
-  overflow-wrap: anywhere;
+  /* One line whatever the name, so switching focus moves nothing; the full name is in the title. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .prompt {

@@ -9,7 +9,23 @@ export interface SubstatEntry {
   readonly value: number;
 }
 
-/** What Echo Evaluation asks for one Weight Table. */
+/** A listed Weight Table and its targets. */
+export interface ListedTableInput {
+  readonly table: WeightTableData;
+  readonly targetScore: number | null;
+  readonly erTargetScore: number | null;
+}
+
+/** What Echo Evaluation asks for: one Echo against every listed Weight Table. */
+export interface EchoEvaluationListInput {
+  /** The Substats in slot order, which is the order their contributions are summed in. */
+  readonly substats: readonly SubstatEntry[];
+  /** The listed tables, top to bottom. */
+  readonly tables: readonly ListedTableInput[];
+  readonly focusedTableName: string | null;
+}
+
+/** One job: Echo Evaluation for one Weight Table. */
 export interface EchoEvaluationInput {
   /** The Substats in slot order, which is the order their contributions are summed in. */
   readonly substats: readonly SubstatEntry[];
@@ -43,9 +59,10 @@ export interface EchoEvaluationResult {
 export interface EchoEvaluationRequest {
   readonly kind: 'echoEvaluation';
   readonly id: number;
-  readonly input: EchoEvaluationInput;
+  readonly input: EchoEvaluationListInput;
 }
 
+/** The result for one of the request's Weight Tables, posted as soon as it is ready. */
 export interface EchoEvaluationResponse {
   readonly kind: 'echoEvaluation';
   readonly id: number;

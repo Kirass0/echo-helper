@@ -13,11 +13,17 @@ export { seededRandom, type RandomSource } from './random';
 export { Echo, echoScore } from './echo';
 export { roundTo12Decimals } from './rounding';
 export { addTuningCosts, tuningCost, type TuningCost } from './tuningCost';
-export { echoScoreDistribution, type EchoScoreDistribution } from './echoScoreDistribution';
+export {
+  echoScoreDistribution,
+  type EchoScoreDistribution,
+  type WholeTableDistribution,
+} from './echoScoreDistribution';
 export {
   finishingEchoScores,
   finishingEchoScoresFor,
+  shiftedFinishingEchoScores,
   type FinishingEchoScores,
+  type SortedFinishingEchoScores,
   type FinishingOutcome,
 } from './finishingEchoScores';
 export {

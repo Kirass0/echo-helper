@@ -8,37 +8,106 @@
   margin: 0 0 10px;
 }
 
+/* Fixed column widths, so nothing moves or resizes when focus switches, a table is swapped or a target edited. */
 .table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   margin-bottom: 10px;
+}
+
+.nameColumn {
+  width: auto;
+}
+
+.targetColumn {
+  width: 7.2em;
+}
+
+.figureColumn {
+  width: 6.4em;
+}
+
+.iconColumn {
+  width: 40px;
 }
 
 .table th {
   text-align: left;
   font-weight: 400;
   font-size: 0.84em;
+  line-height: 1.25;
   color: var(--mute);
-  padding: 0 8px 6px;
+  padding: 0 6px 6px;
   vertical-align: bottom;
 }
 
+.table .figureHeader {
+  text-align: right;
+}
+
 .table td {
-  padding: 8px;
+  padding: 8px 6px;
   vertical-align: top;
+}
+
+.table tbody tr {
+  cursor: pointer;
+}
+
+/* The focus ring goes around the whole row. */
+.table tbody tr:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: -2px;
 }
 
 .focused {
   background: var(--acc-soft);
 }
 
+/* An inset shadow rather than a border, so the focused row is exactly as wide as the others. */
 .focused td:first-child {
-  border-left: 3px solid var(--acc);
+  box-shadow: inset 3px 0 0 var(--acc);
 }
 
-.name {
+.picker {
+  width: 100%;
+  min-width: 0;
+  padding: 3px 6px;
   font-weight: 600;
+  text-overflow: ellipsis;
+}
+
+.figure {
   padding-top: 11px !important;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.good {
+  color: var(--good);
+}
+
+.bad {
+  color: var(--bad);
+}
+
+.icon {
+  padding-left: 2px !important;
+  padding-right: 2px !important;
+  text-align: center;
+}
+
+.hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .target {
@@ -47,7 +116,8 @@
 }
 
 .number {
-  width: 6em;
+  width: 100%;
+  min-width: 0;
   padding: 3px 7px;
   text-align: right;
 }
@@ -56,13 +126,12 @@
   border-color: var(--bad);
 }
 
-/* Reserved, so an error appearing moves nothing. */
+/* Two lines reserved, so an error appearing moves nothing in the narrow column. */
 .error {
-  min-height: 1.3em;
+  min-height: 2.6em;
   font-size: 0.8em;
   line-height: 1.3;
   color: var(--bad);
-  max-width: 12em;
 }
 
 .add {

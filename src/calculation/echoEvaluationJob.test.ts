@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { runEchoEvaluation } from './echoEvaluationJob';
+import { createEchoEvaluationJobs } from './echoEvaluationJob';
 import type { EchoEvaluationInput } from './protocol';
 
 // Only Crit Rate is weighted: 6.0 per Reference Roll (7.5), so a Crit Rate of 7.5 scores exactly 6.
@@ -12,6 +12,8 @@ const input = (overrides: Partial<EchoEvaluationInput>): EchoEvaluationInput => 
   erTargetScore: null,
   ...overrides,
 });
+
+const runEchoEvaluation = (job: EchoEvaluationInput) => createEchoEvaluationJobs().run(job);
 
 describe('an Echo Evaluation job', () => {
   it('scores a partly tuned Echo and says where it can still finish', () => {
@@ -65,5 +67,68 @@ describe('an Echo Evaluation job', () => {
     expect(result.reachesErTarget).toBe(false);
     expect([result.median, result.average, result.best]).toEqual([6, 6, 6]);
     expect(result.targetChance).toBeNull();
+  });
+});
+
+const atk = { name: 'Atk', weights: { Atk_Percent: 1, Critical_Rate: 1 } };
+const critRateAt = (value: number) => ({ type: 'Critical_Rate', value }) as const;
+
+describe('the tables kept per listed Weight Table', () => {
+  it('makes a target edit or a changed value of an existing Substat a lookup', () => {
+    const jobs = createEchoEvaluationJobs();
+    jobs.run(input({ substats: [critRateAt(6.3)] }));
+    expect(jobs.built).toEqual({ distributions: 1, finishingTables: 1 });
+
+    jobs.run(input({ substats: [critRateAt(6.3)], targetScore: 7 }));
+    const changed = jobs.run(input({ substats: [critRateAt(7.5)], targetScore: 7 }));
+    expect(jobs.built).toEqual({ distributions: 1, finishingTables: 1 });
+    // The kept table, shifted by the new value: Crit Rate 7.5 scores 6, and nothing more can come.
+    expect(changed.echoScore).toBe(6);
+    expect(changed.best).toBe(6);
+    expect(changed.targetChance).toBe(0);
+  });
+
+  it('builds a new finishing table when the Substat types change', () => {
+    const jobs = createEchoEvaluationJobs();
+    jobs.run(input({ substats: [critRateAt(6.3)] }));
+    jobs.run(input({ substats: [critRateAt(6.3), { type: 'Hp_Flat', value: 430 }] }));
+    expect(jobs.built.finishingTables).toBe(2);
+  });
+
+  it('reuses the whole-table distribution for a fresh Echo', () => {
+    const jobs = createEchoEvaluationJobs();
+    const fresh = jobs.run(input({ targetScore: 6 }));
+    expect(jobs.built).toEqual({ distributions: 1, finishingTables: 0 });
+    // 5/13 of fully tuned Echoes have Crit Rate, and 5333 of its 9999 tier weight is 7.5 or more.
+    expect(fresh.targetChance).toBeCloseTo((5 / 13) * (5333 / 9999), 12);
+  });
+
+  it('keeps one finishing table for each listed table', () => {
+    const jobs = createEchoEvaluationJobs();
+    const substats = [critRateAt(6.3)];
+    for (const targetScore of [1, 2, 3]) {
+      jobs.run(input({ substats, targetScore }));
+      jobs.run(input({ substats, targetScore, table: atk }));
+    }
+    expect(jobs.built).toEqual({ distributions: 2, finishingTables: 2 });
+  });
+
+  it('rebuilds when a table’s weights change under the same name', () => {
+    const jobs = createEchoEvaluationJobs();
+    jobs.run(input({ substats: [critRateAt(6.3)] }));
+    jobs.run(
+      input({ substats: [critRateAt(6.3)], table: { ...critRate, weights: { Critical_Rate: 3 } } }),
+    );
+    expect(jobs.built).toEqual({ distributions: 2, finishingTables: 2 });
+  });
+
+  it('forgets the tables that are no longer listed', () => {
+    const jobs = createEchoEvaluationJobs();
+    jobs.run(input({ substats: [critRateAt(6.3)] }));
+    jobs.run(input({ substats: [critRateAt(6.3)], table: atk }));
+    jobs.keepOnly(['Atk']);
+    jobs.run(input({ substats: [critRateAt(6.3)], table: atk }));
+    jobs.run(input({ substats: [critRateAt(6.3)] }));
+    expect(jobs.built).toEqual({ distributions: 3, finishingTables: 3 });
   });
 });

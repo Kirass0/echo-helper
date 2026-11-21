@@ -26,4 +26,59 @@ test.describe('Echo Evaluation', () => {
       /Top /,
     );
   });
+
+  test('compares several tables, and nothing moves when focus, a table or a target changes', async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name === 'phone', 'The phone layout comes with ticket 21.');
+    await page.goto('#evaluation');
+    await page.getByRole('button', { name: 'Add the Substat revealed at +5' }).click();
+    await page.getByRole('button', { name: 'Crit Rate', exact: true }).click();
+    await page.getByRole('button', { name: '8.1%' }).click();
+
+    const add = page.getByRole('combobox', { name: 'Add a Weight Table' });
+    await add.selectOption('Mornye');
+    await add.selectOption('Jinhsi');
+    await add.selectOption('Cartethyia');
+    const rows = page.getByRole('table').getByRole('row');
+    await expect(rows).toHaveCount(4);
+    await expect(page.getByRole('heading', { name: 'Cartethyia' })).toBeVisible();
+    await expect(rows.nth(3)).toHaveAttribute('aria-current', 'true');
+    // Each row gets its own Echo Score.
+    for (const index of [1, 2, 3]) await expect(rows.nth(index)).toContainText(/\d+\.\d\d/);
+
+    const layout = () =>
+      page.evaluate(() =>
+        [
+          ...document.querySelectorAll('section[aria-label="Results"] [role="group"]'),
+          ...document.querySelectorAll(
+            'table tr, table th, select[aria-label="Add a Weight Table"]',
+          ),
+        ].map((element) => {
+          const { x, y, width, height } = element.getBoundingClientRect();
+          return [x, y, width, height].map(Math.round).join(',');
+        }),
+      );
+    const before = await layout();
+
+    await rows.nth(1).getByRole('cell').nth(3).click();
+    await expect(page.getByRole('heading', { name: 'Mornye' })).toBeVisible();
+    expect(await layout()).toEqual(before);
+
+    await page
+      .getByRole('combobox', { name: 'Swap Jinhsi for another Weight Table' })
+      .selectOption('Qingxiao');
+    await expect(rows.nth(2).getByRole('combobox')).toHaveValue('Qingxiao');
+    expect(await layout()).toEqual(before);
+
+    await page.getByRole('textbox', { name: 'Target Score for Mornye', exact: true }).fill('20');
+    await expect(page.getByRole('group', { name: 'Target Chance', exact: true })).toContainText(
+      /%/,
+    );
+    await page.getByRole('textbox', { name: 'Target Score for Mornye', exact: true }).fill('-');
+    await expect(
+      page.getByRole('textbox', { name: 'Target Score for Mornye', exact: true }),
+    ).toHaveAttribute('aria-invalid', 'true');
+    expect(await layout()).toEqual(before);
+  });
 });

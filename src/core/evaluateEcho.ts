@@ -50,6 +50,8 @@ export interface EchoEvaluation {
 export interface CalculationOptions {
   /** Aborting it stops the calculation with the signal's reason (an `AbortError` by default). */
   readonly signal?: AbortSignal | undefined;
+  /** This Echo's finishing table for this Weight Table, when the caller already has it; otherwise it is built. */
+  readonly finishing?: SortedFinishingEchoScores | undefined;
 }
 
 /** The exact Echo Evaluation of an Echo for a Weight Table, with optional Target Score and ER Target Score. */
@@ -58,11 +60,11 @@ export function evaluateEcho(
   table: SubstatWeightTable,
   targetScore: number | null,
   erTargetScore: number | null,
-  { signal }: CalculationOptions = {},
+  { signal, finishing: built }: CalculationOptions = {},
 ): EchoEvaluation {
   signal?.throwIfAborted();
   const currentScore = echoScore(echo, table);
-  const finishing = finishingEchoScores(echo, table);
+  const finishing = built ?? finishingEchoScores(echo, table);
   signal?.throwIfAborted();
 
   if (echo.tuneStage === MAX_TUNE_STAGE) {

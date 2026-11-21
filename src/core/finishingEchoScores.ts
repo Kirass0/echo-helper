@@ -1,7 +1,12 @@
 import { echoScore, type Echo } from './echo';
 import { MAX_TUNE_STAGE, SUBSTAT_TYPES, type SubstatType } from './gameData';
 import { THRESHOLD_TOLERANCE, clamp01, firstAtOrAbove } from './search';
-import { addedEchoScores, chancesAtOrAbove, chancesOf } from './sortedTable';
+import {
+  addedEchoScores,
+  chancesAtOrAbove,
+  chancesOf,
+  type AddedEchoScoreChances,
+} from './sortedTable';
 import type { SubstatWeightTable } from './substatWeightTable';
 
 /** An Echo Score an Echo can finish with, and the chances, in [0, 1], of finishing there with and without Energy Regen. */
@@ -31,6 +36,7 @@ export interface SortedFinishingEchoScores extends FinishingEchoScores {
   readonly scores: Float64Array;
   readonly chances: Float64Array;
   readonly chancesWithEr: Float64Array;
+  readonly chancesWithoutEr: Float64Array;
 }
 
 /** The finishing table of an Echo for a Weight Table. */
@@ -53,14 +59,34 @@ export function finishingEchoScoresFor(
 ): SortedFinishingEchoScores {
   const missing = SUBSTAT_TYPES.filter((type) => !types.includes(type));
   const added = addedEchoScores(missing, MAX_TUNE_STAGE - types.length, table);
-  const { chances, chancesWithEr, chancesWithoutEr } = chancesOf(
-    added,
-    types.includes('Energy_Regen'),
-  );
+  const chances = chancesOf(added, types.includes('Energy_Regen'));
   // Adding the current Echo Score keeps them in order; scores that become equal stay separate outcomes.
-  const scores = new Float64Array(added.scores.length);
-  for (let i = 0; i < scores.length; i++) scores[i] = currentScore + added.scores[i]!;
+  return sortedFinishingEchoScores(shiftedBy(added.scores, currentScore), chances);
+}
 
+/**
+ * The finishing table of an Echo with the same Substat types as the one this table is for, but an Echo Score higher by
+ * the given amount: values only shift a finishing table. Shifting the table of Echo Score 0 gives exactly the table
+ * finishingEchoScoresFor builds.
+ */
+export function shiftedFinishingEchoScores(
+  finishing: SortedFinishingEchoScores,
+  by: number,
+): SortedFinishingEchoScores {
+  return sortedFinishingEchoScores(shiftedBy(finishing.scores, by), finishing);
+}
+
+function shiftedBy(scores: Float64Array, by: number): Float64Array {
+  const shifted = new Float64Array(scores.length);
+  for (let i = 0; i < shifted.length; i++) shifted[i] = by + scores[i]!;
+  return shifted;
+}
+
+/** A finishing table from its ascending Echo Scores and their chances. */
+export function sortedFinishingEchoScores(
+  scores: Float64Array,
+  { chances, chancesWithEr, chancesWithoutEr }: AddedEchoScoreChances,
+): SortedFinishingEchoScores {
   const atOrAbove = chancesAtOrAbove(chances);
   const withErAtOrAbove = chancesAtOrAbove(chancesWithEr);
   const lookUp = (atOrAboveEach: Float64Array, score: number) =>
@@ -71,6 +97,7 @@ export function finishingEchoScoresFor(
     scores,
     chances,
     chancesWithEr,
+    chancesWithoutEr,
     // Built on first read: the Core itself reads the typed arrays, and a large table has millions of outcomes.
     get outcomes() {
       outcomes ??= Array.from(scores, (score, i) => ({
