@@ -93,9 +93,6 @@ interface CsUpgradeStrategy {
       AverageKeptEchoValue: number | null;
       MinimumKeptEchoValue: number | null;
     };
-    // The exporter's Successful Echoes' Echo Score distribution, which the Core no longer calculates (spec §19,
-    // 2026-11-21); it stays in the fixture but is not read.
-    SuccessfulEchoValues?: unknown;
   }[];
 }
 

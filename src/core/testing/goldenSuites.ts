@@ -24,24 +24,28 @@ export const ECHO_EVALUATION_TABLES = [
   'Mornye',
   'Cantarella',
   'Shorekeeper',
-  'Hsin',
-  'Energy Regen',
+  'Hsin (Unison)',
+  'Sigrika',
 ] as const;
 export const UPGRADE_STRATEGY_TABLES = [
   'Cartethyia',
   'Mornye',
   'Cantarella',
   'Shorekeeper',
-  'Hsin',
+  'Hsin (Unison)',
 ] as const;
 
-// The heaviest cases, Successful Echo distributions finished from Tune Stage 1 to 3 on large tables, take a few
-// seconds when four test files run at once.
+// A generous ceiling for the heaviest cases when four test files run at once.
 const SLOW_CASE_TIMEOUT = 60_000;
 
-/** Top Percent and ER Top Percent at every sampled Echo Score, for the Weight Tables in [from, to) of the 28. */
-export function goldenTopPercentSuite(from: number, to: number): void {
-  const fixtures = loadTopPercentFixtures().slice(from, to);
+/**
+ * Top Percent and ER Top Percent at every sampled Echo Score, for the first or second half of the Weight Tables, in
+ * fixture order. The halves together cover every table, however many the fixture holds.
+ */
+export function goldenTopPercentSuite(half: 'first' | 'second'): void {
+  const all = loadTopPercentFixtures();
+  const middle = Math.ceil(all.length / 2);
+  const fixtures = half === 'first' ? all.slice(0, middle) : all.slice(middle);
   describe('golden Top Percent and ER Top Percent', () => {
     it.each(fixtures.map((fixture) => [fixture.weightTable.name, fixture] as const))(
       '%s',

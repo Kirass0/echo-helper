@@ -1,3 +1,3 @@
 import { goldenEchoEvaluationSuite } from '../testing/goldenSuites';
 
-goldenEchoEvaluationSuite('Hsin');
+goldenEchoEvaluationSuite('Sigrika');

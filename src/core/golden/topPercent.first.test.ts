@@ -1,4 +1,4 @@
 import { goldenTopPercentSuite } from '../testing/goldenSuites';
 
-// The first 14 of the 28 Weight Tables; topPercent.second.test.ts has the rest.
-goldenTopPercentSuite(0, 14);
+// The first half of the 61 Weight Tables; topPercent.second.test.ts has the rest.
+goldenTopPercentSuite('first');

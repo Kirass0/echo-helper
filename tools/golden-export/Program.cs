@@ -7,7 +7,7 @@ using System.Text.Json.Serialization;
 using EchoHelper;
 using GoldenExport;
 
-const string sourceCommit = "53ce242";
+const string sourceCommit = "f69385c";
 
 string outputDirectory = Path.GetFullPath(args.Length > 0 ? args[0] : Path.Combine("tests", "fixtures", "golden"));
 string sourceDirectory = Path.GetFullPath(args.Length > 1 ? args[1]
@@ -22,15 +22,15 @@ File.WriteAllText(tablesPath, Git(sourceDirectory, "show", fullCommit + ":data/v
 if (!ValueTableFile.TryLoad(tablesPath, out var tables, out var problem))
     throw new InvalidOperationException($"data/valueTables.json at {sourceCommit}: {problem}");
 File.Delete(tablesPath);
-if (tables.Count != 28)
-    throw new InvalidOperationException($"Expected the 28 Value Tables of {sourceCommit}, found {tables.Count}.");
+if (tables.Count != 61)
+    throw new InvalidOperationException($"Expected the 61 Value Tables of {sourceCommit}, found {tables.Count}.");
 
 var source = new
 {
     Repository = "EchoHelperClaude",
     Commit = fullCommit,
     ValueTablesFile = "data/valueTables.json",
-    Note = "Exported once from the C# Core. Matches only the game data of 2026-11-16 (the 28 tables at this commit).",
+    Note = "Exported once from the C# Core. Matches only the game data at this commit (its 61 tables, the ones the catalogue starts with).",
 };
 var byName = tables.ToDictionary(table => table.Name);
 var options = new JsonSerializerOptions
@@ -119,22 +119,12 @@ foreach (var table in strategyTables)
             strategy.AddRuleGroup(tuneStage, rules);
         var stopwatch = Stopwatch.StartNew();
         var result = EchoCalculator.CalculateUpgradeStrategy(strategy, table);
-        var successful = SuccessfulEchoScores.Of(strategy, table);
-        CheckAgainstCore(name, table.Name, result, successful);
-        Console.WriteLine($"  {name} on {table.Name}: {stopwatch.Elapsed.TotalSeconds:F2} s, Success Rate {result.SuccessRate:P4}, {successful?.OutcomeCount ?? 0} Successful Echo Values");
+        Console.WriteLine($"  {name} on {table.Name}: {stopwatch.Elapsed.TotalSeconds:F2} s, Success Rate {result.SuccessRate:P4}");
         strategyCases.Add(new
         {
             StrategyName = name,
             ValueTableName = table.Name,
             Result = result,
-            SuccessfulEchoValues = successful is null ? null : new
-            {
-                successful.Best,
-                successful.Worst,
-                successful.Average,
-                successful.Median,
-                successful.Distribution,
-            },
         });
     }
 }
@@ -149,25 +139,6 @@ Write("upgrade-strategy.json", new
     }).ToList(),
     Cases = strategyCases,
 });
-
-// The derived distribution must agree with what the Core itself returns.
-static void CheckAgainstCore(string strategy, string table, UpgradeStrategyResult result, SuccessfulEchoScores.Result? successful)
-{
-    void Check(string what, double expected, double actual)
-    {
-        if (Math.Abs(expected - actual) > 1e-9)
-            throw new InvalidOperationException($"{strategy} on {table}: the derived {what} is {actual:R}, the Core's is {expected:R}.");
-    }
-    if (successful is null)
-    {
-        if (result.AverageKeptEchoValue is not null)
-            throw new InvalidOperationException($"{strategy} on {table}: the Core keeps Echoes, the derived pass keeps none.");
-        return;
-    }
-    Check("Success Rate", result.SuccessRate, successful.SuccessRate);
-    Check("Average", result.AverageKeptEchoValue!.Value, successful.Average);
-    Check("Minimum", result.MinimumKeptEchoValue!.Value, successful.Worst);
-}
 
 static string Git(string directory, params string[] arguments)
 {

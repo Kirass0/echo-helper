@@ -46,16 +46,17 @@ internal static class Fixtures
             new("Shorekeeper, Energy Regen first", "Shorekeeper",
                 [(Energy_Regen, 12.4), (Hp_Percent, 10.9), (Critical_Damage, 18.6), (Liberation, 7.9), (Def_Percent, 9)],
                 Variants(14, 11)),
-            new("Hsin, Energy Regen last", "Hsin",
+            new("Hsin (Unison), Energy Regen last", "Hsin (Unison)",
                 [(Critical_Damage, 19.8), (Skill, 8.6), (Critical_Rate, 6.9), (Atk_Percent, 11.6), (Energy_Regen, 6.8)],
                 Variants(12.7, 10)),
-            new("Energy Regen table, one weighted type", "Energy Regen",
+            // Sigrika is the only table with an Energy Regen weight (2.23).
+            new("Sigrika, weighted Energy Regen", "Sigrika",
                 [(Def_Flat, 40), (Energy_Regen, 9.2), (Heavy, 6.4), (Hp_Flat, 320), (Atk_Flat, 60)],
-                Variants(1, 1)),
+                Variants(8, 6)),
         ];
     }
 
-    public static readonly string[] StrategyTables = ["Cartethyia", "Mornye", "Cantarella", "Shorekeeper", "Hsin"];
+    public static readonly string[] StrategyTables = ["Cartethyia", "Mornye", "Cantarella", "Shorekeeper", "Hsin (Unison)"];
 
     public static StrategyCase[] Strategies() =>
     [

@@ -18,3 +18,4 @@
 ## Comments
 
 - Owner decision, 2026-11-21 (spec §19, item 9): the Core no longer calculates the Successful Echoes' Echo Score distribution, so the tests no longer read `SuccessfulEchoValues`. The exporter and the committed fixture keep it unchanged; see the note in `tools/golden-export/README.md`.
+- Regenerated, 2026-11-21 (spec §19, item 11): the fixtures now come from source commit `f69385c`, whose 61 Value Tables are the catalogue's starting contents; its Core is identical to `53ce242`. Top Percent covers all 61 tables. "Hsin" became "Hsin (Unison)", and "Energy Regen" became "Sigrika", which carries the only Energy Regen weight (2.23); Mornye keeps its two Flat DEF Echoes. The exporter no longer writes `SuccessfulEchoValues`, and `SuccessfulEchoScores.cs` is gone: the Average and Lowest Echo Score come straight from the Core's result, so the derivation's cross-check against the Core had nothing left to check.

@@ -71,12 +71,12 @@ describe('golden fixture loader', () => {
     const [mornyeAtTwo] = loadEchoEvaluationFixtures().filter(
       (fixture) => fixture.weightTable.name === 'Mornye' && fixture.echo.tuneStage === 2,
     );
-    expect(mornyeAtTwo!.weightTable.weightOf('Def_Flat')).toBe(1.16);
+    expect(mornyeAtTwo!.weightTable.weightOf('Def_Flat')).toBe(1.13);
     expect([...mornyeAtTwo!.echo.substats]).toEqual([
       ['Def_Flat', 50],
       ['Liberation', 9.4],
     ]);
-    expect(mornyeAtTwo!.evaluation.echoScore).toBe(5.4009302325581405);
+    expect(mornyeAtTwo!.evaluation.echoScore).toBe(6.562325581395349);
     expect(mornyeAtTwo!.evaluation.outlook!.targetChance).toBeNull();
 
     const owners = loadUpgradeStrategyFixtures()[0]!;
@@ -88,13 +88,13 @@ describe('golden fixture loader', () => {
     expect(owners.strategy.ruleGroups[0]!.rules).toEqual([
       { kind: 'targetChance', minChancePercent: 1, targetScore: 12.7 },
     ]);
-    expect(owners.result.lowestSuccessfulEchoScore).toBe(12.699999999999998);
+    expect(owners.result.lowestSuccessfulEchoScore).toBe(12.700013953488371);
   });
 });
 
 describe('golden fixture coverage', () => {
-  it('has the 28 Weight Tables of Top Percent', () => {
-    expect(loadTopPercentFixtures()).toHaveLength(28);
+  it('has the 61 Weight Tables of Top Percent', () => {
+    expect(loadTopPercentFixtures()).toHaveLength(61);
   });
 
   it('has a test file for every Echo Evaluation case, 72 in all', () => {

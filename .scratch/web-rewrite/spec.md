@@ -66,15 +66,15 @@ From [How the new calculation is proven equal to the old one](issues/03-core-par
 1. **Ported tests:** the 70 source Core tests that don't touch file IO, one for one, with the same hand-derived expectations. The 15 `ValueTableFile` tests are replaced by the catalogue check ([§4](#4-game-data-and-the-built-in-catalogue)).
 2. **Sampling oracles:** `EchoEvaluationSimulator` and `UpgradeStrategySimulator`, ported with their own seeded RNG and checked against the exact calculation with a statistical tolerance.
 3. **Golden fixtures:** JSON exported once from the C# Core and committed. The TypeScript Core must reproduce every value within `1e-9`.
-   - Inputs: the 28 tables in the source's `data/valueTables.json` as of 2026-11-16. Each fixture carries its own input table.
-   - Per table (all 28): the Echo Score distribution behind Top Percent, sampled at a fixed list of Echo Scores.
+   - Inputs: the 61 tables in the source's `data/valueTables.json` at commit `f69385c`, the same as the catalogue's starting contents ([§4](#4-game-data-and-the-built-in-catalogue)). Each fixture carries its own input table.
+   - Per table (all 61): the Echo Score distribution behind Top Percent, sampled at a fixed list of Echo Scores.
    - Echo Evaluation (about 5 tables, **"Mornye" required**, with at least one Echo holding Flat DEF): partly tuned Echoes at every Tune Stage 0–5, with and without targets. Recorded: Echo Score, Top Percent, Target Chance, Best, Worst, Average and Median Echo Score, and the distribution points.
-   - Upgrade Strategy (about 5 tables): the owner's saved strategy (4 rules, from `%AppData%\EchoHelper\settings.json`) plus about 6 written ones. Between them they cover every rule kind, several Rule Groups at one stage, an impossible rule and an empty strategy. Recorded: Success Rate, Discard Rate per stage, Tuning Cost, and the Successful Echoes' Echo Score distribution. The distribution is no longer checked or calculated, and the four Cost per Successful Echo fields are compared within `1e-9` relative to their size ([§19](#19-decisions-taken-while-assembling), 2026-11-21).
+   - Upgrade Strategy (about 5 tables): the owner's saved strategy (4 rules, from `%AppData%\EchoHelper\settings.json`) plus about 6 written ones. Between them they cover every rule kind, several Rule Groups at one stage, an impossible rule and an empty strategy. Recorded: Success Rate, Discard Rate per stage, Tuning Cost, and the Average and Lowest Echo Score of the Successful Echoes. The Successful Echoes' Echo Score distribution is no longer exported, checked or calculated, and the four Cost per Successful Echo fields are compared within `1e-9` relative to their size ([§19](#19-decisions-taken-while-assembling), 2026-11-21).
    - The implementing agent writes the synthetic Echoes and strategies.
    - The fixture loader maps the C# field names to the glossary names.
 4. **Fast versus plain:** the fast Core against the plain reference within `1e-9` on generated inputs. These are random Weight Tables (including Custom-style weights), Echoes at every Tune Stage, and strategies using every rule kind.
 
-**Exporter.** A small C# console project at `tools/golden-export/` references the source Core by path, without editing it. The implementing agent writes it and runs it once, locally, against the source project at `%USERPROFILE%\source\repos\EchoHelperClaude` (commit `53ce242` or later), then commits the JSON. CI never runs it. It is kept with a note that its output matches only that day's game data.
+**Exporter.** A small C# console project at `tools/golden-export/` references the source Core by path, without editing it. The implementing agent writes it and runs it once, locally, against the source project at `%USERPROFILE%\source\repos\EchoHelperClaude` (commit `f69385c`, whose `EchoHelper.Core` is identical to `53ce242`), then commits the JSON. CI never runs it. It is kept with a note that its output matches only that day's game data.
 
 **Acceptance.** Every ported test, both oracles, every fixture and the fast-versus-plain suite pass. Nothing is skipped or loosened beyond `1e-9`. A fixture that can't be met is raised to the owner, not adjusted.
 
@@ -765,6 +765,10 @@ Raised with the owner on 2026-11-21 while assembling. They are recorded as comme
 
 9. The Core drops the Successful Echoes' Echo Score distribution. The app never shows it ([§8](#8-upgrade-strategy) shows only the Average and Lowest Echo Score), the C# Core never returned it (only the golden exporter derived it), and carrying every distinct Echo Score to the end made some strategies take seconds. The pass now drops the Echo Score once no later rule reads it, as the C# pass does, and keeps the Average and Lowest exact. The golden fixtures keep the field, but the tests no longer read it. Recorded on tickets 04, 05 and 06.
 10. The four Cost per Successful Echo fields (Echoes, EXP, Tuners, Shell Credits) are compared within `1e-9` relative to their size, in the golden and fast-versus-plain suites. They divide Tuning Costs in the hundreds of thousands by the Success Rate, so no summation order other than the C# one meets an absolute `1e-9` (ticket 07). Every other value is still compared within an absolute `1e-9`.
+
+**Decided by the owner on 2026-11-21, after the source repo's Value Tables were updated:**
+
+11. The golden fixtures are regenerated from source commit `f69385c`, whose `data/valueTables.json` holds the 61 tables the catalogue starts with ([§4](#4-game-data-and-the-built-in-catalogue)); its `EchoHelper.Core` is identical to `53ce242`. "Hsin" and "Energy Regen" no longer exist, so the fixtures use "Hsin (Unison)" and "Sigrika" (the only table with an Energy Regen weight) instead. The exporter no longer writes the Successful Echoes' Echo Score distribution (item 9). Recorded on ticket 05.
 
 **Smaller defaults taken from the prototypes, for the owner to veto:**
 
