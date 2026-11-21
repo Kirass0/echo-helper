@@ -4,11 +4,11 @@ Label: wayfinder:map
 
 ## Destination
 
-A complete spec at `.scratch/web-rewrite/spec.md` for rewriting Echo Helper (the WPF app in `..\EchoHelperClaude`) as a static web app hosted on github.io, with nothing left to decide before it is sliced into implementation tickets. Building the app is a separate effort after this map.
+A complete spec at `.scratch/web-rewrite/spec.md` for rewriting Echo Helper (the WPF app in `%USERPROFILE%\source\repos\EchoHelperClaude`) as a static web app hosted on github.io, with nothing left to decide before it is sliced into implementation tickets. Building the app is a separate effort after this map.
 
 ## Notes
 
-- **Source project is read-only.** Read `..\EchoHelperClaude` freely (Core, WPF views, `GLOSSARY.md`, `docs/adr/`), never edit it.
+- **Source project is read-only.** Read `%USERPROFILE%\source\repos\EchoHelperClaude` freely (Core, WPF views, `GLOSSARY.md`, `docs/adr/`), never edit it.
 - **Plan, don't build.** Tickets produce decisions. Code written here is throwaway prototype only.
 - **Fixed by the destination** (settled while charting, not open for re-decision):
   - Audience: a Wuthering Waves player who knows the game (Echoes, Substats, tuning) but has never seen this tool or its vocabulary. The app must work on first open with no setup or file editing, and explain its own concepts.

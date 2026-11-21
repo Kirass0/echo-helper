@@ -2,7 +2,7 @@
 
 **Parent:** [Spec: Echo Helper web app](../../web-rewrite/spec.md) (§3, §4) · [ADR 0002](../../../docs/adr/0002-results-are-calculated-exactly.md)
 
-**What to build:** The first half of the TypeScript Core, as a plain `Map`-based port of the source `EchoHelper.Core` (`..\EchoHelperClaude`, commit `53ce242` or later). Given a Substat Weight Table and a partly tuned Echo, with optional Target Score and ER Target Score, it gives every Echo Evaluation result exactly, never by sampling. It has no React or DOM imports and runs in Node.
+**What to build:** The first half of the TypeScript Core, as a plain `Map`-based port of the source `EchoHelper.Core` (`%USERPROFILE%\source\repos\EchoHelperClaude`, commit `53ce242` or later). Given a Substat Weight Table and a partly tuned Echo, with optional Target Score and ER Target Score, it gives every Echo Evaluation result exactly, never by sampling. It has no React or DOM imports and runs in Node.
 
 **Blocked by:** 01 (Scaffold, CI gate and deploy of the app shell)
 

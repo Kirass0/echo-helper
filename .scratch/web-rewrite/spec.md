@@ -16,7 +16,7 @@ Assembled on 2026-11-21. Decisions taken with the owner while assembling are mar
   - [`prototypes/16-phone-layout/index.html`](prototypes/16-phone-layout/index.html), seen through [`frame.html`](prototypes/16-phone-layout/frame.html) (B, plus C for strategy results and About): phone layout.
   - Where a prototype and this spec disagree, this spec wins.
 - Weight method: [`docs/substat-weights.md`](../../docs/substat-weights.md).
-- Source project (read-only reference): `..\EchoHelperClaude`, commit `53ce242` or later.
+- Source project (read-only reference): `%USERPROFILE%\source\repos\EchoHelperClaude`, commit `53ce242` or later.
 
 ---
 
@@ -74,7 +74,7 @@ From [How the new calculation is proven equal to the old one](issues/03-core-par
    - The fixture loader maps the C# field names to the glossary names.
 4. **Fast versus plain:** the fast Core against the plain reference within `1e-9` on generated inputs. These are random Weight Tables (including Custom-style weights), Echoes at every Tune Stage, and strategies using every rule kind.
 
-**Exporter.** A small C# console project at `tools/golden-export/` references the source Core by path, without editing it. The implementing agent writes it and runs it once, locally, against the source project at `..\EchoHelperClaude` (commit `53ce242` or later), then commits the JSON. CI never runs it. It is kept with a note that its output matches only that day's game data.
+**Exporter.** A small C# console project at `tools/golden-export/` references the source Core by path, without editing it. The implementing agent writes it and runs it once, locally, against the source project at `%USERPROFILE%\source\repos\EchoHelperClaude` (commit `53ce242` or later), then commits the JSON. CI never runs it. It is kept with a note that its output matches only that day's game data.
 
 **Acceptance.** Every ported test, both oracles, every fixture and the fast-versus-plain suite pass. Nothing is skipped or loosened beyond `1e-9`. A fixture that can't be met is raised to the owner, not adjusted.
 

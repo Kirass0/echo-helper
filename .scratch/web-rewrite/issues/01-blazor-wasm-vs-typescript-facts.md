@@ -8,7 +8,7 @@ Map: [Echo Helper web rewrite](../map.md)
 
 What are the hard facts that separate reusing the C# Core through Blazor WebAssembly from porting it to TypeScript, for a static app on GitHub Pages?
 
-Surface, from primary sources (Microsoft Learn, GitHub Pages docs, the .NET repos) and from reading the source project at `..\EchoHelperClaude` (read-only):
+Surface, from primary sources (Microsoft Learn, GitHub Pages docs, the .NET repos) and from reading the source project at `%USERPROFILE%\source\repos\EchoHelperClaude` (read-only):
 
 - Download size and time-to-interactive of a current-.NET Blazor WebAssembly standalone app on GitHub Pages, with and without trimming, AOT and Brotli (check what compression GitHub Pages actually serves and what pre-compressed files require).
 - What GitHub Pages needs for a Blazor WASM app (base path under `/<repo>/`, `.nojekyll`, the 404 fallback for client routing) versus for a Vite-style static build.

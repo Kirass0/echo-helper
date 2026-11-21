@@ -2,7 +2,7 @@
 
 **Parent:** [Spec: Echo Helper web app](../../web-rewrite/spec.md) (§3 "Golden fixtures" and "Exporter")
 
-**What to build:** A small C# console project at `tools/golden-export/` that references the source Core by path, without editing it, and the golden fixture JSON it produces, committed to the repo. The implementing agent writes the exporter and the synthetic Echoes and strategies, runs it once locally against `..\EchoHelperClaude` (commit `53ce242` or later), and commits the output. CI never runs it.
+**What to build:** A small C# console project at `tools/golden-export/` that references the source Core by path, without editing it, and the golden fixture JSON it produces, committed to the repo. The implementing agent writes the exporter and the synthetic Echoes and strategies, runs it once locally against `%USERPROFILE%\source\repos\EchoHelperClaude` (commit `53ce242` or later), and commits the output. CI never runs it.
 
 **Blocked by:** None (can start immediately)
 
