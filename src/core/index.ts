@@ -28,3 +28,18 @@ export {
   type EchoOutlook,
   type FullyTunedVerdict,
 } from './evaluateEcho';
+export {
+  UpgradeRule,
+  upgradeStrategy,
+  type RuleGroup,
+  type UpgradeStrategy,
+} from './upgradeStrategy';
+export {
+  FinishingTableCache,
+  calculateUpgradeStrategy,
+  type CostPerSuccessfulEcho,
+  type SuccessfulEchoScores,
+  type TuneStageDiscards,
+  type UpgradeStrategyOptions,
+  type UpgradeStrategyResult,
+} from './upgradeStrategyPass';

@@ -1,9 +1,5 @@
 import { echoScore, type Echo } from './echo';
-import {
-  finishingEchoScores,
-  type FinishingEchoScores,
-  type FinishingOutcome,
-} from './finishingEchoScores';
+import { finishingEchoScores, type FinishingEchoScores } from './finishingEchoScores';
 import { MAX_TUNE_STAGE } from './gameData';
 import type { SubstatWeightTable } from './substatWeightTable';
 
@@ -117,9 +113,15 @@ function outlookOf(
   };
 }
 
+/** An Echo Score and its chance; a list of them is ascending by score and its chances sum to 1. */
+export interface ScoredChance {
+  readonly score: number;
+  readonly chance: number;
+}
+
 // Real Echo Scores from Worst to Best, so the steps stay exact; one closer than the merge gap to the last kept is
 // skipped, except Best.
-function thresholdsOf(outcomes: readonly FinishingOutcome[]): number[] {
+export function thresholdsOf(outcomes: readonly ScoredChance[]): number[] {
   const worst = outcomes[0]!.score;
   const best = outcomes.at(-1)!.score;
   const mergeGap = (best - worst) / MAX_DISTRIBUTION_STEPS;
@@ -132,7 +134,7 @@ function thresholdsOf(outcomes: readonly FinishingOutcome[]): number[] {
 }
 
 // The lowest Echo Score with a chance of at least half to finish at or below it.
-function medianOf(outcomes: readonly FinishingOutcome[]): number {
+export function medianOf(outcomes: readonly ScoredChance[]): number {
   let chanceAtOrBelow = 0;
   for (const outcome of outcomes) {
     chanceAtOrBelow += outcome.chance;
