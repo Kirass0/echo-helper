@@ -6,7 +6,7 @@
 
 **Blocked by:** 02 (Visual tokens, theme switch and the stored-entry foundation), 03 (Core plain port: Echo Score and Echo Evaluation calculation)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [ ] Built-in catalogue: one JSON file (array of `{ name, weights }`, missing type = 0), starting as a copy of the owner's 61-table `%AppData%\EchoHelper\valueTables.json`, imported into the bundle at build time; pickers sort it alphabetically
 - [ ] Catalogue check in Vitest (blocks the deploy): no unknown Substat type or property, every weight finite and ≥ 0, names non-empty, ≤ 40 characters and unique ignoring case, catalogue not empty
