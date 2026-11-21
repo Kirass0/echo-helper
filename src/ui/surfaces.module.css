@@ -1,0 +1,16 @@
+/* The base surfaces (spec §13): bordered panels and result boxes. No shadows anywhere. */
+
+/** A calm panel: 1px border, 10px corners. */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--pad);
+}
+
+/** A result box on the soft grey surface, 6px corners. */
+.box {
+  background: var(--panel2);
+  border-radius: var(--radius-s);
+  padding: 12px 14px;
+}
