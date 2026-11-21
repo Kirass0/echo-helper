@@ -6,7 +6,7 @@
 
 **Blocked by:** 10 (Several Weight Tables in the list)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [ ] Own SVG component on `d3-scale` and `d3-shape` only
 - [ ] Shown whenever at least one table is listed, including at 5/5, where each table is a single band
