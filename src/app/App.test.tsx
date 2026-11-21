@@ -1,5 +1,6 @@
 import { act, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
+import { inProcessCalculator } from '../test/inProcessCalculator';
 import { App } from './App';
 
 const EVALUATION_PURPOSE =
@@ -8,7 +9,7 @@ const STRATEGY_PURPOSE = 'Try different Upgrade Strategies and compare what they
 
 function openAt(hash: string) {
   window.location.hash = hash;
-  return render(<App buildDate="2026-11-20T09:30:00.000Z" />);
+  return render(<App buildDate="2026-11-20T09:30:00.000Z" calculator={inProcessCalculator()} />);
 }
 
 function goTo(hash: string) {

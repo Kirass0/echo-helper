@@ -61,6 +61,8 @@ export function catalogueProblems(catalogue: unknown): string[] {
 /** The Built-in Substat Weight Tables, sorted alphabetically as every picker lists them. File order means nothing. */
 export const BUILT_IN_TABLES: readonly WeightTableData[] = Object.freeze(
   (catalogueFile as WeightTableData[])
-    .map((table) => Object.freeze({ name: table.name, weights: Object.freeze({ ...table.weights }) }))
+    .map((table) =>
+      Object.freeze({ name: table.name, weights: Object.freeze({ ...table.weights }) }),
+    )
     .sort((a, b) => a.name.localeCompare(b.name)),
 );

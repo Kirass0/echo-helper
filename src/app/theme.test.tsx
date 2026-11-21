@@ -1,11 +1,12 @@
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
+import { inProcessCalculator } from '../test/inProcessCalculator';
 import { App } from './App';
 import { THEME_KEY } from './theme';
 
 function open() {
-  return render(<App buildDate="2026-11-20T09:30:00.000Z" />);
+  return render(<App buildDate="2026-11-20T09:30:00.000Z" calculator={inProcessCalculator()} />);
 }
 
 function stored(data: unknown, version = 1) {

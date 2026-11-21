@@ -1,0 +1,71 @@
+.list {
+  min-width: 0;
+}
+
+.heading {
+  font-size: 1.15em;
+  line-height: 1.25;
+  margin: 0 0 10px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 10px;
+}
+
+.table th {
+  text-align: left;
+  font-weight: 400;
+  font-size: 0.84em;
+  color: var(--mute);
+  padding: 0 8px 6px;
+  vertical-align: bottom;
+}
+
+.table td {
+  padding: 8px;
+  vertical-align: top;
+}
+
+.focused {
+  background: var(--acc-soft);
+}
+
+.focused td:first-child {
+  border-left: 3px solid var(--acc);
+}
+
+.name {
+  font-weight: 600;
+  padding-top: 11px !important;
+}
+
+.target {
+  display: flex;
+  flex-direction: column;
+}
+
+.number {
+  width: 6em;
+  padding: 3px 7px;
+  text-align: right;
+}
+
+.number[aria-invalid='true'] {
+  border-color: var(--bad);
+}
+
+/* Reserved, so an error appearing moves nothing. */
+.error {
+  min-height: 1.3em;
+  font-size: 0.8em;
+  line-height: 1.3;
+  color: var(--bad);
+  max-width: 12em;
+}
+
+.add {
+  padding: 4px 8px;
+  max-width: 100%;
+}
