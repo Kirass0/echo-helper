@@ -7,11 +7,14 @@ import type {
   ListedTableInput,
 } from '../calculation/protocol';
 import surfaces from '../ui/surfaces.module.css';
+import { forgetTable, renameTable, type RememberedByName } from './customTables';
 import { EchoDistributionChart } from './EchoDistributionChart';
 import { ResultBoxes } from './ResultBoxes';
+import { CustomTag } from './TableOptions';
 import { parseTarget } from './targetScore';
 import { useRememberedEchoEvaluation } from './useRememberedEchoEvaluation';
 import { WeightTableList, type TargetTexts } from './WeightTableList';
+import { WeightsDialog, type WeightsDialogStart } from './WeightsDialog';
 import { YourEcho } from './YourEcho';
 import styles from './EchoEvaluation.module.css';
 
@@ -27,16 +30,22 @@ export function EchoEvaluation({
   calculator,
   builtInTables = BUILT_IN_TABLES,
 }: EchoEvaluationProps) {
+  /** The saved Custom tables, kept in memory for now. Calculations only see saved tables. */
+  const [customTables, setCustomTables] = useState<readonly WeightTableData[]>([]);
   const exists = useCallback(
-    (name: string) => builtInTables.some((table) => table.name === name),
-    [builtInTables],
+    (name: string) => [...customTables, ...builtInTables].some((table) => table.name === name),
+    [customTables, builtInTables],
   );
   const [{ substats, listed, focused, targets }, update] = useRememberedEchoEvaluation(exists);
   const targetsOf = (name: string) => targets[name] ?? NO_TARGETS;
+  const [dialog, setDialog] = useState<WeightsDialogStart | null>(null);
+  const isCustom = (name: string) => customTables.some((table) => table.name === name);
 
   const input = useMemo((): EchoEvaluationListInput | null => {
     const tables = listed.flatMap((name): ListedTableInput[] => {
-      const table = builtInTables.find((candidate) => candidate.name === name);
+      const table = [...customTables, ...builtInTables].find(
+        (candidate) => candidate.name === name,
+      );
       if (!table) return [];
       const { targetText, erTargetText } = targets[name] ?? NO_TARGETS;
       return [
@@ -48,7 +57,7 @@ export function EchoEvaluation({
       ];
     });
     return tables.length ? { substats, tables, focusedTableName: focused } : null;
-  }, [substats, listed, focused, targets, builtInTables]);
+  }, [substats, listed, focused, targets, customTables, builtInTables]);
   const results = useEchoEvaluationResults(calculator, input);
 
   function add(name: string) {
@@ -71,6 +80,28 @@ export function EchoEvaluation({
     });
   }
 
+  function remember(change: (remembered: RememberedByName) => RememberedByName) {
+    update(change({ listed, focused, targets }));
+  }
+
+  /** A new table goes at the end of the list, in focus; a renamed one takes along what was remembered under its name. */
+  function saveTable(editing: string | null, table: WeightTableData) {
+    if (editing === null) {
+      setCustomTables([...customTables, table]);
+      add(table.name);
+      return;
+    }
+    setCustomTables(customTables.map((custom) => (custom.name === editing ? table : custom)));
+    if (table.name !== editing)
+      remember((remembered) => renameTable(remembered, editing, table.name));
+  }
+
+  function deleteTable(name: string) {
+    setCustomTables(customTables.filter((table) => table.name !== name));
+    remember((remembered) => forgetTable(remembered, name));
+    setDialog(null);
+  }
+
   return (
     <div className={styles.layout}>
       <div className={`${surfaces.panel} ${styles.echo}`}>
@@ -81,7 +112,8 @@ export function EchoEvaluation({
           {focused !== null ? (
             <>
               <h2 className={styles.tableName} title={focused}>
-                {focused}
+                <span className={styles.tableNameText}>{focused}</span>
+                {isCustom(focused) && <CustomTag />}
               </h2>
               <ResultBoxes result={results[focused] ?? null} />
             </>
@@ -112,6 +144,7 @@ export function EchoEvaluation({
         )}
         <div className={surfaces.panel}>
           <WeightTableList
+            customTables={customTables}
             builtInTables={builtInTables}
             rows={listed.map((name) => ({
               name,
@@ -124,9 +157,21 @@ export function EchoEvaluation({
             onRemove={remove}
             onFocus={(name) => update({ focused: name })}
             onTargetsChange={(name, texts) => update({ targets: { ...targets, [name]: texts } })}
+            onOpenWeights={(name) => setDialog({ kind: 'view', name })}
+            onNewTable={() => setDialog({ kind: 'new' })}
           />
         </div>
       </div>
+      {dialog && (
+        <WeightsDialog
+          start={dialog}
+          customTables={customTables}
+          builtInTables={builtInTables}
+          onSave={saveTable}
+          onDelete={deleteTable}
+          onClose={() => setDialog(null)}
+        />
+      )}
     </div>
   );
 }

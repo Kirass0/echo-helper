@@ -71,6 +71,7 @@
 }
 
 .picker {
+  flex: 1;
   width: 100%;
   min-width: 0;
   padding: 3px 6px;
@@ -137,4 +138,10 @@
 .add {
   padding: 4px 8px;
   max-width: 100%;
+}
+
+/* The picker takes the room left beside a Custom table's tag. */
+.nameCell {
+  display: flex;
+  align-items: center;
 }

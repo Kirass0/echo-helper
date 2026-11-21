@@ -1,4 +1,11 @@
-import { useId, useLayoutEffect, useRef, type KeyboardEvent, type MouseEvent } from 'react';
+import {
+  useId,
+  useLayoutEffect,
+  useRef,
+  type KeyboardEvent,
+  type MouseEvent,
+  type ReactNode,
+} from 'react';
 import type { WeightTableData } from '../catalogue/catalogue';
 import type { EchoEvaluationResult } from '../calculation/protocol';
 import { IconButton } from '../ui/IconButton';
@@ -6,6 +13,7 @@ import { CrossIcon, SlidersIcon } from '../ui/icons';
 import { formatChance, formatEchoScore } from './format';
 import { INVALID_TARGET_MESSAGE, parseTarget } from './targetScore';
 import { Term } from '../ui/Term';
+import { CustomTag, TableOptions } from './TableOptions';
 import { TERM_TOOLTIPS } from './termTooltips';
 import styles from './WeightTableList.module.css';
 
@@ -22,6 +30,7 @@ export interface ListedRow extends TargetTexts {
 }
 
 export interface WeightTableListProps {
+  customTables: readonly WeightTableData[];
   builtInTables: readonly WeightTableData[];
   rows: readonly ListedRow[];
   /** The name of the table in focus. */
@@ -32,12 +41,20 @@ export interface WeightTableListProps {
   onRemove(index: number): void;
   onFocus(name: string): void;
   onTargetsChange(name: string, targets: TargetTexts): void;
+  /** Opens the weights dialog on a listed table. */
+  onOpenWeights(name: string): void;
+  /** Opens the weights dialog on a new blank table: "New Custom Weight Table…". */
+  onNewTable(): void;
 }
+
+/** The add picker's value for "New Custom Weight Table…": table names are trimmed, so none starts with a space. */
+const NEW_TABLE = ' new';
 
 const NONE = '—';
 
 /** The "Substat Weight Tables" list: the only place tables are picked on Echo Evaluation. */
 export function WeightTableList({
+  customTables,
   builtInTables,
   rows,
   focused,
@@ -46,10 +63,15 @@ export function WeightTableList({
   onRemove,
   onFocus,
   onTargetsChange,
+  onOpenWeights,
+  onNewTable,
 }: WeightTableListProps) {
-  const sorted = [...builtInTables].sort((a, b) => a.name.localeCompare(b.name));
   const listedNames = new Set(rows.map((row) => row.name));
-  const unlisted = sorted.filter((table) => !listedNames.has(table.name));
+  const customNames = new Set(customTables.map((table) => table.name));
+  /** A picker's groups, keeping only the tables `offered`. */
+  const options = (offered: (table: WeightTableData) => boolean) => (
+    <TableOptions custom={customTables.filter(offered)} builtIn={builtInTables.filter(offered)} />
+  );
 
   // A row's × moves focus to the next row's ×, or to the add picker (spec §15), once the row is gone.
   const tableRef = useRef<HTMLTableElement>(null);
@@ -112,7 +134,8 @@ export function WeightTableList({
                 key={index}
                 row={row}
                 isFocused={row.name === focused}
-                choices={sorted.filter(
+                isCustom={customNames.has(row.name)}
+                options={options(
                   (table) => table.name === row.name || !listedNames.has(table.name),
                 )}
                 onFocus={() => onFocus(row.name)}
@@ -122,6 +145,7 @@ export function WeightTableList({
                   onRemove(index);
                 }}
                 onTargetsChange={(targets) => onTargetsChange(row.name, targets)}
+                onOpenWeights={() => onOpenWeights(row.name)}
               />
             ))}
           </tbody>
@@ -132,28 +156,18 @@ export function WeightTableList({
         className={styles.add}
         aria-label="Add a Weight Table"
         value=""
-        onChange={(event) => onAdd(event.target.value)}
+        onChange={(event) => {
+          if (event.target.value === NEW_TABLE) onNewTable();
+          else onAdd(event.target.value);
+        }}
       >
         <option value="" disabled>
           {rows.length ? 'Add another Weight Table…' : 'Choose a Weight Table…'}
         </option>
-        <TableOptions tables={unlisted} />
+        {options((table) => !listedNames.has(table.name))}
+        <option value={NEW_TABLE}>New Custom Weight Table…</option>
       </select>
     </section>
-  );
-}
-
-/** A picker's tables: the Built-in group, alphabetical (the Custom group comes with Custom tables). */
-function TableOptions({ tables }: { tables: readonly WeightTableData[] }) {
-  if (tables.length === 0) return null;
-  return (
-    <optgroup label="Built-in">
-      {tables.map((table) => (
-        <option key={table.name} value={table.name}>
-          {table.name}
-        </option>
-      ))}
-    </optgroup>
   );
 }
 
@@ -164,19 +178,23 @@ const isControl = (target: EventTarget) =>
 function Row({
   row,
   isFocused,
-  choices,
+  isCustom,
+  options,
   onFocus,
   onSwap,
   onRemove,
   onTargetsChange,
+  onOpenWeights,
 }: {
   row: ListedRow;
   isFocused: boolean;
-  choices: readonly WeightTableData[];
+  isCustom: boolean;
+  options: ReactNode;
   onFocus(): void;
   onSwap(name: string): void;
   onRemove(): void;
   onTargetsChange(targets: TargetTexts): void;
+  onOpenWeights(): void;
 }) {
   const { name, result } = row;
 
@@ -201,28 +219,31 @@ function Row({
       onKeyDown={handleKeyDown}
     >
       <td>
-        <select
-          className={styles.picker}
-          title={name}
-          aria-label={`Swap ${name} for another Weight Table`}
-          value={name}
-          onChange={(event) => onSwap(event.target.value)}
-        >
-          <TableOptions tables={choices} />
-        </select>
+        <div className={styles.nameCell}>
+          <select
+            className={styles.picker}
+            title={name}
+            aria-label={`Swap ${name} for another Weight Table`}
+            value={name}
+            onChange={(event) => onSwap(event.target.value)}
+          >
+            {options}
+          </select>
+          {isCustom && <CustomTag />}
+        </div>
       </td>
       <td>
         <TargetInput
           label={`Target Score for ${name}`}
           text={row.targetText}
-          onChange={(targetText) => onTargetsChange({ ...row, targetText })}
+          onChange={(targetText) => onTargetsChange({ targetText, erTargetText: row.erTargetText })}
         />
       </td>
       <td>
         <TargetInput
           label={`ER Target Score for ${name}`}
           text={row.erTargetText}
-          onChange={(erTargetText) => onTargetsChange({ ...row, erTargetText })}
+          onChange={(erTargetText) => onTargetsChange({ targetText: row.targetText, erTargetText })}
         />
       </td>
       <td className={styles.figure}>{result ? formatEchoScore(result.echoScore) : NONE}</td>
@@ -237,8 +258,7 @@ function Row({
         />
       </td>
       <td className={styles.icon}>
-        {/* The weights dialog comes with Custom tables (ticket 13); until then the button does nothing. */}
-        <IconButton label={`Weights of ${name}`} icon={<SlidersIcon />} />
+        <IconButton label={`Weights of ${name}`} icon={<SlidersIcon />} onClick={onOpenWeights} />
       </td>
       <td className={styles.icon}>
         <IconButton

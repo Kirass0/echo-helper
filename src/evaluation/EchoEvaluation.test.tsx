@@ -172,7 +172,7 @@ describe('Results for the table in focus', () => {
       within(picker)
         .getAllByRole('option')
         .map((option) => option.textContent),
-    ).toEqual(['Choose a Weight Table…', 'Atk only', 'Crit Rate only']);
+    ).toEqual(['Choose a Weight Table…', 'Atk only', 'Crit Rate only', 'New Custom Weight Table…']);
   });
 
   it('lists a chosen table with empty targets and shows its eight boxes', async () => {
