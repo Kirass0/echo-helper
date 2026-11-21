@@ -287,4 +287,17 @@ describe('renaming and deleting a Custom table', () => {
     await user.keyboard('{Escape}');
     expect(targetBox('Crit Rate only (copy)')).toHaveValue('');
   });
+
+  it('closes on Escape while asking, deleting nothing, and gives focus back to its opener', async () => {
+    const user = open();
+    await duplicateCritRate(user, '12');
+    await user.keyboard('{Escape}');
+
+    await user.click(button('Weights of Crit Rate only (copy)'));
+    await user.click(inDialog().getByRole('button', { name: 'Delete' }));
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(button('Weights of Crit Rate only (copy)')).toHaveFocus();
+    expect(rows()).toHaveLength(2);
+  });
 });

@@ -11,7 +11,7 @@ import type { EchoEvaluationResult } from '../calculation/protocol';
 import { IconButton } from '../ui/IconButton';
 import { CrossIcon, SlidersIcon } from '../ui/icons';
 import { formatChance, formatEchoScore } from './format';
-import { INVALID_TARGET_MESSAGE, parseTarget } from './targetScore';
+import { INVALID_NUMBER_MESSAGE, parseNonNegativeNumber } from '../ui/nonNegativeNumber';
 import { Term } from '../ui/Term';
 import { CustomTag, TableOptions } from './TableOptions';
 import { TERM_TOOLTIPS } from './termTooltips';
@@ -307,7 +307,7 @@ function TargetInput({
   onChange(text: string): void;
 }) {
   const errorId = useId();
-  const { invalid } = parseTarget(text);
+  const { invalid } = parseNonNegativeNumber(text);
   return (
     <div className={styles.target}>
       <input
@@ -322,7 +322,7 @@ function TargetInput({
         onChange={(event) => onChange(event.target.value)}
       />
       <span id={errorId} className={styles.error}>
-        {invalid ? INVALID_TARGET_MESSAGE : ''}
+        {invalid ? INVALID_NUMBER_MESSAGE : ''}
       </span>
     </div>
   );

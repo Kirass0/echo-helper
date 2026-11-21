@@ -1,8 +1,14 @@
 // The Custom Weight Tables entry (spec §12): every saved Custom table, and how a stored copy is salvaged.
-import { MAX_TABLE_NAME_LENGTH, type WeightTableData } from '../catalogue/catalogue';
+import {
+  isRecord,
+  isWeight,
+  MAX_TABLE_NAME_LENGTH,
+  sameName,
+  type WeightTableData,
+} from '../catalogue/catalogue';
 import { SUBSTAT_TYPES, type SubstatType } from '../core/gameData';
 import type { EntryDefinition } from '../storage/storedEntry';
-import { defaultCustomName } from '../evaluation/customTables';
+import { defaultCustomName } from './tableDraft';
 
 /** The `localStorage` key of the Custom Weight Tables entry. */
 export const CUSTOM_TABLES_KEY = 'echo-helper.custom-tables';
@@ -22,9 +28,6 @@ export interface SalvagedTables {
 }
 
 const KNOWN_TYPES = new Set<string>(SUBSTAT_TYPES);
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
-const sameName = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
 /** The table, or null when it has a bad weight, an empty name or a name over 40 characters. */
 function readTable(stored: unknown): WeightTableData | null {
@@ -35,7 +38,7 @@ function readTable(stored: unknown): WeightTableData | null {
   const weights: Partial<Record<SubstatType, number>> = {};
   for (const [type, weight] of Object.entries(stored.weights)) {
     if (!KNOWN_TYPES.has(type)) return null;
-    if (typeof weight !== 'number' || !Number.isFinite(weight) || weight < 0) return null;
+    if (!isWeight(weight)) return null;
     weights[type as SubstatType] = weight;
   }
   return { name, weights };

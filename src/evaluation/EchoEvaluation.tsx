@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { BUILT_IN_TABLES, type WeightTableData } from '../catalogue/catalogue';
+import { BUILT_IN_TABLES, findTable, type WeightTableData } from '../catalogue/catalogue';
 import type { Calculator } from '../calculation/newestInputWins';
 import type {
   EchoEvaluationListInput,
@@ -7,11 +7,12 @@ import type {
   ListedTableInput,
 } from '../calculation/protocol';
 import surfaces from '../ui/surfaces.module.css';
-import { forgetTable, renameTable, type RememberedByName } from './customTables';
+import { forgetTable, renameTable } from './rememberedByName';
 import { EchoDistributionChart } from './EchoDistributionChart';
+import { withoutRows } from './echoEvaluationEntry';
 import { ResultBoxes } from './ResultBoxes';
 import { CustomTag } from './TableOptions';
-import { parseTarget } from './targetScore';
+import { parseNonNegativeNumber } from '../ui/nonNegativeNumber';
 import { useRememberedEchoEvaluation } from './useRememberedEchoEvaluation';
 import { WeightTableList, type TargetTexts } from './WeightTableList';
 import { WeightsDialog, type WeightsDialogStart } from './WeightsDialog';
@@ -36,9 +37,13 @@ export function EchoEvaluation({
   customTables,
   onCustomTablesChange: setCustomTables,
 }: EchoEvaluationProps) {
-  const exists = useCallback(
-    (name: string) => [...customTables, ...builtInTables].some((table) => table.name === name),
+  const allTables = useMemo(
+    () => [...customTables, ...builtInTables],
     [customTables, builtInTables],
+  );
+  const exists = useCallback(
+    (name: string) => findTable(allTables, name) !== undefined,
+    [allTables],
   );
   const [{ substats, listed, focused, targets }, update] = useRememberedEchoEvaluation(exists);
   const targetsOf = (name: string) => targets[name] ?? NO_TARGETS;
@@ -47,45 +52,38 @@ export function EchoEvaluation({
 
   const input = useMemo((): EchoEvaluationListInput | null => {
     const tables = listed.flatMap((name): ListedTableInput[] => {
-      const table = [...customTables, ...builtInTables].find(
-        (candidate) => candidate.name === name,
-      );
+      const table = findTable(allTables, name);
       if (!table) return [];
       const { targetText, erTargetText } = targets[name] ?? NO_TARGETS;
       return [
         {
           table,
-          targetScore: parseTarget(targetText).value,
-          erTargetScore: parseTarget(erTargetText).value,
+          targetScore: parseNonNegativeNumber(targetText).value,
+          erTargetScore: parseNonNegativeNumber(erTargetText).value,
         },
       ];
     });
     return tables.length ? { substats, tables, focusedTableName: focused } : null;
-  }, [substats, listed, focused, targets, customTables, builtInTables]);
+  }, [substats, listed, focused, targets, allTables]);
   const results = useEchoEvaluationResults(calculator, input);
 
   function add(name: string) {
-    update({ listed: [...listed, name], focused: name });
+    update((state) => ({ listed: [...state.listed, name], focused: name }));
   }
 
   function swap(index: number, name: string) {
-    const old = listed[index];
-    update({
-      listed: listed.map((listedName, i) => (i === index ? name : listedName)),
-      focused: focused === old ? name : focused,
+    update((state) => {
+      const old = state.listed[index];
+      return {
+        listed: state.listed.map((listedName, i) => (i === index ? name : listedName)),
+        focused: state.focused === old ? name : state.focused,
+      };
     });
   }
 
+  /** Focus passes as from a vanished table: to the next row, or the row above. */
   function remove(index: number) {
-    const removed = listed[index];
-    update({
-      listed: listed.filter((_, i) => i !== index),
-      focused: focused === removed ? (listed[index + 1] ?? listed[index - 1] ?? null) : focused,
-    });
-  }
-
-  function remember(change: (remembered: RememberedByName) => RememberedByName) {
-    update(change({ listed, focused, targets }));
+    update((state) => withoutRows(state, (name) => name !== state.listed[index]));
   }
 
   /** A new table goes at the end of the list, in focus; a renamed one takes along what was remembered under its name. */
@@ -97,12 +95,12 @@ export function EchoEvaluation({
     }
     setCustomTables(customTables.map((custom) => (custom.name === editing ? table : custom)));
     if (table.name !== editing)
-      remember((remembered) => renameTable(remembered, editing, table.name));
+      update((remembered) => renameTable(remembered, editing, table.name));
   }
 
   function deleteTable(name: string) {
     setCustomTables(customTables.filter((table) => table.name !== name));
-    remember((remembered) => forgetTable(remembered, name));
+    update((remembered) => forgetTable(remembered, name));
     setDialog(null);
   }
 
@@ -139,8 +137,8 @@ export function EchoEvaluation({
               focused={focused}
               tables={listed.map((name) => ({
                 name,
-                targetScore: parseTarget(targetsOf(name).targetText).value,
-                erTargetScore: parseTarget(targetsOf(name).erTargetText).value,
+                targetScore: parseNonNegativeNumber(targetsOf(name).targetText).value,
+                erTargetScore: parseNonNegativeNumber(targetsOf(name).erTargetText).value,
                 result: results[name] ?? null,
               }))}
             />
@@ -160,7 +158,9 @@ export function EchoEvaluation({
             onSwap={swap}
             onRemove={remove}
             onFocus={(name) => update({ focused: name })}
-            onTargetsChange={(name, texts) => update({ targets: { ...targets, [name]: texts } })}
+            onTargetsChange={(name, texts) =>
+              update((state) => ({ targets: { ...state.targets, [name]: texts } }))
+            }
             onOpenWeights={(name) => setDialog({ kind: 'view', name })}
             onNewTable={() => setDialog({ kind: 'new' })}
           />

@@ -1,8 +1,9 @@
 // The Echo Evaluation entry (spec §12): what the tab holds, and how a stored copy is salvaged.
 import type { SubstatEntry } from '../calculation/protocol';
+import { isRecord } from '../catalogue/catalogue';
 import { MAX_TUNE_STAGE, possibleRolls, SUBSTAT_TYPES, type SubstatType } from '../core/gameData';
 import type { EntryDefinition } from '../storage/storedEntry';
-import { parseTarget } from './targetScore';
+import { parseNonNegativeNumber } from '../ui/nonNegativeNumber';
 import type { TargetTexts } from './WeightTableList';
 
 export interface EchoEvaluationState {
@@ -20,8 +21,6 @@ export const ECHO_EVALUATION_KEY = 'echo-helper.echo-evaluation';
 
 const EMPTY: EchoEvaluationState = { substats: [], listed: [], focused: null, targets: {} };
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
 const isName = (value: unknown): value is string => typeof value === 'string' && value !== '';
 const asArray = (value: unknown): readonly unknown[] => (Array.isArray(value) ? value : []);
 
@@ -42,7 +41,7 @@ function salvageSubstats(stored: unknown): SubstatEntry[] {
 
 /** A target that isn't text of a valid target is cleared. */
 const salvageTarget = (text: unknown) =>
-  typeof text === 'string' && !parseTarget(text).invalid ? text : '';
+  typeof text === 'string' && !parseNonNegativeNumber(text).invalid ? text : '';
 
 function salvageTargets(stored: unknown): Record<string, TargetTexts> {
   if (!isRecord(stored)) return {};
@@ -76,22 +75,27 @@ export const echoEvaluationDefinition: EntryDefinition<EchoEvaluationState> = {
 };
 
 /**
- * Drops listed tables that no longer exist (a built-in gone with a deploy), silently. A vanished table in focus passes
- * focus to the next row that is left, or the row above; with no rows left there is no focus. Targets are kept.
+ * Drops the rows whose table is not kept. A dropped table in focus passes focus to the next row that is left, or the
+ * row above; with no rows left there is no focus.
  */
-export function withoutVanishedTables(
-  state: EchoEvaluationState,
-  exists: (name: string) => boolean,
-): EchoEvaluationState {
-  if (state.listed.every(exists)) return state;
-  const listed = state.listed.filter(exists);
+export function withoutRows<
+  S extends { readonly listed: readonly string[]; readonly focused: string | null },
+>(state: S, kept: (name: string) => boolean): S {
+  if (state.listed.every(kept)) return state;
+  const listed = state.listed.filter(kept);
   let focused = state.focused;
-  if (focused !== null && !exists(focused)) {
+  if (focused !== null && !kept(focused)) {
     const at = state.listed.indexOf(focused);
     focused =
-      state.listed.slice(at + 1).find(exists) ??
-      state.listed.slice(0, Math.max(at, 0)).findLast(exists) ??
+      state.listed.slice(at + 1).find(kept) ??
+      state.listed.slice(0, Math.max(at, 0)).findLast(kept) ??
       null;
   }
   return { ...state, listed, focused };
 }
+
+/** Drops listed tables that no longer exist (a built-in gone with a deploy), silently, as `withoutRows`. Targets are kept. */
+export const withoutVanishedTables = (
+  state: EchoEvaluationState,
+  exists: (name: string) => boolean,
+): EchoEvaluationState => withoutRows(state, exists);

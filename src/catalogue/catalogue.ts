@@ -13,8 +13,20 @@ export interface WeightTableData {
 const TABLE_PROPERTIES = new Set(['name', 'weights']);
 const KNOWN_TYPES = new Set<string>(SUBSTAT_TYPES);
 
-const isObject = (value: unknown): value is Record<string, unknown> =>
+/** A plain object (not null, not an array): for reading untrusted JSON. */
+export const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/** A weight a table may have: a finite number of 0 or more. */
+export const isWeight = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value) && value >= 0;
+
+/** Table names are the same when they differ only in case. */
+export const sameName = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+
+/** The table of that exact name, or undefined. */
+export const findTable = (tables: readonly WeightTableData[], name: string) =>
+  tables.find((table) => table.name === name);
 
 /** Every problem with a catalogue file's contents (spec §4); an empty list means it may ship. */
 export function catalogueProblems(catalogue: unknown): string[] {
@@ -25,7 +37,7 @@ export function catalogueProblems(catalogue: unknown): string[] {
   const namesSeen = new Set<string>();
   catalogue.forEach((table: unknown, index) => {
     const position = `Table ${index + 1}`;
-    if (!isObject(table)) {
+    if (!isRecord(table)) {
       problems.push(`${position} is not an object.`);
       return;
     }
@@ -45,13 +57,13 @@ export function catalogueProblems(catalogue: unknown): string[] {
         problems.push(`${label} has an unknown property '${property}'.`);
     }
 
-    if (!isObject(weights)) {
+    if (!isRecord(weights)) {
       problems.push(`${label} has no weights.`);
       return;
     }
     for (const [type, weight] of Object.entries(weights)) {
       if (!KNOWN_TYPES.has(type)) problems.push(`${label} has an unknown Substat type '${type}'.`);
-      else if (typeof weight !== 'number' || !Number.isFinite(weight) || weight < 0)
+      else if (!isWeight(weight))
         problems.push(`${label} has a ${type} weight that is not a number of 0 or more.`);
     }
   });

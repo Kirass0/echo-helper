@@ -99,6 +99,22 @@ test.describe('Echo Evaluation', () => {
     await page.getByRole('textbox', { name: 'Target Score for Mornye', exact: true }).fill('20');
     await add.selectOption('Jinhsi');
     await page.getByRole('textbox', { name: 'ER Target Score for Jinhsi', exact: true }).fill('5');
+    // Reload only once the last edit is remembered.
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const raw = localStorage.getItem('echo-helper.echo-evaluation');
+          const data = raw
+            ? (
+                JSON.parse(raw) as {
+                  data?: { targets?: Record<string, { erTargetText?: string }> };
+                }
+              ).data
+            : undefined;
+          return data?.targets?.Jinhsi?.erTargetText;
+        }),
+      )
+      .toBe('5');
 
     await page.reload();
 

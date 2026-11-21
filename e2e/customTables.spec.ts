@@ -37,6 +37,19 @@ test.describe('Custom Weight Tables', () => {
     await dialog.getByRole('textbox', { name: 'Crit Rate', exact: true }).fill('5');
     await dialog.getByRole('button', { name: 'Save' }).click();
     await expect(copy.getByRole('cell').nth(3)).toHaveText('5.40');
+    // Reload only once the edit is remembered.
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const raw = localStorage.getItem('echo-helper.custom-tables');
+          const tables = raw
+            ? (JSON.parse(raw) as { data?: { name: string; weights: Record<string, number> }[] })
+                .data
+            : undefined;
+          return tables?.find((table) => table.name === 'Mornye (copy)')?.weights.Critical_Rate;
+        }),
+      )
+      .toBe(5);
 
     await page.reload();
     await expect(page.getByRole('button', { name: 'Weights of Mornye (copy)' })).toBeVisible();

@@ -1,9 +1,15 @@
 import { type ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
-import { MAX_TABLE_NAME_LENGTH, type WeightTableData } from '../catalogue/catalogue';
+import { findTable, MAX_TABLE_NAME_LENGTH, type WeightTableData } from '../catalogue/catalogue';
 import type { SubstatType } from '../core/gameData';
 import { IconButton } from '../ui/IconButton';
 import { CrossIcon } from '../ui/icons';
-import { blankDraft, checkDraft, copyDraft, editDraft, type TableDraft } from './customTables';
+import {
+  blankDraft,
+  checkDraft,
+  copyDraft,
+  editDraft,
+  type TableDraft,
+} from '../customTables/tableDraft';
 import { SUBSTAT_DISPLAY_ORDER, SUBSTAT_NAMES } from './substats';
 import { CustomTag } from './TableOptions';
 import styles from './WeightsDialog.module.css';
@@ -41,7 +47,8 @@ const sameDraft = (a: TableDraft, b: TableDraft) =>
 
 /**
  * The one weights dialog (spec §5): a table's weights read-only, and the draft editor for Custom tables. A native modal
- * `<dialog>`; Escape closes it and gives focus back to its opener, or acts as Cancel while a draft has unsaved edits.
+ * `<dialog>`; Escape closes it and gives focus back to its opener (also while asking to delete, deleting nothing), or
+ * acts as Cancel while a draft has unsaved edits.
  */
 export function WeightsDialog({
   start,
@@ -71,7 +78,6 @@ export function WeightsDialog({
 
   const headingId = useId();
   const isCustom = (name: string) => customTables.some((table) => table.name === name);
-  const tableNamed = (name: string) => allTables.find((table) => table.name === name);
 
   function openDraft(draft: TableDraft, editing: string | null, back: string | null) {
     setScreen({ kind: 'draft', draft, opened: draft, editing, back });
@@ -85,7 +91,6 @@ export function WeightsDialog({
   function escape() {
     if (screen.kind === 'draft' && !sameDraft(screen.draft, screen.opened))
       cancelDraft(screen.back);
-    else if (screen.kind === 'confirmDelete') setScreen({ kind: 'view', name: screen.name });
     else onClose();
   }
 
@@ -110,7 +115,7 @@ export function WeightsDialog({
       />
     );
   } else {
-    const table = tableNamed(screen.name);
+    const table = findTable(allTables, screen.name);
     if (!table) return null;
     title = table.name;
     const custom = isCustom(table.name);
