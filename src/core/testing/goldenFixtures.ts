@@ -93,13 +93,9 @@ interface CsUpgradeStrategy {
       AverageKeptEchoValue: number | null;
       MinimumKeptEchoValue: number | null;
     };
-    SuccessfulEchoValues: {
-      Best: number;
-      Worst: number;
-      Average: number;
-      Median: number;
-      Distribution: CsDistributionPoint[];
-    } | null;
+    // The exporter's Successful Echoes' Echo Score distribution, which the Core no longer calculates (spec §19,
+    // 2026-11-21); it stays in the fixture but is not read.
+    SuccessfulEchoValues?: unknown;
   }[];
 }
 
@@ -225,35 +221,26 @@ export function loadUpgradeStrategyFixtures(): UpgradeStrategyFixture[] {
       })),
     ),
   }));
-  return fixture.Cases.map(
-    ({ StrategyName, ValueTableName, Result: r, SuccessfulEchoValues: s }) => ({
-      name: `${StrategyName} on ${ValueTableName}`,
-      weightTable: byName(tables, ValueTableName),
-      strategy: byName(strategies, StrategyName).strategy,
-      result: {
-        successRate: r.SuccessRate,
-        discards: r.Discards.map(({ TuneStage, DiscardRate }) => ({
-          tuneStage: TuneStage,
-          discardRate: DiscardRate,
-        })),
-        costPerSuccessfulEcho: r.AverageCostPerKeptEcho && {
-          echoes: r.AverageCostPerKeptEcho.Echoes,
-          exp: r.AverageCostPerKeptEcho.Exp,
-          tuners: r.AverageCostPerKeptEcho.Tuners,
-          shellCredits: r.AverageCostPerKeptEcho.ShellCredits,
-        },
-        averageSuccessfulEchoScore: r.AverageKeptEchoValue,
-        lowestSuccessfulEchoScore: r.MinimumKeptEchoValue,
-        successfulEchoScores: s && {
-          best: s.Best,
-          worst: s.Worst,
-          average: s.Average,
-          median: s.Median,
-          distribution: distributionOf(s.Distribution),
-        },
+  return fixture.Cases.map(({ StrategyName, ValueTableName, Result: r }) => ({
+    name: `${StrategyName} on ${ValueTableName}`,
+    weightTable: byName(tables, ValueTableName),
+    strategy: byName(strategies, StrategyName).strategy,
+    result: {
+      successRate: r.SuccessRate,
+      discards: r.Discards.map(({ TuneStage, DiscardRate }) => ({
+        tuneStage: TuneStage,
+        discardRate: DiscardRate,
+      })),
+      costPerSuccessfulEcho: r.AverageCostPerKeptEcho && {
+        echoes: r.AverageCostPerKeptEcho.Echoes,
+        exp: r.AverageCostPerKeptEcho.Exp,
+        tuners: r.AverageCostPerKeptEcho.Tuners,
+        shellCredits: r.AverageCostPerKeptEcho.ShellCredits,
       },
-    }),
-  );
+      averageSuccessfulEchoScore: r.AverageKeptEchoValue,
+      lowestSuccessfulEchoScore: r.MinimumKeptEchoValue,
+    },
+  }));
 }
 
 /**

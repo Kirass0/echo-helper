@@ -2,7 +2,7 @@
 // checked against. It never ships: only tests import it.
 import { scoreRolls } from '../../echo';
 import { MAX_TUNE_STAGE, SUBSTAT_TYPES } from '../../gameData';
-import { SCORE_TOLERANCE, addChance, clamp01, firstAbove } from '../../search';
+import { THRESHOLD_TOLERANCE, addChance, clamp01, firstAbove } from '../../search';
 import type { SubstatWeightTable } from '../../substatWeightTable';
 
 /** The whole-table distribution of fully tuned Echo Scores for a Weight Table, behind Top Percent and ER Top Percent. */
@@ -54,7 +54,7 @@ export function echoScoreDistribution(table: SubstatWeightTable): EchoScoreDistr
     chanceWithErAbove[i] = chanceWithErAbove[i + 1]! + (withEr.get(scores[i]!) ?? 0) / setCount;
   }
 
-  const firstHigher = (score: number) => firstAbove(scores, score + SCORE_TOLERANCE);
+  const firstHigher = (score: number) => firstAbove(scores, score + THRESHOLD_TOLERANCE);
   return {
     topPercent: (score) => clamp01(chanceAbove[firstHigher(score)]!),
     erTopPercent: (score) => clamp01(chanceWithErAbove[firstHigher(score)]!),

@@ -3,10 +3,8 @@
 import { echoScore, type Echo } from '../../echo';
 import { finishingEchoScores, type FinishingEchoScores } from './finishingEchoScores';
 import { MAX_TUNE_STAGE } from '../../gameData';
+import { THRESHOLD_TOLERANCE } from '../../search';
 import type { SubstatWeightTable } from '../../substatWeightTable';
-
-// A chance this close to a threshold counts as reaching it, so floating-point summation order never decides the Median.
-const CHANCE_TOLERANCE = 1e-9;
 
 // Caps a distribution at about this many points; a chart can't show more across its width.
 const MAX_DISTRIBUTION_STEPS = 500;
@@ -140,7 +138,7 @@ export function medianOf(outcomes: readonly ScoredChance[]): number {
   let chanceAtOrBelow = 0;
   for (const outcome of outcomes) {
     chanceAtOrBelow += outcome.chance;
-    if (chanceAtOrBelow >= 0.5 - CHANCE_TOLERANCE) return outcome.score;
+    if (chanceAtOrBelow >= 0.5 - THRESHOLD_TOLERANCE) return outcome.score;
   }
   return outcomes.at(-1)!.score;
 }

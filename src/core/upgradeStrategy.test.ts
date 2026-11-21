@@ -76,7 +76,7 @@ function strategyWith(...rules: [tuneStage: number, rule: UpgradeRule][]): Upgra
   );
 }
 
-// One Rule Group per entry; several entries at a Tune Stage are alternatives.
+// One Rule Group per entry; an Echo passes a Tune Stage with several entries if any one of them passes.
 function strategyWithGroups(
   ...ruleGroups: [tuneStage: number, rules: UpgradeRule[]][]
 ): UpgradeStrategy {
@@ -344,7 +344,6 @@ describe('calculateUpgradeStrategy', () => {
       expect(result.costPerSuccessfulEcho).toBeNull();
       expect(result.averageSuccessfulEchoScore).toBeNull();
       expect(result.lowestSuccessfulEchoScore).toBeNull();
-      expect(result.successfulEchoScores).toBeNull();
     },
   );
 
@@ -400,7 +399,7 @@ describe('calculateUpgradeStrategy', () => {
     [100.0 / 3, 0], // exactly the chance without Crit Rate
     [33, 0],
   ])(
-    'a Target Chance rule discards Echoes whose chance to reach the Target Score is too low (%d%%)',
+    'a Target Chance rule discards Echoes whose Target Chance is too low (%d%%)',
     (minChancePercent, discardRate) => {
       // Any Crit Rate reaches the Target Score; an Echo without it at Tune Stage 1 gets it in 4 of the 12 other types.
       const result = calculate(
@@ -471,58 +470,6 @@ describe('calculateUpgradeStrategy', () => {
 
     expect(reports).toHaveLength(5);
     [0.2, 0.4, 0.6, 0.8, 1.0].forEach((expected, i) => expectClose(reports[i], expected));
-  });
-});
-
-describe('the Successful Echoes’ Echo Score distribution', () => {
-  it('is that of the Successful Echoes’ rolls', () => {
-    // Every Successful Echo has Crit Rate, the only weighted type, so its Echo Score is 6.0 per Reference Roll (7.5)
-    // of its Crit Rate roll.
-    const scores = calculate(
-      strategyWith([1, UpgradeRule.substatCount(1, 'Critical_Rate')]),
-      critRateTable,
-    ).successfulEchoScores!;
-
-    expectClose(scores.worst, (6.0 * 6.3) / 7.5);
-    expectClose(scores.best, (6.0 * 10.5) / 7.5);
-    // 6,999 of 9,999 rolls are 7.5 or lower.
-    expectClose(scores.median, 6.0);
-    const averageCritRate =
-      critRateRolls.reduce((sum, roll, i) => sum + roll * critRollWeights[i]!, 0) / critRollTotal;
-    expectClose(scores.average, (6.0 * averageCritRate) / 7.5);
-    expect(scores.distribution).toHaveLength(8);
-    scores.distribution.forEach((point, i) => {
-      expectClose(point.threshold, (6.0 * critRateRolls[i]!) / 7.5);
-      const atOrAbove = critRollWeights.slice(i).reduce((sum, weight) => sum + weight, 0);
-      expectClose(point.chance, atOrAbove / critRollTotal);
-    });
-  });
-
-  it('is null when no Echo is Successful', () => {
-    const result = calculate(strategyWith([2, UpgradeRule.substatCount(2, 'Critical_Rate')]));
-
-    expect(result.successfulEchoScores).toBeNull();
-  });
-
-  it.each(oracleCases)('agrees with tuning random Echoes: %s', (_, strategy, table) => {
-    const sampled = tuneFreshEchoes(strategy, table, oracleIterations, oracleSeed);
-
-    const result = calculate(strategy, table);
-    const scores = result.successfulEchoScores!;
-
-    // The distribution agrees with the pass's own Average and Lowest Echo Score.
-    expectClose(scores.average, result.averageSuccessfulEchoScore!);
-    expectClose(scores.worst, result.lowestSuccessfulEchoScore!);
-    expect(scores.distribution[0]!.threshold).toBe(scores.worst);
-    expect(scores.distribution.at(-1)!.threshold).toBe(scores.best);
-    expect(scores.distribution.length).toBeLessThanOrEqual(502);
-    // The share of sampled Successful Echoes at or above each threshold, against far fewer samples than the rates.
-    const sorted = Float64Array.from(sampled.successfulEchoScores).sort();
-    for (const point of scores.distribution) {
-      const index = sorted.findIndex((score) => score >= point.threshold - exact);
-      const share = index < 0 ? 0 : (sorted.length - index) / sorted.length;
-      expectClose(point.chance, share, 0.03);
-    }
   });
 });
 

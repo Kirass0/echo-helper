@@ -2,7 +2,7 @@
 // checked against. It never ships: only tests import it.
 import { echoScore, scoreRolls, type Echo } from '../../echo';
 import { MAX_TUNE_STAGE, SUBSTAT_TYPES, type SubstatType } from '../../gameData';
-import { SCORE_TOLERANCE, clamp01, firstAtOrAbove } from '../../search';
+import { THRESHOLD_TOLERANCE, clamp01, firstAtOrAbove } from '../../search';
 import type { SubstatWeightTable } from '../../substatWeightTable';
 
 /** An Echo Score an Echo can finish with, and the chances, in [0, 1], of finishing there with and without Energy Regen. */
@@ -104,7 +104,7 @@ export function finishingEchoScoresFor(
     withErAtOrAbove[i] = withErAtOrAbove[i + 1]! + outcomes[i]!.chanceWithEr;
   }
   const lookUp = (chances: Float64Array, score: number) =>
-    clamp01(chances[firstAtOrAbove(scores, score - SCORE_TOLERANCE)]!);
+    clamp01(chances[firstAtOrAbove(scores, score - THRESHOLD_TOLERANCE)]!);
 
   return {
     outcomes,

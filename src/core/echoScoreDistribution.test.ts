@@ -75,7 +75,7 @@ function expectAgreesWithASimulationOfAnEmptyEcho(
 }
 
 describe.each(implementations)('echoScoreDistribution, %s', (_, echoScoreDistribution) => {
-  it('with only Crit Rate weighted, every Echo with Crit Rate beats an Echo Score of zero', () => {
+  it('with only Crit Rate weighted, every Echo with Crit Rate is above an Echo Score of zero', () => {
     const distribution = echoScoreDistribution(critRateTable);
 
     expect(distribution.topPercent(0)).toBeCloseTo(chanceOfCritRate, 12);
@@ -101,7 +101,7 @@ describe.each(implementations)('echoScoreDistribution, %s', (_, echoScoreDistrib
     );
   });
 
-  it('with only Crit Rate weighted, every Echo with Crit Rate and Energy Regen beats an Echo Score of zero', () => {
+  it('with only Crit Rate weighted, every Echo with Crit Rate and Energy Regen is above an Echo Score of zero', () => {
     const distribution = echoScoreDistribution(critRateTable);
 
     expect(distribution.erTopPercent(0)).toBeCloseTo(chanceOfCritRateAndEnergyRegen, 12);

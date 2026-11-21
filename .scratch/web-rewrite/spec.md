@@ -69,7 +69,7 @@ From [How the new calculation is proven equal to the old one](issues/03-core-par
    - Inputs: the 28 tables in the source's `data/valueTables.json` as of 2026-11-16. Each fixture carries its own input table.
    - Per table (all 28): the Echo Score distribution behind Top Percent, sampled at a fixed list of Echo Scores.
    - Echo Evaluation (about 5 tables, **"Mornye" required**, with at least one Echo holding Flat DEF): partly tuned Echoes at every Tune Stage 0–5, with and without targets. Recorded: Echo Score, Top Percent, Target Chance, Best, Worst, Average and Median Echo Score, and the distribution points.
-   - Upgrade Strategy (about 5 tables): the owner's saved strategy (4 rules, from `%AppData%\EchoHelper\settings.json`) plus about 6 written ones. Between them they cover every rule kind, several Rule Groups at one stage, an impossible rule and an empty strategy. Recorded: Success Rate, Discard Rate per stage, Tuning Cost, and the Successful Echoes' Echo Score distribution.
+   - Upgrade Strategy (about 5 tables): the owner's saved strategy (4 rules, from `%AppData%\EchoHelper\settings.json`) plus about 6 written ones. Between them they cover every rule kind, several Rule Groups at one stage, an impossible rule and an empty strategy. Recorded: Success Rate, Discard Rate per stage, Tuning Cost, and the Successful Echoes' Echo Score distribution. The distribution is no longer checked or calculated, and the four Cost per Successful Echo fields are compared within `1e-9` relative to their size ([§19](#19-decisions-taken-while-assembling), 2026-11-21).
    - The implementing agent writes the synthetic Echoes and strategies.
    - The fixture loader maps the C# field names to the glossary names.
 4. **Fast versus plain:** the fast Core against the plain reference within `1e-9` on generated inputs. These are random Weight Tables (including Custom-style weights), Echoes at every Tune Stage, and strategies using every rule kind.
@@ -760,6 +760,11 @@ Raised with the owner on 2026-11-21 while assembling. They are recorded as comme
 6. Picking an example over a strategy that has rules asks for confirmation first. The automatic "Crit first" only ever loads when nothing is stored.
 7. The number formats in [§17](#17-number-formats-assembly).
 8. An invalid number in a target box or rule field shows a field error.
+
+**Decided by the owner on 2026-11-21, while reviewing the Core:**
+
+9. The Core drops the Successful Echoes' Echo Score distribution. The app never shows it ([§8](#8-upgrade-strategy) shows only the Average and Lowest Echo Score), the C# Core never returned it (only the golden exporter derived it), and carrying every distinct Echo Score to the end made some strategies take seconds. The pass now drops the Echo Score once no later rule reads it, as the C# pass does, and keeps the Average and Lowest exact. The golden fixtures keep the field, but the tests no longer read it. Recorded on tickets 04, 05 and 06.
+10. The four Cost per Successful Echo fields (Echoes, EXP, Tuners, Shell Credits) are compared within `1e-9` relative to their size, in the golden and fast-versus-plain suites. They divide Tuning Costs in the hundreds of thousands by the Success Rate, so no summation order other than the C# one meets an absolute `1e-9` (ticket 07). Every other value is still compared within an absolute `1e-9`.
 
 **Smaller defaults taken from the prototypes, for the owner to veto:**
 

@@ -1,7 +1,7 @@
 import { echoScore, type Echo } from './echo';
 import { MAX_TUNE_STAGE, SUBSTAT_TYPES, type SubstatType } from './gameData';
-import { SCORE_TOLERANCE, clamp01, firstAtOrAbove } from './search';
-import { addedEchoScores } from './sortedTable';
+import { THRESHOLD_TOLERANCE, clamp01, firstAtOrAbove } from './search';
+import { addedEchoScores, chancesAtOrAbove, chancesOf } from './sortedTable';
 import type { SubstatWeightTable } from './substatWeightTable';
 
 /** An Echo Score an Echo can finish with, and the chances, in [0, 1], of finishing there with and without Energy Regen. */
@@ -34,11 +34,7 @@ export interface SortedFinishingEchoScores extends FinishingEchoScores {
 }
 
 /** The finishing table of an Echo for a Weight Table. */
-export function finishingEchoScores(echo: Echo, table: SubstatWeightTable): FinishingEchoScores {
-  return sortedFinishingEchoScores(echo, table);
-}
-
-export function sortedFinishingEchoScores(
+export function finishingEchoScores(
   echo: Echo,
   table: SubstatWeightTable,
 ): SortedFinishingEchoScores {
@@ -57,35 +53,18 @@ export function finishingEchoScoresFor(
 ): SortedFinishingEchoScores {
   const missing = SUBSTAT_TYPES.filter((type) => !types.includes(type));
   const added = addedEchoScores(missing, MAX_TUNE_STAGE - types.length, table);
-  const length = added.scores.length;
-
-  // Each set of missing types is equally likely, so the summed chances are divided by the number of sets.
-  let setCount = 0;
-  for (let i = 0; i < length; i++) setCount += added.withEr[i]! + added.withoutEr[i]!;
-  const hasEr = types.includes('Energy_Regen');
+  const { chances, chancesWithEr, chancesWithoutEr } = chancesOf(
+    added,
+    types.includes('Energy_Regen'),
+  );
   // Adding the current Echo Score keeps them in order; scores that become equal stay separate outcomes.
-  const scores = new Float64Array(length);
-  const chances = new Float64Array(length);
-  const chancesWithEr = new Float64Array(length);
-  const chancesWithoutEr = new Float64Array(length);
-  for (let i = 0; i < length; i++) {
-    const withEr = hasEr ? added.withEr[i]! + added.withoutEr[i]! : added.withEr[i]!;
-    const withoutEr = hasEr ? 0 : added.withoutEr[i]!;
-    scores[i] = currentScore + added.scores[i]!;
-    chancesWithEr[i] = withEr / setCount;
-    chancesWithoutEr[i] = withoutEr / setCount;
-    chances[i] = chancesWithEr[i]! + chancesWithoutEr[i]!;
-  }
+  const scores = new Float64Array(added.scores.length);
+  for (let i = 0; i < scores.length; i++) scores[i] = currentScore + added.scores[i]!;
 
-  // The chance of finishing at or above each Echo Score; both have a trailing 0.
-  const atOrAbove = new Float64Array(length + 1);
-  const withErAtOrAbove = new Float64Array(length + 1);
-  for (let i = length - 1; i >= 0; i--) {
-    atOrAbove[i] = atOrAbove[i + 1]! + chances[i]!;
-    withErAtOrAbove[i] = withErAtOrAbove[i + 1]! + chancesWithEr[i]!;
-  }
-  const lookUp = (chancesAtOrAbove: Float64Array, score: number) =>
-    clamp01(chancesAtOrAbove[firstAtOrAbove(scores, score - SCORE_TOLERANCE)]!);
+  const atOrAbove = chancesAtOrAbove(chances);
+  const withErAtOrAbove = chancesAtOrAbove(chancesWithEr);
+  const lookUp = (atOrAboveEach: Float64Array, score: number) =>
+    clamp01(atOrAboveEach[firstAtOrAbove(scores, score - THRESHOLD_TOLERANCE)]!);
 
   let outcomes: FinishingOutcome[] | undefined;
   return {

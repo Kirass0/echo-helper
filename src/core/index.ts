@@ -38,7 +38,6 @@ export {
   FinishingTableCache,
   calculateUpgradeStrategy,
   type CostPerSuccessfulEcho,
-  type SuccessfulEchoScores,
   type TuneStageDiscards,
   type UpgradeStrategyOptions,
   type UpgradeStrategyResult,

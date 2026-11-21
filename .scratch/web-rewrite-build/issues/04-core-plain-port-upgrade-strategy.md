@@ -14,3 +14,7 @@
 - [x] The pass reuses its finishing tables, so threshold and rule edits on an unchanged Weight Table rebuild none of them
 - [x] All remaining source Core tests that don't touch file IO are ported one for one (together with 03, the full 70)
 - [x] `UpgradeStrategySimulator` is ported with its own seeded RNG and agrees with the exact calculation within a statistical tolerance
+
+## Comments
+
+- Owner decision, 2026-11-21 (spec §19, item 9): the Successful Echoes' Echo Score distribution (`successfulEchoScores`) is removed from the Core and from the plain reference, with its tests. The pass drops the Echo Score once no later rule reads it, as the C# pass does, and keeps the chance-weighted score sum and the minimum, so the Average and Lowest Successful Echo Score stay exact.

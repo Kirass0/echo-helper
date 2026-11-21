@@ -1,6 +1,6 @@
 import { MAX_TUNE_STAGE, SUBSTAT_TYPES } from './gameData';
-import { SCORE_TOLERANCE, clamp01, firstAbove } from './search';
-import { addedEchoScores } from './sortedTable';
+import { THRESHOLD_TOLERANCE, clamp01, firstAbove } from './search';
+import { addedEchoScores, chancesAtOrAbove, chancesOf } from './sortedTable';
 import type { SubstatWeightTable } from './substatWeightTable';
 
 /** The whole-table distribution of fully tuned Echo Scores for a Weight Table, behind Top Percent and ER Top Percent. */
@@ -22,19 +22,12 @@ const TYPES_ER_LAST = [
  * counted rather than simulated.
  */
 export function echoScoreDistribution(table: SubstatWeightTable): EchoScoreDistribution {
-  const { scores, withEr, withoutEr } = addedEchoScores(TYPES_ER_LAST, MAX_TUNE_STAGE, table);
+  const added = addedEchoScores(TYPES_ER_LAST, MAX_TUNE_STAGE, table);
+  const { chances, chancesWithEr } = chancesOf(added, false);
+  const chanceAbove = chancesAtOrAbove(chances);
+  const chanceWithErAbove = chancesAtOrAbove(chancesWithEr);
 
-  // Each set of Substat types is equally likely, so the summed chances are divided by the number of sets.
-  let setCount = 0;
-  for (let i = 0; i < scores.length; i++) setCount += withEr[i]! + withoutEr[i]!;
-  const chanceAbove = new Float64Array(scores.length + 1);
-  const chanceWithErAbove = new Float64Array(scores.length + 1);
-  for (let i = scores.length - 1; i >= 0; i--) {
-    chanceAbove[i] = chanceAbove[i + 1]! + (withEr[i]! + withoutEr[i]!) / setCount;
-    chanceWithErAbove[i] = chanceWithErAbove[i + 1]! + withEr[i]! / setCount;
-  }
-
-  const firstHigher = (score: number) => firstAbove(scores, score + SCORE_TOLERANCE);
+  const firstHigher = (score: number) => firstAbove(added.scores, score + THRESHOLD_TOLERANCE);
   return {
     topPercent: (score) => clamp01(chanceAbove[firstHigher(score)]!),
     erTopPercent: (score) => clamp01(chanceWithErAbove[firstHigher(score)]!),

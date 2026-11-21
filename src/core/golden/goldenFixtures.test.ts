@@ -89,7 +89,6 @@ describe('golden fixture loader', () => {
       { kind: 'targetChance', minChancePercent: 1, targetScore: 12.7 },
     ]);
     expect(owners.result.lowestSuccessfulEchoScore).toBe(12.699999999999998);
-    expect(owners.result.successfulEchoScores!.median).toBe(14.1124);
   });
 });
 

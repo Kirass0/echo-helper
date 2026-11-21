@@ -1,25 +1,12 @@
 // "Echo Score → chance" tables as sorted typed arrays (spec §3, "Freedom and its limits"). Each roll shifts a sorted
 // table, and the shifted tables are merged in order, combining exactly equal Echo Scores. Floating-point addition and
 // rounding are monotonic, so a shifted table stays in order; only neighbours that become equal need combining. The
-// merges read the shifted tables through a heap of runs rather than building them.
+// merges read the shifted tables through a heap of runs rather than building them. Each merge walks the heap in its
+// own loop: a shared iterator over the runs measured 15-20% slower on the 61 catalogue tables.
 
 import { scoreRolls, type ScoreRoll } from './echo';
 import { type SubstatType } from './gameData';
 import type { SubstatWeightTable } from './substatWeightTable';
-
-/** Echo Scores, strictly ascending, with parallel columns of values per Echo Score. */
-export interface SortedTable {
-  readonly scores: Float64Array;
-  readonly columns: readonly Float64Array[];
-}
-
-/** An empty table with the given number of columns. */
-export function emptyTable(columnCount: number): SortedTable {
-  return {
-    scores: new Float64Array(0),
-    columns: Array.from({ length: columnCount }, () => new Float64Array(0)),
-  };
-}
 
 /**
  * A min-heap of sorted runs keyed by the Echo Score each run is at, for merging many runs in one pass without
@@ -91,27 +78,75 @@ export class RunHeap {
   }
 }
 
-/** Echo Scores added by a set of Substat types, with the chances with and without Energy Regen added. */
+/**
+ * The chance at or above each index of ascending entries: each entry's chance summed with those after it, with a
+ * trailing 0 for "above every entry".
+ */
+export function chancesAtOrAbove(chances: Float64Array): Float64Array {
+  const atOrAbove = new Float64Array(chances.length + 1);
+  for (let i = chances.length - 1; i >= 0; i--) atOrAbove[i] = atOrAbove[i + 1]! + chances[i]!;
+  return atOrAbove;
+}
+
+/**
+ * Echo Scores added by a set of Substat types, ascending, with the chances with and without Energy Regen added,
+ * summed over every set of types.
+ */
 export interface AddedEchoScores {
   readonly scores: Float64Array;
   readonly withEr: Float64Array;
   readonly withoutEr: Float64Array;
 }
 
+/** Added Echo Scores' chances divided by the number of sets of types, which are equally likely, so they sum to 1. */
+export interface AddedEchoScoreChances {
+  readonly chancesWithEr: Float64Array;
+  readonly chancesWithoutEr: Float64Array;
+  /** chancesWithEr + chancesWithoutEr. */
+  readonly chances: Float64Array;
+}
+
 /**
- * The table with one more Substat type added: its entries as they are, merged with a copy shifted by each roll of the
- * type. Adding Energy Regen moves every shifted chance to "with Energy Regen".
+ * The chances of the added Echo Scores, each set of types counted once. When the Echo already has Energy Regen, every
+ * outcome is with Energy Regen.
+ */
+export function chancesOf(added: AddedEchoScores, hasEr: boolean): AddedEchoScoreChances {
+  const length = added.scores.length;
+  let setCount = 0;
+  for (let i = 0; i < length; i++) setCount += added.withEr[i]! + added.withoutEr[i]!;
+  const chances = new Float64Array(length);
+  const chancesWithEr = new Float64Array(length);
+  const chancesWithoutEr = new Float64Array(length);
+  for (let i = 0; i < length; i++) {
+    const withEr = hasEr ? added.withEr[i]! + added.withoutEr[i]! : added.withEr[i]!;
+    const withoutEr = hasEr ? 0 : added.withoutEr[i]!;
+    chancesWithEr[i] = withEr / setCount;
+    chancesWithoutEr[i] = withoutEr / setCount;
+    chances[i] = chancesWithEr[i]! + chancesWithoutEr[i]!;
+  }
+  return { chances, chancesWithEr, chancesWithoutEr };
+}
+
+const NO_SCORES: AddedEchoScores = {
+  scores: new Float64Array(0),
+  withEr: new Float64Array(0),
+  withoutEr: new Float64Array(0),
+};
+
+/**
+ * The added Echo Scores with one more Substat type added: its entries as they are, merged with a copy shifted by each
+ * roll of the type. Adding Energy Regen moves every shifted chance to "with Energy Regen".
  */
 function withTypeAdded(
-  table: SortedTable,
-  smaller: SortedTable,
+  added: AddedEchoScores,
+  smaller: AddedEchoScores,
   rolls: readonly ScoreRoll[],
   addsEr: boolean,
-): SortedTable {
+): AddedEchoScores {
   // Run 0 is the table itself; run r + 1 is the smaller table shifted by roll r.
-  const sources = [table, ...rolls.map(() => smaller)];
+  const sources = [added, ...rolls.map(() => smaller)];
   const shifts = [0, ...rolls.map((roll) => roll.score)];
-  const capacity = table.scores.length + rolls.length * smaller.scores.length;
+  const capacity = added.scores.length + rolls.length * smaller.scores.length;
   const scores = new Float64Array(capacity);
   const withEr = new Float64Array(capacity);
   const withoutEr = new Float64Array(capacity);
@@ -127,8 +162,8 @@ function withTypeAdded(
     const score = heap.topKey;
     const source = sources[r]!;
     const i = at[r]!;
-    let er = source.columns[0]![i]!;
-    let noEr = source.columns[1]![i]!;
+    let er = source.withEr[i]!;
+    let noEr = source.withoutEr[i]!;
     if (r > 0) {
       const chance = rolls[r - 1]!.chance;
       if (addsEr) {
@@ -155,7 +190,8 @@ function withTypeAdded(
   const length = n + 1;
   return {
     scores: scores.slice(0, length),
-    columns: [withEr.slice(0, length), withoutEr.slice(0, length)],
+    withEr: withEr.slice(0, length),
+    withoutEr: withoutEr.slice(0, length),
   };
 }
 
@@ -170,8 +206,12 @@ export function addedEchoScores(
   table: SubstatWeightTable,
 ): AddedEchoScores {
   // bySize[k] holds the Echo Scores added by every set of k of the types added so far.
-  const bySize: SortedTable[] = Array.from({ length: toAdd + 1 }, () => emptyTable(2));
-  bySize[0] = { scores: Float64Array.of(0), columns: [Float64Array.of(0), Float64Array.of(1)] };
+  const bySize: AddedEchoScores[] = Array.from({ length: toAdd + 1 }, () => NO_SCORES);
+  bySize[0] = {
+    scores: Float64Array.of(0),
+    withEr: Float64Array.of(0),
+    withoutEr: Float64Array.of(1),
+  };
   types.forEach((type, added) => {
     const rolls = scoreRolls(type, table);
     const addsEr = type === 'Energy_Regen';
@@ -183,6 +223,5 @@ export function addedEchoScores(
       bySize[size] = withTypeAdded(bySize[size]!, smaller, rolls, addsEr);
     }
   });
-  const { scores, columns } = bySize[toAdd]!;
-  return { scores, withEr: columns[0]!, withoutEr: columns[1]! };
+  return bySize[toAdd]!;
 }

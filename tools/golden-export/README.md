@@ -71,6 +71,8 @@ Every file has a `Source` object with the repository, the full commit and the no
 
 ### How the Successful Echoes' distribution is derived
 
+> **No longer checked (2026-11-21).** The owner dropped the Successful Echoes' Echo Score distribution from the Core (spec §19, item 9): the app never shows it. The golden tests no longer read `SuccessfulEchoValues`. The exporter may keep producing it, and the committed fixture keeps it unchanged.
+
 The C# Core doesn't return this distribution. It returns only `AverageKeptEchoValue` and `MinimumKeptEchoValue`. `SuccessfulEchoScores.cs` gets the distribution without editing the source:
 
 1. It repeats `UpgradeStrategyPass.Calculate` step for step. Because the Core's files are compiled into the exporter, it can call the same internal pieces: `UpgradeRuleContext`, `TunedEcho`, `RollsAt`, `PrepareChances` and `UpgradeRule.Passes`.

@@ -14,3 +14,7 @@
 - [x] Upgrade Strategy (about 5 tables): the owner's saved strategy (4 rules, from `%AppData%\EchoHelper\settings.json`) plus about 6 written ones, together covering every rule kind, several Rule Groups at one stage, an impossible rule and an empty strategy; recorded Success Rate, Discard Rate per stage, Tuning Cost, and the Successful Echoes' Echo Score distribution
 - [x] The source commit used is recorded with the output, and the project carries a note that its output matches only that day's game data
 - [x] The source project is not modified
+
+## Comments
+
+- Owner decision, 2026-11-21 (spec §19, item 9): the Core no longer calculates the Successful Echoes' Echo Score distribution, so the tests no longer read `SuccessfulEchoValues`. The exporter and the committed fixture keep it unchanged; see the note in `tools/golden-export/README.md`.

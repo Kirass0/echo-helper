@@ -2,7 +2,7 @@ import { MAX_TUNE_STAGE, type SubstatType } from './gameData';
 
 /**
  * One condition checked when an Echo reaches a Tune Stage. Any rule is accepted; one that can never pass discards
- * every Echo at its Tune Stage (ADR 0001).
+ * every Echo at its Tune Stage.
  */
 export type UpgradeRule =
   /** At least `count` of the listed Substat types are on the Echo; a type listed twice counts twice. */

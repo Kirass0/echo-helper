@@ -11,7 +11,7 @@ describe('tuningCost', () => {
     [4, 79_100, 40, 15_910],
     [5, 142_600, 50, 24_260],
   ])(
-    'a kept Echo at Tune Stage %i costs everything spent to tune it there',
+    'an Echo tuned to Tune Stage %i and not discarded costs everything spent to tune it there',
     (stage, exp, tuners, shellCredits) => {
       expect(tuningCost(stage, false)).toEqual({ exp, tuners, shellCredits });
     },

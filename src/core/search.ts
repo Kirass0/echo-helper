@@ -1,5 +1,6 @@
-// Echo Scores this close are equal, so floating-point summation order never decides a threshold or a tie.
-export const SCORE_TOLERANCE = 1e-9;
+// An Echo Score, Substat value or chance this close to a threshold reaches it, and Echo Scores this close are equal,
+// so floating-point summation order never decides a threshold, a tie, a rule or the Median.
+export const THRESHOLD_TOLERANCE = 1e-9;
 
 /** The index of the first element of an ascending array at or above x, or the length if there is none. */
 export function firstAtOrAbove(sorted: ArrayLike<number>, x: number): number {

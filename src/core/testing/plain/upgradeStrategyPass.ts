@@ -1,39 +1,21 @@
 // The plain Map-based port (spec §3, "Order of work"), kept in test code as the exact reference the fast Core is
 // checked against. It never ships: only tests import it.
 import { scoreRolls, substatScore } from '../../echo';
-import { medianOf, thresholdsOf, type DistributionPoint } from './evaluateEcho';
 import { finishingEchoScoresFor, type FinishingEchoScores } from './finishingEchoScores';
 import { MAX_TUNE_STAGE, SUBSTAT_TYPES, possibleRolls, type SubstatType } from '../../gameData';
 import { roundTo12Decimals } from '../../rounding';
-import { SCORE_TOLERANCE, addChance, clamp01, firstAtOrAbove } from '../../search';
+import { THRESHOLD_TOLERANCE, clamp01 } from '../../search';
 import type { SubstatWeightTable } from '../../substatWeightTable';
-import { tuningCost, type TuningCost } from '../../tuningCost';
+import { addTuningCosts, scaleTuningCost, tuningCost, type TuningCost } from '../../tuningCost';
 import { ruleGroupsByStage, type UpgradeRule, type UpgradeStrategy } from '../../upgradeStrategy';
 
 /** What it costs on average to end up with one Successful Echo, counting the Echoes discarded along the way. */
-export interface CostPerSuccessfulEcho {
-  readonly echoes: number;
-  readonly exp: number;
-  readonly tuners: number;
-  readonly shellCredits: number;
-}
+export type CostPerSuccessfulEcho = TuningCost & { readonly echoes: number };
 
 /** The Discard Rate at a Tune Stage: the share of all Echoes started that are discarded there. */
 export interface TuneStageDiscards {
   readonly tuneStage: number;
   readonly discardRate: number;
-}
-
-/**
- * The Echo Scores the Successful Echoes finish with. Each distribution point holds the share of Successful Echoes
- * that finish at or above its threshold; the thresholds run from Worst to Best, picked as Echo Evaluation picks them.
- */
-export interface SuccessfulEchoScores {
-  readonly best: number;
-  readonly worst: number;
-  readonly average: number;
-  readonly median: number;
-  readonly distribution: readonly DistributionPoint[];
 }
 
 /**
@@ -46,7 +28,6 @@ export interface UpgradeStrategyResult {
   readonly costPerSuccessfulEcho: CostPerSuccessfulEcho | null;
   readonly averageSuccessfulEchoScore: number | null;
   readonly lowestSuccessfulEchoScore: number | null;
-  readonly successfulEchoScores: SuccessfulEchoScores | null;
 }
 
 /**
@@ -66,12 +47,13 @@ export class FinishingTableCache {
     this.#tables.clear();
   }
 
-  /** The finishing table of an Echo with the Substat types in the bitmask and an Echo Score of 0. */
-  finishingTable(table: SubstatWeightTable, types: number): FinishingEchoScores {
-    const key = `${SUBSTAT_TYPES.map((type) => table.weightOf(type)).join(',')}|${types}`;
+  /** The finishing table of an Echo with these Substat types and an Echo Score of 0. */
+  finishingTable(table: SubstatWeightTable, types: readonly SubstatType[]): FinishingEchoScores {
+    const ordered = SUBSTAT_TYPES.filter((type) => types.includes(type));
+    const key = `${SUBSTAT_TYPES.map((type) => table.weightOf(type)).join(',')}|${ordered.join(',')}`;
     let finishing = this.#tables.get(key);
     if (!finishing) {
-      finishing = finishingEchoScoresFor(typesOf(types), 0, table);
+      finishing = finishingEchoScoresFor(ordered, 0, table);
       this.#tables.set(key, finishing);
     }
     return finishing;
@@ -86,9 +68,6 @@ export interface UpgradeStrategyOptions {
   /** The finishing tables to reuse; without it, each calculation builds its own. */
   readonly cache?: FinishingTableCache | undefined;
 }
-
-// Values this close to a threshold reach it, so floating-point summation order never decides a rule.
-const RULE_TOLERANCE = 1e-9;
 
 // TunedEcho.Rolls holds, per Substat type a Substat Roll rule names, the index of its roll plus one in a base-16 digit.
 const ROLL_BASE = 16;
@@ -108,22 +87,18 @@ interface TunedEcho {
   readonly rolls: number;
 }
 
-/** A roll in the forward pass: what it adds to the Echo Score, its chance, and its digit in TunedEcho.rolls. */
+/** A roll in the forward pass: what it adds to the Echo Score, its chance, and what it adds to TunedEcho.rolls. */
 interface PassRoll {
   readonly score: number;
   readonly chance: number;
-  readonly digits: number;
+  readonly rollsPart: number;
 }
 
-/**
- * A state's chance, its chance-weighted sum of Echo Scores, the lowest Echo Score merged into it, and its Echo Scores
- * rounded to 12 decimals at each Tune Stage with their chances, behind the Successful Echoes' distribution.
- */
+/** A state's chance, its chance-weighted sum of Echo Scores, and the lowest Echo Score merged into it. */
 interface StateChance {
   chance: number;
   scoreSum: number;
   minScore: number;
-  readonly scores: Map<number, number>;
 }
 
 /**
@@ -149,7 +124,7 @@ export function calculateUpgradeStrategy(
       keyOf({ types: 0, score: 0, rolls: 0 }),
       [
         { types: 0, score: 0, rolls: 0 },
-        { chance: 1, scoreSum: 0, minScore: 0, scores: new Map([[0, 1]]) },
+        { chance: 1, scoreSum: 0, minScore: 0 },
       ],
     ],
   ]);
@@ -169,7 +144,7 @@ export function calculateUpgradeStrategy(
           const tuned: TunedEcho = {
             types: echo.types | bit(type),
             score: echo.score + roll.score,
-            rolls: echo.rolls + roll.digits,
+            rolls: echo.rolls + roll.rollsPart,
           };
           const chance = typeChance * roll.chance;
           if (!passesAnyRuleGroup(ruleGroups, tuned, context)) {
@@ -187,18 +162,12 @@ export function calculateUpgradeStrategy(
           const addedChance = state.chance * chance;
           const addedSum = (state.scoreSum + state.chance * roll.score) * chance;
           const addedMin = state.minScore + roll.score;
-          const scores = merged?.scores ?? new Map<number, number>();
-          for (const [score, scoreChance] of state.scores)
-            addChance(scores, roundTo12Decimals(score + roll.score), scoreChance * chance);
           if (merged) {
             merged.chance += addedChance;
             merged.scoreSum += addedSum;
             merged.minScore = Math.min(merged.minScore, addedMin);
           } else {
-            next.set(key, [
-              kept,
-              { chance: addedChance, scoreSum: addedSum, minScore: addedMin, scores },
-            ]);
+            next.set(key, [kept, { chance: addedChance, scoreSum: addedSum, minScore: addedMin }]);
           }
         }
       }
@@ -221,9 +190,6 @@ export function calculateUpgradeStrategy(
     lowestScore = Math.min(lowestScore, state.minScore + min);
   }
   const anySuccessful = states.size > 0;
-  const successfulEchoScores = anySuccessful
-    ? successfulEchoScoresOf(states, context, signal)
-    : null;
   if (lastRuleStage < MAX_TUNE_STAGE) onProgress?.(1);
 
   successRate = clamp01(successRate);
@@ -236,7 +202,6 @@ export function calculateUpgradeStrategy(
     costPerSuccessfulEcho: anySuccessful ? costPerSuccessfulEcho(discardRates, successRate) : null,
     averageSuccessfulEchoScore: anySuccessful ? scoreSum / successRate : null,
     lowestSuccessfulEchoScore: anySuccessful ? lowestScore : null,
-    successfulEchoScores,
   };
 }
 
@@ -258,87 +223,42 @@ function passes(rule: UpgradeRule, echo: TunedEcho, context: RuleContext): boole
       return rule.substatTypes.filter((type) => has(echo.types, type)).length >= rule.count;
     case 'substatRoll': {
       const value = context.valueOf(echo, rule.substatType);
-      return value !== null && value >= rule.minValue - RULE_TOLERANCE;
+      return value !== null && value >= rule.minValue - THRESHOLD_TOLERANCE;
     }
     case 'echoScore':
-      return echo.score >= rule.minEchoScore - RULE_TOLERANCE;
+      return echo.score >= rule.minEchoScore - THRESHOLD_TOLERANCE;
     case 'targetChance':
       return (
-        context.chanceToReach(echo, rule.targetScore) >=
-        rule.minChancePercent / 100 - RULE_TOLERANCE
+        context.targetChance(echo, rule.targetScore) >=
+        rule.minChancePercent / 100 - THRESHOLD_TOLERANCE
       );
   }
 }
+
+const NO_COST: TuningCost = { exp: 0, tuners: 0, shellCredits: 0 };
 
 // The expected Tuning Cost per started Echo, divided by the Success Rate.
 function costPerSuccessfulEcho(
   discardRates: readonly number[],
   successRate: number,
 ): CostPerSuccessfulEcho {
-  let exp = 0;
-  let tuners = 0;
-  let shellCredits = 0;
-  const add = (cost: TuningCost, rate: number) => {
-    exp += cost.exp * rate;
-    tuners += cost.tuners * rate;
-    shellCredits += cost.shellCredits * rate;
-  };
+  let perStartedEcho = NO_COST;
   for (let tuneStage = 1; tuneStage <= MAX_TUNE_STAGE; tuneStage++)
-    add(tuningCost(tuneStage, true), discardRates[tuneStage]!);
-  add(tuningCost(MAX_TUNE_STAGE, false), successRate);
-  return {
-    echoes: 1 / successRate,
-    exp: exp / successRate,
-    tuners: tuners / successRate,
-    shellCredits: shellCredits / successRate,
-  };
+    perStartedEcho = addTuningCosts(
+      perStartedEcho,
+      scaleTuningCost(tuningCost(tuneStage, true), discardRates[tuneStage]!),
+    );
+  perStartedEcho = addTuningCosts(
+    perStartedEcho,
+    scaleTuningCost(tuningCost(MAX_TUNE_STAGE, false), successRate),
+  );
+  return { echoes: 1 / successRate, ...scaleTuningCost(perStartedEcho, 1 / successRate) };
 }
 
-// The source returns no distribution; this follows the golden exporter's SuccessfulEchoScores. Each Substat type set
-// is finished once, from an Echo Score of 0, and shifted by every Echo Score of the states with that set; the final
-// Echo Scores are rounded to 12 decimals so that those differing only by summation order merge.
-function successfulEchoScoresOf(
-  states: ReadonlyMap<string, [TunedEcho, StateChance]>,
-  context: RuleContext,
-  signal: AbortSignal | undefined,
-): SuccessfulEchoScores {
-  const currentByTypes = new Map<number, Map<number, number>>();
-  for (const [echo, state] of states.values()) {
-    let current = currentByTypes.get(echo.types);
-    if (!current) currentByTypes.set(echo.types, (current = new Map()));
-    for (const [score, chance] of state.scores) addChance(current, score, chance);
-  }
-  const finalChances = new Map<number, number>();
-  for (const [types, current] of currentByTypes) {
-    signal?.throwIfAborted();
-    const outcomes = context.finishingTable(types).outcomes;
-    for (const [score, chance] of current)
-      for (const outcome of outcomes)
-        addChance(finalChances, roundTo12Decimals(score + outcome.score), chance * outcome.chance);
-  }
-
-  let total = 0;
-  for (const chance of finalChances.values()) total += chance;
-  const outcomes = [...finalChances]
-    .map(([score, chance]) => ({ score, chance: chance / total }))
-    .sort((a, b) => a.score - b.score);
-  const scores = Float64Array.from(outcomes, (outcome) => outcome.score);
-  const atOrAbove = new Float64Array(outcomes.length + 1);
-  for (let i = outcomes.length - 1; i >= 0; i--)
-    atOrAbove[i] = atOrAbove[i + 1]! + outcomes[i]!.chance;
-  const chanceAtOrAbove = (score: number) =>
-    clamp01(atOrAbove[firstAtOrAbove(scores, score - SCORE_TOLERANCE)]!);
-
-  return {
-    best: outcomes.at(-1)!.score,
-    worst: outcomes[0]!.score,
-    average: outcomes.reduce((sum, outcome) => sum + outcome.score * outcome.chance, 0),
-    median: medianOf(outcomes),
-    distribution: thresholdsOf(outcomes).map((threshold) => ({
-      threshold,
-      chance: chanceAtOrAbove(threshold),
-    })),
-  };
+/** What finishing an Echo adds to its Echo Score: on average, and at least. */
+interface ScoreAddedToFinish {
+  readonly average: number;
+  readonly min: number;
 }
 
 /** What the rules of one Upgrade Strategy read besides the Echo, and which parts of it they read from each Tune Stage on. */
@@ -355,7 +275,7 @@ class RuleContext {
   );
   // Indexed by Tune Stage, then Substat type.
   readonly #rollsAt: Map<SubstatType, PassRoll[]>[];
-  readonly #addedToFinish = new Map<number, { average: number; min: number }>();
+  readonly #addedToFinish = new Map<number, ScoreAddedToFinish>();
 
   constructor(
     table: SubstatWeightTable,
@@ -409,15 +329,15 @@ class RuleContext {
   }
 
   finishingTable(types: number): FinishingEchoScores {
-    return this.#cache.finishingTable(this.#table, types);
+    return this.#cache.finishingTable(this.#table, typesOf(types));
   }
 
-  chanceToReach(echo: TunedEcho, targetScore: number): number {
+  targetChance(echo: TunedEcho, targetScore: number): number {
     return this.finishingTable(echo.types).chanceAtOrAbove(targetScore - echo.score);
   }
 
   /** What finishing an Echo with these Substat types adds to its Echo Score: on average, and at least. */
-  scoreAddedToFinish(types: number): { average: number; min: number } {
+  scoreAddedToFinish(types: number): ScoreAddedToFinish {
     let added = this.#addedToFinish.get(types);
     if (!added) {
       added = this.#calculateScoreAddedToFinish(types);
@@ -426,7 +346,7 @@ class RuleContext {
     return added;
   }
 
-  #calculateScoreAddedToFinish(types: number): { average: number; min: number } {
+  #calculateScoreAddedToFinish(types: number): ScoreAddedToFinish {
     const missing = SUBSTAT_TYPES.filter((type) => !has(types, type));
     const toAdd = MAX_TUNE_STAGE - popCount(types);
     const rolls = missing.map((type) => scoreRolls(type, this.#table));
@@ -452,10 +372,10 @@ class RuleContext {
       return possibleRolls(type).map((roll, index) => ({
         score: substatScore(type, roll.value, this.#table),
         chance: roll.chance,
-        digits: (index + 1) * ROLL_BASE ** slot,
+        rollsPart: (index + 1) * ROLL_BASE ** slot,
       }));
     }
-    return scoreRolls(type, this.#table).map((roll) => ({ ...roll, digits: 0 }));
+    return scoreRolls(type, this.#table).map((roll) => ({ ...roll, rollsPart: 0 }));
   }
 }
 

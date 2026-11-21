@@ -35,6 +35,15 @@ export function tuningCost(tuneStage: number, discarded: boolean): TuningCost {
     : { ...cost };
 }
 
+/** A Tuning Cost multiplied by a factor, such as the share of Echoes that pay it. */
+export function scaleTuningCost(cost: TuningCost, factor: number): TuningCost {
+  return {
+    exp: cost.exp * factor,
+    tuners: cost.tuners * factor,
+    shellCredits: cost.shellCredits * factor,
+  };
+}
+
 export function addTuningCosts(a: TuningCost, b: TuningCost): TuningCost {
   return {
     exp: a.exp + b.exp,

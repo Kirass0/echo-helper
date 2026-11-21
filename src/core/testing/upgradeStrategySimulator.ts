@@ -10,8 +10,7 @@ import {
   type UpgradeRule,
   type UpgradeStrategy,
 } from '../index';
-
-const TOLERANCE = 1e-9;
+import { THRESHOLD_TOLERANCE } from '../search';
 
 /**
  * The sampling the Upgrade Strategy used before it was calculated exactly, kept as an oracle so the forward pass and
@@ -30,7 +29,7 @@ export function tuneFreshEchoes(
 
   // Read from the finishing tables rather than sampled, as the Echo Evaluation tests already check them against their
   // own oracle.
-  const chanceToReach = (echo: Echo, targetScore: number) => {
+  const targetChance = (echo: Echo, targetScore: number) => {
     // Every Echo with the same Substat types adds the same Echo Scores, so one table per type set, shifted by the
     // Echo Score.
     const types = SUBSTAT_TYPES.filter((type) => echo.substats.has(type)).join(',');
@@ -49,12 +48,14 @@ export function tuneFreshEchoes(
         return rule.substatTypes.filter((type) => echo.substats.has(type)).length >= rule.count;
       case 'substatRoll': {
         const value = echo.substats.get(rule.substatType);
-        return value !== undefined && value >= rule.minValue - TOLERANCE;
+        return value !== undefined && value >= rule.minValue - THRESHOLD_TOLERANCE;
       }
       case 'echoScore':
-        return echoScore(echo, table) >= rule.minEchoScore - TOLERANCE;
+        return echoScore(echo, table) >= rule.minEchoScore - THRESHOLD_TOLERANCE;
       case 'targetChance':
-        return chanceToReach(echo, rule.targetScore) >= rule.minChancePercent / 100 - TOLERANCE;
+        return (
+          targetChance(echo, rule.targetScore) >= rule.minChancePercent / 100 - THRESHOLD_TOLERANCE
+        );
     }
   };
 

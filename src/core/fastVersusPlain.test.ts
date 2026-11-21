@@ -24,7 +24,8 @@ import { differencesFrom, upgradeStrategyDifferences } from './testing/goldenFix
 import * as plain from './testing/plain';
 
 // Fast versus plain (spec §3): the shipped Core against the plain Map-based reference on generated inputs, within
-// 1e-9. The plain reference is slow, so the generated Weight Tables weight only 2 to 4 Substat types.
+// 1e-9. The plain reference is slow, so most generated Weight Tables weight only 2 to 4 Substat types; a few
+// Custom-style ones weight many (up to all 13), and are checked only on the inputs the plain reference can afford.
 
 const TOLERANCE = 1e-9;
 const CASES = 12;
@@ -76,6 +77,21 @@ function randomEcho(random: RandomSource, tuneStage: number): Echo {
 }
 
 const tables = Array.from({ length: CASES }, (_, i) => randomWeightTable(seededRandom(700 + i), i));
+
+/** A Custom-style Weight Table weighting `count` Substat types with full-precision weights. */
+function manyTypeWeightTable(random: RandomSource, count: number): SubstatWeightTable {
+  const weighted = shuffled(random, SUBSTAT_TYPES).slice(0, count);
+  return substatWeightTable(
+    `generated with ${count} types weighted`,
+    Object.fromEntries(
+      weighted.map((type) => [type, (random.nextInt(2 ** 30) / 2 ** 30) * 10 ** random.nextInt(2)]),
+    ),
+  );
+}
+
+const manyTypeTables = [7, 10, 13].map((count) =>
+  manyTypeWeightTable(seededRandom(900 + count), count),
+);
 
 describe('the fast Core agrees with the plain reference', () => {
   it.each(tables.map((table) => [table.name, table] as const))(
@@ -147,6 +163,67 @@ describe('the fast Core agrees with the plain reference', () => {
       ),
     ).toEqual([]);
   });
+
+  // With many types weighted, a fresh Echo has millions of distinct Echo Scores, too many for the plain reference: the
+  // finishing tables start at Tune Stage 2, and the strategies' rules stop at Tune Stage 3.
+  it.each(manyTypeTables.map((table, i) => [table.name, table, i] as const))(
+    'finishing tables and Echo Evaluation from Tune Stage 2 on %s',
+    (_, table, i) => {
+      const random = seededRandom(500 + i);
+      for (let tuneStage = 2; tuneStage <= MAX_TUNE_STAGE; tuneStage++) {
+        const echo = randomEcho(random, tuneStage);
+        const reference = plain.finishingEchoScores(echo, table);
+        expect(
+          differencesFrom(
+            byScore(finishingEchoScores(echo, table).outcomes),
+            byScore(reference.outcomes),
+            TOLERANCE,
+          ),
+        ).toEqual([]);
+        const current = echoScore(echo, table);
+        const target = current + (reference.outcomes.at(-1)!.score - current) / 2;
+        expect(
+          differencesFrom(
+            evaluateEcho(echo, table, target, current),
+            plain.evaluateEcho(echo, table, target, current),
+            TOLERANCE,
+          ),
+        ).toEqual([]);
+      }
+    },
+  );
+
+  it.each(manyTypeTables.map((table, i) => [table.name, table, i] as const))(
+    'Upgrade Strategy with rules of every kind at Tune Stages 2 and 3 on %s',
+    (_, table, i) => {
+      const random = seededRandom(600 + i);
+      const best = finishingEchoScores(new Echo(), table).scores.at(-1)!;
+      const strategy = upgradeStrategy([
+        {
+          tuneStage: 2,
+          rules: [
+            UpgradeRule.substatCount(1, ...shuffled(random, SUBSTAT_TYPES).slice(0, 6)),
+            UpgradeRule.echoScore(best * 0.15),
+          ],
+        },
+        { tuneStage: 2, rules: [UpgradeRule.substatRoll('Critical_Rate', 8.1)] },
+        { tuneStage: 3, rules: [UpgradeRule.targetChance(5 + random.nextInt(20), best * 0.55)] },
+        { tuneStage: 3, rules: [UpgradeRule.echoScore(best * 0.35)] },
+      ]);
+      const fast = calculateUpgradeStrategy(strategy, table);
+      expect(fast.successRate).toBeGreaterThan(0);
+      expect(fast.successRate).toBeLessThan(1);
+      expect(
+        upgradeStrategyDifferences(
+          fast,
+          plain.calculateUpgradeStrategy(strategy, table),
+          TOLERANCE,
+        ),
+      ).toEqual([]);
+    },
+    // The plain reference takes a few seconds on all 13 types.
+    30_000,
+  );
 });
 
 /**
