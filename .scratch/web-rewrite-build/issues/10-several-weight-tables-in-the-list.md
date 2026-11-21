@@ -6,7 +6,7 @@
 
 **Blocked by:** 08 (Score an Echo against one built-in table)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [ ] Aligned table with one header row and the columns Weight Table (row picker), Target Score, ER Target Score, Echo Score, Target Chance, ER Target Chance (Reached / Not reached at 5/5), sliders ("Weights of X", a placeholder until ticket 13) and × ("Remove X"); headers may wrap onto two lines
 - [ ] The add picker below the list lists the tables not already listed and reads "Add another Weight Table…" once the list isn't empty; there is no limit on the number of rows
