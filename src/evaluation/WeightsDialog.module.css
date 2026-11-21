@@ -1,0 +1,163 @@
+/* A centred modal dialog on desktop (spec §13): the panel surface, no shadow. */
+.dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(560px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  overflow: auto;
+  box-sizing: border-box;
+  padding: var(--pad);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--ink);
+}
+
+.dialog::backdrop {
+  background: rgb(0 0 0 / 55%);
+}
+
+.close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  margin: 0 40px 12px 0;
+  font-size: 1.15em;
+  line-height: 1.25;
+}
+
+.titleText {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.message {
+  margin: 0 0 12px;
+  color: var(--mute);
+}
+
+.weights {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 24px;
+  margin: 0 0 16px;
+}
+
+.weightRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.weightRow dt {
+  color: var(--mute);
+}
+
+.weightValue {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.form {
+  margin: 0;
+}
+
+.weightFields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 24px;
+}
+
+.field {
+  display: grid;
+  grid-template-columns: 1fr 6em;
+  align-items: center;
+  gap: 0 10px;
+}
+
+.wide {
+  grid-template-columns: 1fr;
+  margin-bottom: 8px;
+}
+
+.label {
+  font-size: 0.9em;
+  color: var(--mute);
+}
+
+.nameInput {
+  padding: 5px 8px;
+  font-weight: 600;
+}
+
+.numberInput {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 3px 7px;
+  text-align: right;
+}
+
+.nameInput[aria-invalid='true'],
+.numberInput[aria-invalid='true'] {
+  border-color: var(--bad);
+}
+
+/* A line reserved under each field, so an error appearing moves nothing. */
+.error {
+  grid-column: 1 / -1;
+  min-height: 1.3em;
+  font-size: 0.8em;
+  line-height: 1.3;
+  color: var(--bad);
+  text-align: right;
+}
+
+.wide .error {
+  text-align: left;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.button {
+  padding: 5px 14px;
+  border: 1px solid var(--field-line);
+  border-radius: var(--radius-s);
+  background: var(--panel);
+  cursor: pointer;
+}
+
+.button:hover {
+  border-color: var(--acc);
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.primary {
+  border-color: var(--acc);
+  background: var(--acc);
+  color: var(--acc-ink);
+}
+
+.danger:hover {
+  border-color: var(--bad);
+  color: var(--bad);
+}

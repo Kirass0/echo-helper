@@ -83,6 +83,7 @@ describe('Substat Weight Tables list', () => {
       'Add another Weight Table…',
       'Atk only',
       'Crit Damage only',
+      'New Custom Weight Table…',
     ]);
 
     await listTables(user, 'Atk only', 'Crit Damage only');
