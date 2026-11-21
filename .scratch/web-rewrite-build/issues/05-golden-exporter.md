@@ -6,11 +6,16 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Inputs: the 28 tables in the source's `data/valueTables.json` as of 2026-11-16; each fixture carries its own input table
-- [ ] Per table (all 28): the Echo Score distribution behind Top Percent, sampled at a fixed list of Echo Scores
-- [ ] Echo Evaluation (about 5 tables, "Mornye" required, at least one Echo holding Flat DEF): partly tuned Echoes at every Tune Stage 0–5, with and without targets; recorded Echo Score, Top Percent, Target Chance, Best, Worst, Average and Median Echo Score, and the distribution points
-- [ ] Upgrade Strategy (about 5 tables): the owner's saved strategy (4 rules, from `%AppData%\EchoHelper\settings.json`) plus about 6 written ones, together covering every rule kind, several Rule Groups at one stage, an impossible rule and an empty strategy; recorded Success Rate, Discard Rate per stage, Tuning Cost, and the Successful Echoes' Echo Score distribution
-- [ ] The source commit used is recorded with the output, and the project carries a note that its output matches only that day's game data
-- [ ] The source project is not modified
+- [x] Inputs: the 28 tables in the source's `data/valueTables.json` as of 2026-11-16; each fixture carries its own input table
+- [x] Per table (all 28): the Echo Score distribution behind Top Percent, sampled at a fixed list of Echo Scores
+- [x] Echo Evaluation (about 5 tables, "Mornye" required, at least one Echo holding Flat DEF): partly tuned Echoes at every Tune Stage 0–5, with and without targets; recorded Echo Score, Top Percent, Target Chance, Best, Worst, Average and Median Echo Score, and the distribution points
+- [x] Upgrade Strategy (about 5 tables): the owner's saved strategy (4 rules, from `%AppData%\EchoHelper\settings.json`) plus about 6 written ones, together covering every rule kind, several Rule Groups at one stage, an impossible rule and an empty strategy; recorded Success Rate, Discard Rate per stage, Tuning Cost, and the Successful Echoes' Echo Score distribution
+- [x] The source commit used is recorded with the output, and the project carries a note that its output matches only that day's game data
+- [x] The source project is not modified
+
+## Comments
+
+- Owner decision, 2026-11-21 (spec §19, item 9): the Core no longer calculates the Successful Echoes' Echo Score distribution, so the tests no longer read `SuccessfulEchoValues`. The exporter and the committed fixture keep it unchanged; see the note in `tools/golden-export/README.md`.
+- Regenerated, 2026-11-21 (spec §19, item 11): the fixtures now come from source commit `f69385c`, whose 61 Value Tables are the catalogue's starting contents; its Core is identical to `53ce242`. Top Percent covers all 61 tables. "Hsin" became "Hsin (Unison)", and "Energy Regen" became "Sigrika", which carries the only Energy Regen weight (2.23); Mornye keeps its two Flat DEF Echoes. The exporter no longer writes `SuccessfulEchoValues`, and `SuccessfulEchoScores.cs` is gone: the Average and Lowest Echo Score come straight from the Core's result, so the derivation's cross-check against the Core had nothing left to check.

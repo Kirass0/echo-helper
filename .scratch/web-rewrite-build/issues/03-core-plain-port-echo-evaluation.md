@@ -6,13 +6,13 @@
 
 **Blocked by:** 01 (Scaffold, CI gate and deploy of the app shell)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Game data ported as it stands at `53ce242`: each Substat type's eight values and tier weights, Tuning Costs per Tune Stage (Echo EXP, Tuners, Shell Credits) and the Discard refund (75% EXP, 30% Tuners, no Shell Credits)
-- [ ] Reference Rolls computed (the lowest value whose cumulative integer tier weight × 2 ≥ the total), exposed by one function; a test pins all 13 values listed in spec §3
-- [ ] Echo Score is bit-exact with the source: each contribution is `weight * (value / referenceRoll)`, summed in the source's Substat order and never quantised; kept Echo Scores are rounded to 12 decimals as .NET `Math.Round(x, 12)` (banker's rounding); comparisons treat scores within `1e-9` as equal
-- [ ] Whole-table distribution (behind Top Percent) and finishing tables (behind Echo Evaluation)
-- [ ] Results for an Echo at any Tune Stage 0–5: Echo Score, Top Percent, ER Top Percent, Target Chance, ER Target Chance, Best, Worst, Average and Median Echo Score, and the distribution points; at 5/5, Reached / Not reached
-- [ ] Every source Core test in this area that doesn't touch file IO is ported one for one, with the same hand-derived expectations
-- [ ] `EchoEvaluationSimulator` is ported with its own seeded RNG and agrees with the exact calculation within a statistical tolerance
-- [ ] Glossary names are used throughout (`echoScore`, `substatWeightTable`, `targetScore`, …)
+- [x] Game data ported as it stands at `53ce242`: each Substat type's eight values and tier weights, Tuning Costs per Tune Stage (Echo EXP, Tuners, Shell Credits) and the Discard refund (75% EXP, 30% Tuners, no Shell Credits)
+- [x] Reference Rolls computed (the lowest value whose cumulative integer tier weight × 2 ≥ the total), exposed by one function; a test pins all 13 values listed in spec §3
+- [x] Echo Score is bit-exact with the source: each contribution is `weight * (value / referenceRoll)`, summed in the source's Substat order and never quantised; kept Echo Scores are rounded to 12 decimals as .NET `Math.Round(x, 12)` (banker's rounding); comparisons treat scores within `1e-9` as equal
+- [x] Whole-table distribution (behind Top Percent) and finishing tables (behind Echo Evaluation)
+- [x] Results for an Echo at any Tune Stage 0–5: Echo Score, Top Percent, ER Top Percent, Target Chance, ER Target Chance, Best, Worst, Average and Median Echo Score, and the distribution points; at 5/5, Reached / Not reached
+- [x] Every source Core test in this area that doesn't touch file IO is ported one for one, with the same hand-derived expectations
+- [x] `EchoEvaluationSimulator` is ported with its own seeded RNG and agrees with the exact calculation within a statistical tolerance
+- [x] Glossary names are used throughout (`echoScore`, `substatWeightTable`, `targetScore`, …)

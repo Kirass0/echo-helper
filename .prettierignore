@@ -1,0 +1,12 @@
+node_modules
+dist
+coverage
+test-results
+playwright-report
+blob-report
+package-lock.json
+.scratch
+.claude
+docs
+*.md
+tests/fixtures/golden

@@ -6,10 +6,14 @@
 
 **Blocked by:** 04 (Core plain port: Upgrade Strategy pass), 05 (Golden exporter)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A fixture loader maps C# field names to glossary names
-- [ ] Every distribution, Echo Evaluation and Upgrade Strategy fixture value is reproduced within `1e-9`
-- [ ] The tests fail, not skip, if the fixture JSON is missing
-- [ ] Nothing is skipped or loosened beyond `1e-9`; a fixture that can't be met is raised to the owner rather than adjusted
-- [ ] Runs in the CI Vitest step
+- [x] A fixture loader maps C# field names to glossary names
+- [x] Every distribution, Echo Evaluation and Upgrade Strategy fixture value is reproduced within `1e-9`
+- [x] The tests fail, not skip, if the fixture JSON is missing
+- [x] Nothing is skipped or loosened beyond `1e-9`; a fixture that can't be met is raised to the owner rather than adjusted
+- [x] Runs in the CI Vitest step
+
+## Comments
+
+- Owner decisions, 2026-11-21 (spec §19, items 9 and 10): the golden Upgrade Strategy tests no longer read `SuccessfulEchoValues`, as the Core no longer calculates the Successful Echoes' Echo Score distribution; the fixture JSON is unchanged. The four Cost per Successful Echo fields are compared within `1e-9` relative to their size (ticket 07); everything else within an absolute `1e-9`.

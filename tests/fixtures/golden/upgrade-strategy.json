@@ -1,0 +1,959 @@
+{
+  "Source": { "Repository": "EchoHelperClaude", "Commit": "f69385c0cd83dee4a1fc3765accc1234c234316e", "ValueTablesFile": "data/valueTables.json", "Note": "Exported once from the C# Core. Matches only the game data at this commit (its 61 tables, the ones the catalogue starts with)." },
+  "ValueTables": [
+    {
+      "Name": "Cartethyia",
+      "Weights": { "Atk_Percent": 0.09, "Atk_Flat": 0.05, "Def_Percent": 0, "Def_Flat": 0, "Hp_Percent": 2.34, "Hp_Flat": 0.79, "Basic_Attack": 2.19, "Skill": 0.4, "Heavy": 0, "Liberation": 1.08, "Energy_Regen": 0, "Critical_Rate": 4.89, "Critical_Damage": 4.84 }
+    },
+    {
+      "Name": "Mornye",
+      "Weights": { "Atk_Percent": 1.06, "Atk_Flat": 0.7, "Def_Percent": 3.32, "Def_Flat": 1.13, "Hp_Percent": 0, "Hp_Flat": 0, "Basic_Attack": 0.36, "Skill": 0.19, "Heavy": 0.33, "Liberation": 4.97, "Energy_Regen": 0, "Critical_Rate": 5.76, "Critical_Damage": 3.74 }
+    },
+    {
+      "Name": "Cantarella",
+      "Weights": { "Atk_Percent": 3.39, "Atk_Flat": 1.76, "Def_Percent": 0, "Def_Flat": 0, "Hp_Percent": 0.22, "Hp_Flat": 0.09, "Basic_Attack": 3.21, "Skill": 0.22, "Heavy": 0.12, "Liberation": 0, "Energy_Regen": 0, "Critical_Rate": 6.26, "Critical_Damage": 4.29 }
+    },
+    {
+      "Name": "Shorekeeper",
+      "Weights": { "Atk_Percent": 0.81, "Atk_Flat": 0.53, "Def_Percent": 0, "Def_Flat": 0, "Hp_Percent": 2.81, "Hp_Flat": 0.84, "Basic_Attack": 0.36, "Skill": 0.22, "Heavy": 0.48, "Liberation": 5.19, "Energy_Regen": 0, "Critical_Rate": 4.67, "Critical_Damage": 6.01 }
+    },
+    {
+      "Name": "Hsin (Unison)",
+      "Weights": { "Atk_Percent": 2.54, "Atk_Flat": 1.13, "Def_Percent": 0, "Def_Flat": 0, "Hp_Percent": 0, "Hp_Flat": 0, "Basic_Attack": 0.21, "Skill": 2.27, "Heavy": 0, "Liberation": 0.04, "Energy_Regen": 0, "Critical_Rate": 5.09, "Critical_Damage": 5.34 }
+    }
+  ],
+  "Strategies": [
+    {
+      "Name": "Owner\u0027s saved strategy",
+      "RuleGroups": [
+        {
+          "TuneStage": 2,
+          "Rules": [
+            { "Kind": "Chance", "MinChancePercent": 1, "TargetValue": 12.7 }
+          ]
+        },
+        {
+          "TuneStage": 3,
+          "Rules": [
+            { "Kind": "Chance", "MinChancePercent": 1, "TargetValue": 12.7 }
+          ]
+        },
+        {
+          "TuneStage": 4,
+          "Rules": [
+            { "Kind": "Chance", "MinChancePercent": 1, "TargetValue": 12.7 }
+          ]
+        },
+        {
+          "TuneStage": 5,
+          "Rules": [
+            { "Kind": "MinEchoValue", "MinEchoValue": 12.7 }
+          ]
+        }
+      ]
+    },
+    {
+      "Name": "Empty strategy",
+      "RuleGroups": []
+    },
+    {
+      "Name": "Substat Count",
+      "RuleGroups": [
+        {
+          "TuneStage": 1,
+          "Rules": [
+            {
+              "Kind": "MustHave",
+              "SubstatCount": 1,
+              "SubstatTypes": [
+                "Critical_Rate",
+                "Critical_Damage"
+              ]
+            }
+          ]
+        },
+        {
+          "TuneStage": 3,
+          "Rules": [
+            {
+              "Kind": "MustHave",
+              "SubstatCount": 2,
+              "SubstatTypes": [
+                "Critical_Rate",
+                "Critical_Damage",
+                "Atk_Percent",
+                "Hp_Percent",
+                "Def_Percent"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "Name": "Several Rule Groups at one stage",
+      "RuleGroups": [
+        {
+          "TuneStage": 2,
+          "Rules": [
+            { "Kind": "StatValue", "SubstatType": "Critical_Rate", "MinValue": 8.1 }
+          ]
+        },
+        {
+          "TuneStage": 2,
+          "Rules": [
+            { "Kind": "StatValue", "SubstatType": "Critical_Damage", "MinValue": 16.2 }
+          ]
+        },
+        {
+          "TuneStage": 2,
+          "Rules": [
+            {
+              "Kind": "MustHave",
+              "SubstatCount": 2,
+              "SubstatTypes": [
+                "Critical_Rate",
+                "Critical_Damage"
+              ]
+            }
+          ]
+        },
+        {
+          "TuneStage": 4,
+          "Rules": [
+            { "Kind": "MinEchoValue", "MinEchoValue": 8 }
+          ]
+        },
+        {
+          "TuneStage": 4,
+          "Rules": [
+            {
+              "Kind": "MustHave",
+              "SubstatCount": 1,
+              "SubstatTypes": [
+                "Energy_Regen"
+              ]
+            },
+            { "Kind": "MinEchoValue", "MinEchoValue": 5 }
+          ]
+        }
+      ]
+    },
+    {
+      "Name": "Impossible rule",
+      "RuleGroups": [
+        {
+          "TuneStage": 1,
+          "Rules": [
+            {
+              "Kind": "MustHave",
+              "SubstatCount": 1,
+              "SubstatTypes": [
+                "Critical_Rate",
+                "Critical_Damage",
+                "Liberation"
+              ]
+            }
+          ]
+        },
+        {
+          "TuneStage": 3,
+          "Rules": [
+            { "Kind": "StatValue", "SubstatType": "Critical_Rate", "MinValue": 11 }
+          ]
+        }
+      ]
+    },
+    {
+      "Name": "Impossible Rule Group beside a possible one",
+      "RuleGroups": [
+        {
+          "TuneStage": 2,
+          "Rules": [
+            {
+              "Kind": "MustHave",
+              "SubstatCount": 3,
+              "SubstatTypes": [
+                "Critical_Rate",
+                "Critical_Damage",
+                "Energy_Regen"
+              ]
+            }
+          ]
+        },
+        {
+          "TuneStage": 2,
+          "Rules": [
+            { "Kind": "MinEchoValue", "MinEchoValue": 3 }
+          ]
+        }
+      ]
+    },
+    {
+      "Name": "Substat Roll on flat and Energy Regen values",
+      "RuleGroups": [
+        {
+          "TuneStage": 1,
+          "Rules": [
+            { "Kind": "StatValue", "SubstatType": "Atk_Flat", "MinValue": 50 }
+          ]
+        },
+        {
+          "TuneStage": 1,
+          "Rules": [
+            { "Kind": "StatValue", "SubstatType": "Def_Flat", "MinValue": 60 }
+          ]
+        },
+        {
+          "TuneStage": 1,
+          "Rules": [
+            { "Kind": "StatValue", "SubstatType": "Hp_Flat", "MinValue": 470 }
+          ]
+        },
+        {
+          "TuneStage": 1,
+          "Rules": [
+            { "Kind": "StatValue", "SubstatType": "Energy_Regen", "MinValue": 10 }
+          ]
+        },
+        {
+          "TuneStage": 1,
+          "Rules": [
+            {
+              "Kind": "MustHave",
+              "SubstatCount": 1,
+              "SubstatTypes": [
+                "Critical_Rate",
+                "Critical_Damage"
+              ]
+            }
+          ]
+        },
+        {
+          "TuneStage": 3,
+          "Rules": [
+            { "Kind": "Chance", "MinChancePercent": 10, "TargetValue": 12 }
+          ]
+        },
+        {
+          "TuneStage": 5,
+          "Rules": [
+            { "Kind": "MinEchoValue", "MinEchoValue": 10 }
+          ]
+        }
+      ]
+    },
+    {
+      "Name": "Target Chance from the first stage",
+      "RuleGroups": [
+        {
+          "TuneStage": 1,
+          "Rules": [
+            { "Kind": "Chance", "MinChancePercent": 5, "TargetValue": 14 }
+          ]
+        },
+        {
+          "TuneStage": 3,
+          "Rules": [
+            { "Kind": "Chance", "MinChancePercent": 20, "TargetValue": 14 },
+            { "Kind": "StatValue", "SubstatType": "Critical_Damage", "MinValue": 15 }
+          ]
+        },
+        {
+          "TuneStage": 3,
+          "Rules": [
+            { "Kind": "MinEchoValue", "MinEchoValue": 9 }
+          ]
+        },
+        {
+          "TuneStage": 5,
+          "Rules": [
+            { "Kind": "MinEchoValue", "MinEchoValue": 14 }
+          ]
+        }
+      ]
+    }
+  ],
+  "Cases": [
+    {
+      "StrategyName": "Owner\u0027s saved strategy",
+      "ValueTableName": "Cartethyia",
+      "Result": {
+        "SuccessRate": 0.032030037806876556,
+        "AverageCostPerKeptEcho": { "Echoes": 31.220693713490064, "Exp": 604202.3776879732, "Tuners": 740.7150792366654, "ShellCredits": 406248.11657137936 },
+        "Discards": [
+          { "TuneStage": 1, "DiscardRate": 0 },
+          { "TuneStage": 2, "DiscardRate": 0.34699998138385735 },
+          { "TuneStage": 3, "DiscardRate": 0.22494932559996206 },
+          { "TuneStage": 4, "DiscardRate": 0.18843262965651916 },
+          { "TuneStage": 5, "DiscardRate": 0.2075880255535537 }
+        ],
+        "AverageKeptEchoValue": 13.908569413368442,
+        "MinimumKeptEchoValue": 12.700013953488371
+      }
+    },
+    {
+      "StrategyName": "Empty strategy",
+      "ValueTableName": "Cartethyia",
+      "Result": {
+        "SuccessRate": 1,
+        "AverageCostPerKeptEcho": { "Echoes": 1, "Exp": 142600, "Tuners": 50, "ShellCredits": 24260 },
+        "Discards": [
+          { "TuneStage": 1, "DiscardRate": 0 },
+          { "TuneStage": 2, "DiscardRate": 0 },
+          { "TuneStage": 3, "DiscardRate": 0 },
+          { "TuneStage": 4, "DiscardRate": 0 },
+          { "TuneStage": 5, "DiscardRate": 0 }
+        ],
+        "AverageKeptEchoValue": 6.480661557692471,
+        "MinimumKeptEchoValue": 0.037500000000000006
+      }
+    },
+    {
+      "StrategyName": "Substat Count",
+      "ValueTableName": "Cartethyia",
+      "Result": {
+        "SuccessRate": 0.08857808857808862,
+        "AverageCostPerKeptEcho": { "Echoes": 11.289473684210522, "Exp": 160402.63157894733, "Tuners": 132.3421052631578, "ShellCredits": 54907.368421052604 },
+        "Discards": [
+          { "TuneStage": 1, "DiscardRate": 0.8461538461538463 },
+          { "TuneStage": 2, "DiscardRate": 0 },
+          { "TuneStage": 3, "DiscardRate": 0.06526806526806511 },
+          { "TuneStage": 4, "DiscardRate": 0 },
+          { "TuneStage": 5, "DiscardRate": 0 }
+        ],
+        "AverageKeptEchoValue": 9.370173857514045,
+        "MinimumKeptEchoValue": 4.0656
+      }
+    },
+    {
+      "StrategyName": "Several Rule Groups at one stage",
+      "ValueTableName": "Cartethyia",
+      "Result": {
+        "SuccessRate": 0.07128617225566435,
+        "AverageCostPerKeptEcho": { "Echoes": 14.027965990564752, "Exp": 202083.06720171185, "Tuners": 237.52877018540408, "ShellCredits": 101632.8755050859 },
+        "Discards": [
+          { "TuneStage": 1, "DiscardRate": 0 },
+          { "TuneStage": 2, "DiscardRate": 0.9025556401794008 },
+          { "TuneStage": 3, "DiscardRate": 0 },
+          { "TuneStage": 4, "DiscardRate": 0.026158187564928426 },
+          { "TuneStage": 5, "DiscardRate": 0 }
+        ],
+        "AverageKeptEchoValue": 10.522493747078476,
+        "MinimumKeptEchoValue": 5.227199999999999
+      }
+    },
+    {
+      "StrategyName": "Impossible rule",
+      "ValueTableName": "Cartethyia",
+      "Result": {
+        "SuccessRate": 0,
+        "AverageCostPerKeptEcho": null,
+        "Discards": [
+          { "TuneStage": 1, "DiscardRate": 0.7692307692307692 },
+          { "TuneStage": 2, "DiscardRate": 0 },
+          { "TuneStage": 3, "DiscardRate": 0.2307692307692387 },
+          { "TuneStage": 4, "DiscardRate": 0 },
+          { "TuneStage": 5, "DiscardRate": 0 }
+        ],
+        "AverageKeptEchoValue": null,
+        "MinimumKeptEchoValue": null
+      }
+    },
+    {
+      "StrategyName": "Impossible Rule Group beside a possible one",
+      "ValueTableName": "Cartethyia",
+      "Result": {
+        "SuccessRate": 0.35551234430332335,
+        "AverageCostPerKeptEcho": { "Echoes": 2.8128418493024236, "Exp": 150077.97262837252, "Tuners": 75.37978589023402, "ShellCredits": 34502.556448558724 },
+        "Discards": [
+          { "TuneStage": 1, "DiscardRate": 0 },
+          { "TuneStage": 2, "DiscardRate": 0.6444876556966787 },
+          { "TuneStage": 3, "DiscardRate": 0 },
+          { "TuneStage": 4, "DiscardRate": 0 },
+          { "TuneStage": 5, "DiscardRate": 0 }
+        ],
+        "AverageKeptEchoValue": 8.501305050585179,
+        "MinimumKeptEchoValue": 3.0013953488372094
+      }
+    },
+    {
+      "StrategyName": "Substat Roll on flat and Energy Regen values",
+      "ValueTableName": "Cartethyia",
+      "Result": {
+        "SuccessRate": 0.03809221534275886,
+        "AverageCostPerKeptEcho": { "Echoes": 26.25208303066298, "Exp": 249904.38948859452, "Tuners": 328.3567949062545, "ShellCredits": 146712.26862579625 },
+        "Discards": [
+          { "TuneStage": 1, "DiscardRate": 0.7207020134434653 },
+          { "TuneStage": 2, "DiscardRate": 0 },
+          { "TuneStage": 3, "DiscardRate": 0.20599207949267312 },
+          { "TuneStage": 4, "DiscardRate": 0 },
+          { "TuneStage": 5, "DiscardRate": 0.03521369172110907 }
+        ],
+        "AverageKeptEchoValue": 12.226429069297994,
+        "MinimumKeptEchoValue": 9.999999999999998
+      }
+    },
+    {
+      "StrategyName": "Target Chance from the first stage",
+      "ValueTableName": "Cartethyia",
+      "Result": {
+        "SuccessRate": 0.0018224400497526716,
+        "AverageCostPerKeptEcho": { "Echoes": 548.7148947015913, "Exp": 997803.4616779551, "Tuners": 4183.355293550927, "ShellCredits": 1547300.0399714469 },
+        "Discards": [
+          { "TuneStage": 1, "DiscardRate": 0.9661504611999658 },
+          { "TuneStage": 2, "DiscardRate": 0 },
+          { "TuneStage": 3, "DiscardRate": 0.025086389845385425 },
+          { "TuneStage": 4, "DiscardRate": 0 },
+          { "TuneStage": 5, "DiscardRate": 0.0069407089049018595 }
+        ],
+        "AverageKeptEchoValue": 15.13326940427397,
+        "MinimumKeptEchoValue": 13.999999999999998
+      }
+    },
+    {
+      "StrategyName": "Owner\u0027s saved strategy",
+      "ValueTableName": "Mornye",
+      "Result": {
+        "SuccessRate": 0.13051136229828011,
+        "AverageCostPerKeptEcho": { "Echoes": 7.662168123833752, "Exp": 310315.4309684865, "Tuners": 248.67862766838905, "ShellCredits": 148111.49457836288 },
+        "Discards": [
+          { "TuneStage": 1, "DiscardRate": 0 },
+          { "TuneStage": 2, "DiscardRate": 0 },
+          { "TuneStage": 3, "DiscardRate": 0.18367271412994707 },
+          { "TuneStage": 4, "DiscardRate": 0.27583799503026535 },
+          { "TuneStage": 5, "DiscardRate": 0.40997792854222587 }
+        ],
+        "AverageKeptEchoValue": 14.724161042798325,
+        "MinimumKeptEchoValue": 12.699999999999998
+      }
+    },
+    {
+      "StrategyName": "Empty strategy",
+      "ValueTableName": "Mornye",
+      "Result": {
+        "SuccessRate": 1,
+        "AverageCostPerKeptEcho": { "Echoes": 1, "Exp": 142600, "Tuners": 50, "ShellCredits": 24260 },
+        "Discards": [
+          { "TuneStage": 1, "DiscardRate": 0 },
+          { "TuneStage": 2, "DiscardRate": 0 },
+          { "TuneStage": 3, "DiscardRate": 0 },
+          { "TuneStage": 4, "DiscardRate": 0 },
+          { "TuneStage": 5, "DiscardRate": 0 }
+        ],
+        "AverageKeptEchoValue": 8.436048090665631,
+        "MinimumKeptEchoValue": 0.38697674418604655
+      }
+    },
+    {
+      "StrategyName": "Substat Count",
+      "ValueTableName": "Mornye",
+      "Result": {
+        "SuccessRate": 0.08857808857808862,
+        "AverageCostPerKeptEcho": { "Echoes": 11.289473684210522, "Exp": 160402.63157894733, "Tuners": 132.34210526315783, "ShellCredits": 54907.368421052604 },
+        "Discards": [
+          { "TuneStage": 1, "DiscardRate": 0.8461538461538465 },
+          { "TuneStage": 2, "DiscardRate": 0 },
+          { "TuneStage": 3, "DiscardRate": 0.06526806526806507 },
+          { "TuneStage": 4, "DiscardRate": 0 },
+          { "TuneStage": 5, "DiscardRate": 0 }
+        ],
+        "AverageKeptEchoValue": 11.007418240424819,
+        "MinimumKeptEchoValue": 3.2829953488372094
+      }
+    },
+    {
+      "StrategyName": "Several Rule Groups at one stage",
+      "ValueTableName": "Mornye",
+      "Result": {
+        "SuccessRate": 0.07904409131711262,
+        "AverageCostPerKeptEcho": { "Echoes": 12.65116700485752, "Exp": 194304.147106965, "Tuners": 216.37532624480883, "ShellCredits": 92477.46634130282 },
+        "Discards": [
+          { "TuneStage": 1, "DiscardRate": 0 },
+          { "TuneStage": 2, "DiscardRate": 0.9025556401793997 },
+          { "TuneStage": 3, "DiscardRate": 0 },
+          { "TuneStage": 4, "DiscardRate": 0.018400268503481296 },
+          { "TuneStage": 5, "DiscardRate": 0 }
+        ],
+        "AverageKeptEchoValue": 12.205894886259198,
+        "MinimumKeptEchoValue": 5.0015395348837215
+      }
+    },
+    {
+      "StrategyName": "Impossible rule",
+      "ValueTableName": "Mornye",
+      "Result": {
+        "SuccessRate": 0,
+        "AverageCostPerKeptEcho": null,
+        "Discards": [
+          { "TuneStage": 1, "DiscardRate": 0.7692307692307694 },
+          { "TuneStage": 2, "DiscardRate": 0 },
+          { "TuneStage": 3, "DiscardRate": 0.23076923076923897 },
+          { "TuneStage": 4, "DiscardRate": 0 },
+          { "TuneStage": 5, "DiscardRate": 0 }
+        ],
+        "AverageKeptEchoValue": null,
+        "MinimumKeptEchoValue": null
+      }
+    },
+    {
+      "StrategyName": "Impossible Rule Group beside a possible one",
+      "ValueTableName": "Mornye",
+      "Result": {
+        "SuccessRate": 0.5290858720518469,
+        "AverageCostPerKeptEcho": { "Echoes": 1.890052357894007, "Exp": 146271.4659763128, "Tuners": 62.46073301051614, "ShellCredits": 29288.79582210116 },
+        "Discards": [
+          { "TuneStage": 1, "DiscardRate": 0 },
+          { "TuneStage": 2, "DiscardRate": 0.4709141279481549 },
+          { "TuneStage": 3, "DiscardRate": 0 },
+          { "TuneStage": 4, "DiscardRate": 0 },
+          { "TuneStage": 5, "DiscardRate": 0 }
+        ],
+        "AverageKeptEchoValue": 10.03278927231031,
+        "MinimumKeptEchoValue": 3.0091913804139105
+      }
+    },
+    {
+      "StrategyName": "Substat Roll on flat and Energy Regen values",
+      "ValueTableName": "Mornye",
+      "Result": {
+        "SuccessRate": 0.10011098113939883,
+        "AverageCostPerKeptEcho": { "Echoes": 9.988914189219233, "Exp": 184743.51265367665, "Tuners": 146.95421609679494, "ShellCredits": 68818.60966055492 },
+        "Discards": [
+          { "TuneStage": 1, "DiscardRate": 0.7207020134434653 },
+          { "TuneStage": 2, "DiscardRate": 0 },
+          { "TuneStage": 3, "DiscardRate": 0.11501982747539986 },
+          { "TuneStage": 4, "DiscardRate": 0 },
+          { "TuneStage": 5, "DiscardRate": 0.06416717794182236 }
+        ],
+        "AverageKeptEchoValue": 12.914581925281825,
+        "MinimumKeptEchoValue": 9.999999999999998
+      }
+    },
+    {
+      "StrategyName": "Target Chance from the first stage",
+      "ValueTableName": "Mornye",
+      "Result": {
+        "SuccessRate": 0.0378830157752531,
+        "AverageCostPerKeptEcho": { "Echoes": 26.397053654140315, "Exp": 322017.20372031396, "Tuners": 419.55459466587376, "ShellCredits": 201613.90853551807 },
+        "Discards": [
+          { "TuneStage": 1, "DiscardRate": 0.5123283035700552 },
+          { "TuneStage": 2, "DiscardRate": 0 },
+          { "TuneStage": 3, "DiscardRate": 0.3806471005973084 },
+          { "TuneStage": 4, "DiscardRate": 0 },
+          { "TuneStage": 5, "DiscardRate": 0.06914158005744847 }
+        ],
+        "AverageKeptEchoValue": 15.966626629563155,
+        "MinimumKeptEchoValue": 13.999999999999998
+      }
+    },
+    {
+      "StrategyName": "Owner\u0027s saved strategy",
+      "ValueTableName": "Cantarella",
+      "Result": {
+        "SuccessRate": 0.10411927795722802,
+        "AverageCostPerKeptEcho": { "Echoes": 9.60436933120875, "Exp": 355875.5955921368, "Tuners": 304.7932191347871, "ShellCredits": 182368.30084679383 },
+        "Discards": [
+          { "TuneStage": 1, "DiscardRate": 0 },
+          { "TuneStage": 2, "DiscardRate": 0 },
+          { "TuneStage": 3, "DiscardRate": 0.2024603287491096 },
+          { "TuneStage": 4, "DiscardRate": 0.2846420949056116 },
+          { "TuneStage": 5, "DiscardRate": 0.40877829838923935 }
+        ],
+        "AverageKeptEchoValue": 14.54428781750786,
+        "MinimumKeptEchoValue": 12.7
+      }
+    },
+    {
+      "StrategyName": "Empty strategy",
+      "ValueTableName": "Cantarella",
+      "Result": {
+        "SuccessRate": 1,
+        "AverageCostPerKeptEcho": { "Echoes": 1, "Exp": 142600, "Tuners": 50, "ShellCredits": 24260 },
+        "Discards": [
+          { "TuneStage": 1, "DiscardRate": 0 },
+          { "TuneStage": 2, "DiscardRate": 0 },
+          { "TuneStage": 3, "DiscardRate": 0 },
+          { "TuneStage": 4, "DiscardRate": 0 },
+          { "TuneStage": 5, "DiscardRate": 0 }
+        ],
+        "AverageKeptEchoValue": 7.653770540375937,
+        "MinimumKeptEchoValue": 0.0669767441860465
+      }
+    },
+    {
+      "StrategyName": "Substat Count",
+      "ValueTableName": "Cantarella",
+      "Result": {
+        "SuccessRate": 0.08857808857808862,
+        "AverageCostPerKeptEcho": { "Echoes": 11.289473684210522, "Exp": 160402.63157894733, "Tuners": 132.3421052631578, "ShellCredits": 54907.368421052604 },
+        "Discards": [
+          { "TuneStage": 1, "DiscardRate": 0.8461538461538463 },
+          { "TuneStage": 2, "DiscardRate": 0 },
+          { "TuneStage": 3, "DiscardRate": 0.06526806526806511 },
+          { "TuneStage": 4, "DiscardRate": 0 },
+          { "TuneStage": 5, "DiscardRate": 0 }
+        ],
+        "AverageKeptEchoValue": 10.769697990435015,
+        "MinimumKeptEchoValue": 3.6035999999999997
+      }
+    },
+    {
+      "StrategyName": "Several Rule Groups at one stage",
+      "ValueTableName": "Cantarella",
+      "Result": {
+        "SuccessRate": 0.07896611592156282,
+        "AverageCostPerKeptEcho": { "Echoes": 12.663659448481699, "Exp": 194374.72946630014, "Tuners": 216.56726290995, "ShellCredits": 92560.53833222005 },
+        "Discards": [
+          { "TuneStage": 1, "DiscardRate": 0 },
+          { "TuneStage": 2, "DiscardRate": 0.9025556401794008 },
+          { "TuneStage": 3, "DiscardRate": 0 },
+          { "TuneStage": 4, "DiscardRate": 0.018478243899033183 },
+          { "TuneStage": 5, "DiscardRate": 0 }
+        ],
+        "AverageKeptEchoValue": 11.974646820121842,
+        "MinimumKeptEchoValue": 5.001339534883721
+      }
+    },
+    {
+      "StrategyName": "Impossible rule",
+      "ValueTableName": "Cantarella",
+      "Result": {
+        "SuccessRate": 0,
+        "AverageCostPerKeptEcho": null,
+        "Discards": [
+          { "TuneStage": 1, "DiscardRate": 0.7692307692307694 },
+          { "TuneStage": 2, "DiscardRate": 0 },
+          { "TuneStage": 3, "DiscardRate": 0.23076923076923841 },
+          { "TuneStage": 4, "DiscardRate": 0 },
+          { "TuneStage": 5, "DiscardRate": 0 }
+        ],
+        "AverageKeptEchoValue": null,
+        "MinimumKeptEchoValue": null
+      }
+    },
+    {
+      "StrategyName": "Impossible Rule Group beside a possible one",
+      "ValueTableName": "Cantarella",
+      "Result": {
+        "SuccessRate": 0.4998277619790211,
+        "AverageCostPerKeptEcho": { "Echoes": 2.000689189493184, "Exp": 146727.84290665938, "Tuners": 64.00964865290464, "ShellCredits": 29913.89392063652 },
+        "Discards": [
+          { "TuneStage": 1, "DiscardRate": 0 },
+          { "TuneStage": 2, "DiscardRate": 0.5001722380209813 },
+          { "TuneStage": 3, "DiscardRate": 0 },
+          { "TuneStage": 4, "DiscardRate": 0 },
+          { "TuneStage": 5, "DiscardRate": 0 }
+        ],
+        "AverageKeptEchoValue": 9.357135069815962,
+        "MinimumKeptEchoValue": 3.000813953488372
+      }
+    },
+    {
+      "StrategyName": "Substat Roll on flat and Energy Regen values",
+      "ValueTableName": "Cantarella",
+      "Result": {
+        "SuccessRate": 0.08633359356610938,
+        "AverageCostPerKeptEcho": { "Echoes": 11.58297666868525, "Exp": 192415.1987385032, "Tuners": 165.43325069745742, "ShellCredits": 77167.00826610341 },
+        "Discards": [
+          { "TuneStage": 1, "DiscardRate": 0.7207020134434652 },
+          { "TuneStage": 2, "DiscardRate": 0 },
+          { "TuneStage": 3, "DiscardRate": 0.13092146421715187 },
+          { "TuneStage": 4, "DiscardRate": 0 },
+          { "TuneStage": 5, "DiscardRate": 0.06204292877327589 }
+        ],
+        "AverageKeptEchoValue": 12.88444170554138,
+        "MinimumKeptEchoValue": 9.999999999999998
+      }
+    },
+    {
+      "StrategyName": "Target Chance from the first stage",
+      "ValueTableName": "Cantarella",
+      "Result": {
+        "SuccessRate": 0.02518145247938537,
+        "AverageCostPerKeptEcho": { "Echoes": 39.71176804906879, "Exp": 367421.42070095765, "Tuners": 547.5029769425237, "ShellCredits": 256332.27597824694 },
+        "Discards": [
+          { "TuneStage": 1, "DiscardRate": 0.6265900666020643 },
+          { "TuneStage": 2, "DiscardRate": 0 },
+          { "TuneStage": 3, "DiscardRate": 0.289019980438018 },
+          { "TuneStage": 4, "DiscardRate": 0 },
+          { "TuneStage": 5, "DiscardRate": 0.05920850048051675 }
+        ],
+        "AverageKeptEchoValue": 15.838855081548317,
+        "MinimumKeptEchoValue": 14.00000930232558
+      }
+    },
+    {
+      "StrategyName": "Owner\u0027s saved strategy",
+      "ValueTableName": "Shorekeeper",
+      "Result": {
+        "SuccessRate": 0.1561857130857408,
+        "AverageCostPerKeptEcho": { "Echoes": 6.402634275844635, "Exp": 295477.4271061351, "Tuners": 220.78928671256205, "ShellCredits": 134207.90990318605 },
+        "Discards": [
+          { "TuneStage": 1, "DiscardRate": 0 },
+          { "TuneStage": 2, "DiscardRate": 0 },
+          { "TuneStage": 3, "DiscardRate": 0.046384736522728724 },
+          { "TuneStage": 4, "DiscardRate": 0.3156095997380732 },
+          { "TuneStage": 5, "DiscardRate": 0.4818199506560913 }
+        ],
+        "AverageKeptEchoValue": 14.882676017818818,
+        "MinimumKeptEchoValue": 12.7
+      }
+    },
+    {
+      "StrategyName": "Empty strategy",
+      "ValueTableName": "Shorekeeper",
+      "Result": {
+        "SuccessRate": 1,
+        "AverageCostPerKeptEcho": { "Echoes": 1, "Exp": 142600, "Tuners": 50, "ShellCredits": 24260 },
+        "Discards": [
+          { "TuneStage": 1, "DiscardRate": 0 },
+          { "TuneStage": 2, "DiscardRate": 0 },
+          { "TuneStage": 3, "DiscardRate": 0 },
+          { "TuneStage": 4, "DiscardRate": 0 },
+          { "TuneStage": 5, "DiscardRate": 0 }
+        ],
+        "AverageKeptEchoValue": 8.546622778891455,
+        "MinimumKeptEchoValue": 0.43162790697674425
+      }
+    },
+    {
+      "StrategyName": "Substat Count",
+      "ValueTableName": "Shorekeeper",
+      "Result": {
+        "SuccessRate": 0.08857808857808862,
+        "AverageCostPerKeptEcho": { "Echoes": 11.289473684210522, "Exp": 160402.63157894733, "Tuners": 132.3421052631578, "ShellCredits": 54907.36842105259 },
+        "Discards": [
+          { "TuneStage": 1, "DiscardRate": 0.8461538461538463 },
+          { "TuneStage": 2, "DiscardRate": 0 },
+          { "TuneStage": 3, "DiscardRate": 0.06526806526806507 },
+          { "TuneStage": 4, "DiscardRate": 0 },
+          { "TuneStage": 5, "DiscardRate": 0 }
+        ],
+        "AverageKeptEchoValue": 11.487301882156546,
+        "MinimumKeptEchoValue": 4.086520930232558
+      }
+    },
+    {
+      "StrategyName": "Several Rule Groups at one stage",
+      "ValueTableName": "Shorekeeper",
+      "Result": {
+        "SuccessRate": 0.08263168179993258,
+        "AverageCostPerKeptEcho": { "Echoes": 12.101895764643821, "Exp": 191200.76227568666, "Tuners": 207.93620150063228, "ShellCredits": 88824.93391045531 },
+        "Discards": [
+          { "TuneStage": 1, "DiscardRate": 0 },
+          { "TuneStage": 2, "DiscardRate": 0.902555640179402 },
+          { "TuneStage": 3, "DiscardRate": 0 },
+          { "TuneStage": 4, "DiscardRate": 0.014812678020666143 },
+          { "TuneStage": 5, "DiscardRate": 0 }
+        ],
+        "AverageKeptEchoValue": 12.629344411420748,
+        "MinimumKeptEchoValue": 5.207320930232558
+      }
+    },
+    {
+      "StrategyName": "Impossible rule",
+      "ValueTableName": "Shorekeeper",
+      "Result": {
+        "SuccessRate": 0,
+        "AverageCostPerKeptEcho": null,
+        "Discards": [
+          { "TuneStage": 1, "DiscardRate": 0.7692307692307694 },
+          { "TuneStage": 2, "DiscardRate": 0 },
+          { "TuneStage": 3, "DiscardRate": 0.2307692307692402 },
+          { "TuneStage": 4, "DiscardRate": 0 },
+          { "TuneStage": 5, "DiscardRate": 0 }
+        ],
+        "AverageKeptEchoValue": null,
+        "MinimumKeptEchoValue": null
+      }
+    },
+    {
+      "StrategyName": "Impossible Rule Group beside a possible one",
+      "ValueTableName": "Shorekeeper",
+      "Result": {
+        "SuccessRate": 0.501067377621641,
+        "AverageCostPerKeptEcho": { "Echoes": 1.9957395844578532, "Exp": 146707.42578588866, "Tuners": 63.94035418241003, "ShellCredits": 29885.928652186907 },
+        "Discards": [
+          { "TuneStage": 1, "DiscardRate": 0 },
+          { "TuneStage": 2, "DiscardRate": 0.4989326223783621 },
+          { "TuneStage": 3, "DiscardRate": 0 },
+          { "TuneStage": 4, "DiscardRate": 0 },
+          { "TuneStage": 5, "DiscardRate": 0 }
+        ],
+        "AverageKeptEchoValue": 10.389059364068501,
+        "MinimumKeptEchoValue": 3.0040697674418606
+      }
+    },
+    {
+      "StrategyName": "Substat Roll on flat and Energy Regen values",
+      "ValueTableName": "Shorekeeper",
+      "Result": {
+        "SuccessRate": 0.11449524414500577,
+        "AverageCostPerKeptEcho": { "Echoes": 8.733987227744775, "Exp": 181501.03420020174, "Tuners": 133.92731436997215, "ShellCredits": 63799.646357215606 },
+        "Discards": [
+          { "TuneStage": 1, "DiscardRate": 0.7207020134434653 },
+          { "TuneStage": 2, "DiscardRate": 0 },
+          { "TuneStage": 3, "DiscardRate": 0.08598083780685806 },
+          { "TuneStage": 4, "DiscardRate": 0 },
+          { "TuneStage": 5, "DiscardRate": 0.07882190460503821 }
+        ],
+        "AverageKeptEchoValue": 13.194281585505658,
+        "MinimumKeptEchoValue": 9.999999999999998
+      }
+    },
+    {
+      "StrategyName": "Target Chance from the first stage",
+      "ValueTableName": "Shorekeeper",
+      "Result": {
+        "SuccessRate": 0.049865913677110164,
+        "AverageCostPerKeptEcho": { "Echoes": 20.053778749050128, "Exp": 332753.7483333533, "Tuners": 408.3088863818273, "ShellCredits": 202695.46687100627 },
+        "Discards": [
+          { "TuneStage": 1, "DiscardRate": 0.23076923076923078 },
+          { "TuneStage": 2, "DiscardRate": 0 },
+          { "TuneStage": 3, "DiscardRate": 0.6375538972646089 },
+          { "TuneStage": 4, "DiscardRate": 0 },
+          { "TuneStage": 5, "DiscardRate": 0.08181095828903635 }
+        ],
+        "AverageKeptEchoValue": 16.285869164898042,
+        "MinimumKeptEchoValue": 14
+      }
+    },
+    {
+      "StrategyName": "Owner\u0027s saved strategy",
+      "ValueTableName": "Hsin (Unison)",
+      "Result": {
+        "SuccessRate": 0.047036966270119406,
+        "AverageCostPerKeptEcho": { "Echoes": 21.259874505028563, "Exp": 514295.71486852196, "Tuners": 555.2973390280691, "ShellCredits": 317308.95424114284 },
+        "Discards": [
+          { "TuneStage": 1, "DiscardRate": 0 },
+          { "TuneStage": 2, "DiscardRate": 0.2692307692307693 },
+          { "TuneStage": 3, "DiscardRate": 0.15258140329346892 },
+          { "TuneStage": 4, "DiscardRate": 0.2565809269068304 },
+          { "TuneStage": 5, "DiscardRate": 0.274569934298843 }
+        ],
+        "AverageKeptEchoValue": 14.14659138720845,
+        "MinimumKeptEchoValue": 12.699999999999998
+      }
+    },
+    {
+      "StrategyName": "Empty strategy",
+      "ValueTableName": "Hsin (Unison)",
+      "Result": {
+        "SuccessRate": 1,
+        "AverageCostPerKeptEcho": { "Echoes": 1, "Exp": 142600, "Tuners": 50, "ShellCredits": 24260 },
+        "Discards": [
+          { "TuneStage": 1, "DiscardRate": 0 },
+          { "TuneStage": 2, "DiscardRate": 0 },
+          { "TuneStage": 3, "DiscardRate": 0 },
+          { "TuneStage": 4, "DiscardRate": 0 },
+          { "TuneStage": 5, "DiscardRate": 0 }
+        ],
+        "AverageKeptEchoValue": 6.484957988172561,
+        "MinimumKeptEchoValue": 0
+      }
+    },
+    {
+      "StrategyName": "Substat Count",
+      "ValueTableName": "Hsin (Unison)",
+      "Result": {
+        "SuccessRate": 0.08857808857808862,
+        "AverageCostPerKeptEcho": { "Echoes": 11.289473684210522, "Exp": 160402.63157894736, "Tuners": 132.34210526315783, "ShellCredits": 54907.36842105261 },
+        "Discards": [
+          { "TuneStage": 1, "DiscardRate": 0.8461538461538463 },
+          { "TuneStage": 2, "DiscardRate": 0 },
+          { "TuneStage": 3, "DiscardRate": 0.06526806526806515 },
+          { "TuneStage": 4, "DiscardRate": 0 },
+          { "TuneStage": 5, "DiscardRate": 0 }
+        ],
+        "AverageKeptEchoValue": 9.693197081196953,
+        "MinimumKeptEchoValue": 4.2756
+      }
+    },
+    {
+      "StrategyName": "Several Rule Groups at one stage",
+      "ValueTableName": "Hsin (Unison)",
+      "Result": {
+        "SuccessRate": 0.07407593484154207,
+        "AverageCostPerKeptEcho": { "Echoes": 13.499660883647683, "Exp": 199098.14111227062, "Tuners": 229.4117737474971, "ShellCredits": 98119.76322990745 },
+        "Discards": [
+          { "TuneStage": 1, "DiscardRate": 0 },
+          { "TuneStage": 2, "DiscardRate": 0.9025556401793979 },
+          { "TuneStage": 3, "DiscardRate": 0 },
+          { "TuneStage": 4, "DiscardRate": 0.023368424979053993 },
+          { "TuneStage": 5, "DiscardRate": 0 }
+        ],
+        "AverageKeptEchoValue": 10.853099830587698,
+        "MinimumKeptEchoValue": 5.497199999999999
+      }
+    },
+    {
+      "StrategyName": "Impossible rule",
+      "ValueTableName": "Hsin (Unison)",
+      "Result": {
+        "SuccessRate": 0,
+        "AverageCostPerKeptEcho": null,
+        "Discards": [
+          { "TuneStage": 1, "DiscardRate": 0.7692307692307692 },
+          { "TuneStage": 2, "DiscardRate": 0 },
+          { "TuneStage": 3, "DiscardRate": 0.23076923076923575 },
+          { "TuneStage": 4, "DiscardRate": 0 },
+          { "TuneStage": 5, "DiscardRate": 0 }
+        ],
+        "AverageKeptEchoValue": null,
+        "MinimumKeptEchoValue": null
+      }
+    },
+    {
+      "StrategyName": "Impossible Rule Group beside a possible one",
+      "ValueTableName": "Hsin (Unison)",
+      "Result": {
+        "SuccessRate": 0.3493499874412805,
+        "AverageCostPerKeptEcho": { "Echoes": 2.8624589550560158, "Exp": 150282.64318960605, "Tuners": 76.07442537078424, "ShellCredits": 34782.893096066495 },
+        "Discards": [
+          { "TuneStage": 1, "DiscardRate": 0 },
+          { "TuneStage": 2, "DiscardRate": 0.6506500125587199 },
+          { "TuneStage": 3, "DiscardRate": 0 },
+          { "TuneStage": 4, "DiscardRate": 0 },
+          { "TuneStage": 5, "DiscardRate": 0 }
+        ],
+        "AverageKeptEchoValue": 8.737917438054957,
+        "MinimumKeptEchoValue": 3.0040697674418606
+      }
+    },
+    {
+      "StrategyName": "Substat Roll on flat and Energy Regen values",
+      "ValueTableName": "Hsin (Unison)",
+      "Result": {
+        "SuccessRate": 0.04901932396028783,
+        "AverageCostPerKeptEcho": { "Echoes": 20.400118141370797, "Exp": 230058.142596451, "Tuners": 265.04040819965786, "ShellCredits": 120683.37366705407 },
+        "Discards": [
+          { "TuneStage": 1, "DiscardRate": 0.7207020134434653 },
+          { "TuneStage": 2, "DiscardRate": 0 },
+          { "TuneStage": 3, "DiscardRate": 0.18310941792018912 },
+          { "TuneStage": 4, "DiscardRate": 0 },
+          { "TuneStage": 5, "DiscardRate": 0.047169244676095276 }
+        ],
+        "AverageKeptEchoValue": 12.48487763652938,
+        "MinimumKeptEchoValue": 10.00000930232558
+      }
+    },
+    {
+      "StrategyName": "Target Chance from the first stage",
+      "ValueTableName": "Hsin (Unison)",
+      "Result": {
+        "SuccessRate": 0.004237588771922317,
+        "AverageCostPerKeptEcho": { "Echoes": 235.98325694693713, "Exp": 620840.7254553259, "Tuners": 1959.1620318376881, "ShellCredits": 761031.1564214699 },
+        "Discards": [
+          { "TuneStage": 1, "DiscardRate": 0.9291795475519127 },
+          { "TuneStage": 2, "DiscardRate": 0 },
+          { "TuneStage": 3, "DiscardRate": 0.05317239083093884 },
+          { "TuneStage": 4, "DiscardRate": 0 },
+          { "TuneStage": 5, "DiscardRate": 0.01341047284521947 }
+        ],
+        "AverageKeptEchoValue": 15.361729075532141,
+        "MinimumKeptEchoValue": 14
+      }
+    }
+  ]
+}

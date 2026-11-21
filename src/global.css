@@ -1,0 +1,118 @@
+/*
+ * Visual tokens (spec §13). Palettes from the ticket 11 prototype (`body.vD.light` / `body.vD.dark`)
+ * plus the spec's additions. The theme is `data-theme` on <html>: the inline script in index.html
+ * sets it before first paint, then src/app/theme.ts keeps it. Switching is instant: no transitions.
+ */
+:root {
+  --font: 'Onest Variable', system-ui, sans-serif;
+  --fs: 15px;
+  --radius: 10px;
+  --radius-s: 6px;
+  --pad: 20px;
+  --gap: 20px;
+  --big: 30px;
+}
+
+:root,
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #121722;
+  --panel: #1a2130;
+  --panel2: #222b3c;
+  --ink: #e7ebf3;
+  --mute: #9ba5b8;
+  --line: #2f394c;
+  --field-line: #717b94;
+  --acc: #8f9cff;
+  --acc-ink: #10142a;
+  --acc-soft: #262f52;
+  --er: #46c8c8;
+  --er-on-box: #46c8c8;
+  --other: #4d566a;
+  --good: #55c98a;
+  --bad: #ff8080;
+  --bad-soft: #3a2026;
+  --st1: #2c625d;
+  --st2: #36817d;
+  --st3: #3f87a3;
+  --st4: #6279c4;
+  --st5: #8d6fd0;
+  --succ: #f0b84a;
+  --pa: #8f9cff;
+  --pb: #6b7487;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg: #f3f5f9;
+  --panel: #fff;
+  --panel2: #f3f5f9;
+  --ink: #18202e;
+  --mute: #5a6478;
+  --line: #d8dee8;
+  --field-line: #7f889b;
+  --acc: #3346c8;
+  --acc-ink: #fff;
+  --acc-soft: #e8ebfb;
+  --er: #0e7f7f;
+  /* Energy Regen as text on the grey result-box surface, darkened slightly for contrast. */
+  --er-on-box: #0c7474;
+  --other: #b9c0cd;
+  --good: #1d7a46;
+  --bad: #b42a2a;
+  --bad-soft: #fbeaea;
+  --st1: #9fd8cf;
+  --st2: #62bdb5;
+  --st3: #4697ad;
+  --st4: #5a74b0;
+  --st5: #7455a6;
+  --succ: #d99a22;
+  --pa: #3346c8;
+  --pb: #9aa3b5;
+}
+
+@media (max-width: 600px) {
+  :root {
+    --pad: 12px;
+    --gap: 12px;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font: var(--fs) / 1.5 var(--font);
+  color: var(--ink);
+  background: var(--bg);
+  font-variant-numeric: tabular-nums;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+input,
+select,
+textarea {
+  border: 1px solid var(--field-line);
+  border-radius: var(--radius-s);
+  background: var(--panel);
+}
+
+a {
+  color: var(--acc);
+}
+
+:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 2px;
+}

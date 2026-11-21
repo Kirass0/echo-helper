@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>GoldenExport</RootNamespace>
+    <!-- The source WPF project, read-only. Override with -p:EchoHelperSource=... -->
+    <EchoHelperSource Condition="'$(EchoHelperSource)' == ''">$(USERPROFILE)\source\repos\EchoHelperClaude</EchoHelperSource>
+  </PropertyGroup>
+
+  <!--
+    The source Core is compiled in from its .cs files by path rather than through a ProjectReference,
+    so building the exporter never writes bin/obj into the source project.
+  -->
+  <ItemGroup>
+    <Compile Include="$(EchoHelperSource)\EchoHelper.Core\*.cs" Link="SourceCore\%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>
