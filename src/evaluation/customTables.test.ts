@@ -117,7 +117,7 @@ describe('what is remembered under a table name', () => {
   it('forgets the targets on delete, and the rows go as for a vanished table', () => {
     expect(forgetTable(remembered, 'Mine')).toEqual({
       listed: ['Mornye', 'Aemeath'],
-      focused: 'Mornye',
+      focused: 'Aemeath',
       targets: { Mornye: { targetText: '30', erTargetText: '' } },
     });
     expect(forgetTable({ ...remembered, focused: 'Aemeath' }, 'Mine').focused).toBe('Aemeath');

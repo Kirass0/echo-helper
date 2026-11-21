@@ -1,17 +1,17 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BUILT_IN_TABLES, type WeightTableData } from '../catalogue/catalogue';
 import type { Calculator } from '../calculation/newestInputWins';
 import type {
   EchoEvaluationListInput,
   EchoEvaluationResult,
   ListedTableInput,
-  SubstatEntry,
 } from '../calculation/protocol';
 import surfaces from '../ui/surfaces.module.css';
 import { forgetTable, renameTable, type RememberedByName } from './customTables';
 import { ResultBoxes } from './ResultBoxes';
 import { CustomTag } from './TableOptions';
 import { parseTarget } from './targetScore';
+import { useRememberedEchoEvaluation } from './useRememberedEchoEvaluation';
 import { WeightTableList, type TargetTexts } from './WeightTableList';
 import { WeightsDialog, type WeightsDialogStart } from './WeightsDialog';
 import { YourEcho } from './YourEcho';
@@ -29,15 +29,14 @@ export function EchoEvaluation({
   calculator,
   builtInTables = BUILT_IN_TABLES,
 }: EchoEvaluationProps) {
-  const [substats, setSubstats] = useState<SubstatEntry[]>([]);
-  /** The listed tables' names, top to bottom. */
-  const [listed, setListed] = useState<readonly string[]>([]);
-  const [focused, setFocused] = useState<string | null>(null);
-  /** What is typed in each table's target boxes, remembered per table name even while it is unlisted. */
-  const [targets, setTargets] = useState<Readonly<Record<string, TargetTexts>>>({});
-  const targetsOf = (name: string) => targets[name] ?? NO_TARGETS;
   /** The saved Custom tables, kept in memory for now. Calculations only see saved tables. */
   const [customTables, setCustomTables] = useState<readonly WeightTableData[]>([]);
+  const exists = useCallback(
+    (name: string) => [...customTables, ...builtInTables].some((table) => table.name === name),
+    [customTables, builtInTables],
+  );
+  const [{ substats, listed, focused, targets }, update] = useRememberedEchoEvaluation(exists);
+  const targetsOf = (name: string) => targets[name] ?? NO_TARGETS;
   const [dialog, setDialog] = useState<WeightsDialogStart | null>(null);
   const isCustom = (name: string) => customTables.some((table) => table.name === name);
 
@@ -61,27 +60,27 @@ export function EchoEvaluation({
   const results = useEchoEvaluationResults(calculator, input);
 
   function add(name: string) {
-    setListed([...listed, name]);
-    setFocused(name);
+    update({ listed: [...listed, name], focused: name });
   }
 
   function swap(index: number, name: string) {
     const old = listed[index];
-    setListed(listed.map((listedName, i) => (i === index ? name : listedName)));
-    if (focused === old) setFocused(name);
+    update({
+      listed: listed.map((listedName, i) => (i === index ? name : listedName)),
+      focused: focused === old ? name : focused,
+    });
   }
 
   function remove(index: number) {
     const removed = listed[index];
-    if (focused === removed) setFocused(listed[index + 1] ?? listed[index - 1] ?? null);
-    setListed(listed.filter((_, i) => i !== index));
+    update({
+      listed: listed.filter((_, i) => i !== index),
+      focused: focused === removed ? (listed[index + 1] ?? listed[index - 1] ?? null) : focused,
+    });
   }
 
-  function remember(update: (remembered: RememberedByName) => RememberedByName) {
-    const next = update({ listed, focused, targets });
-    setListed(next.listed);
-    setFocused(next.focused);
-    setTargets(next.targets);
+  function remember(change: (remembered: RememberedByName) => RememberedByName) {
+    update(change({ listed, focused, targets }));
   }
 
   /** A new table goes at the end of the list, in focus; a renamed one takes along what was remembered under its name. */
@@ -105,7 +104,7 @@ export function EchoEvaluation({
   return (
     <div className={styles.layout}>
       <div className={`${surfaces.panel} ${styles.echo}`}>
-        <YourEcho substats={substats} onChange={setSubstats} />
+        <YourEcho substats={substats} onChange={(changed) => update({ substats: changed })} />
       </div>
       <div className={styles.right}>
         <section className={surfaces.panel} aria-label="Results">
@@ -142,8 +141,8 @@ export function EchoEvaluation({
             onAdd={add}
             onSwap={swap}
             onRemove={remove}
-            onFocus={setFocused}
-            onTargetsChange={(name, texts) => setTargets({ ...targets, [name]: texts })}
+            onFocus={(name) => update({ focused: name })}
+            onTargetsChange={(name, texts) => update({ targets: { ...targets, [name]: texts } })}
             onOpenWeights={(name) => setDialog({ kind: 'view', name })}
             onNewTable={() => setDialog({ kind: 'new' })}
           />

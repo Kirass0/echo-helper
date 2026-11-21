@@ -4,6 +4,8 @@ import { afterEach } from 'vitest';
 
 afterEach(() => {
   cleanup();
+  // Each test opens the app as on a fresh visit: nothing remembered.
+  localStorage.clear();
 });
 
 // jsdom has no modal dialogs: showModal() and close() only toggle `open`, and Escape fires `cancel` as a browser does.

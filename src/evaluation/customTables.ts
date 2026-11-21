@@ -1,5 +1,6 @@
 import { MAX_TABLE_NAME_LENGTH, type WeightTableData } from '../catalogue/catalogue';
 import { SUBSTAT_TYPES, type SubstatType } from '../core/gameData';
+import { withoutVanishedTables } from './echoEvaluationEntry';
 import { INVALID_TARGET_MESSAGE, parseTarget } from './targetScore';
 import type { TargetTexts } from './WeightTableList';
 
@@ -114,14 +115,16 @@ export function renameTable(
 }
 
 /**
- * Forgets a deleted table: its targets go, and its rows go as for a vanished table, a lost focus falling back to the
- * first listed table.
+ * Forgets a deleted table: its targets go, and its rows go as for a vanished table (spec §12), focus passing to the
+ * next row that is left, or the row above.
  */
 export function forgetTable(remembered: RememberedByName, deleted: string): RememberedByName {
   const targets = Object.fromEntries(
     Object.entries(remembered.targets).filter(([name]) => name !== deleted),
   );
-  const listed = remembered.listed.filter((name) => name !== deleted);
-  const focused = remembered.focused === deleted ? (listed[0] ?? null) : remembered.focused;
+  const { listed, focused } = withoutVanishedTables(
+    { ...remembered, substats: [] },
+    (name) => name !== deleted,
+  );
   return { listed, focused, targets };
 }
