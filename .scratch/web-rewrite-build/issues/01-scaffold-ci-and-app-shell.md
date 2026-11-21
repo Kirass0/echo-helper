@@ -6,15 +6,15 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] TypeScript `strict`, React (built-in state only), Vite, npm; Vite `base` is `/echo-helper/`; MIT licence
-- [ ] ESLint (TypeScript and React hooks rules) and Prettier configured; Vitest (Node for Core, React Testing Library for components) and Playwright (Chromium) set up, each with at least one passing test
-- [ ] Tabs are `<a>` links with `aria-current` and a 3px accent underline on the open tab; the hash is `#evaluation`, `#strategy`, `#about` (and `#about-<section>` reaches About); an empty or unknown hash opens Echo Evaluation
-- [ ] The header shows the build date as "Updated 20 Nov 2026" (stamped at build time in UTC, month spelled out) as plain muted text on every tab, with a reserved place at the far right for the theme button
-- [ ] Phone header (≤600px): row 1 holds the name left and the date right; row 2 holds the three tabs
-- [ ] Purpose lines under the tab bar on Echo Evaluation and Upgrade Strategy (not About), worded as in ticket 17's Answer, each ending in "How it works" linking to that tab's About section anchor
-- [ ] Browser tab title is "Echo Helper — Wuthering Waves Echo tuning calculator" on every tab
-- [ ] One GitHub Actions workflow on push to `main` and `workflow_dispatch`; gate in order: `npm ci`, type check, ESLint, Prettier check, Vitest, `vite build`, Playwright against the built output (including a phone-width run); deploys with `upload-pages-artifact` / `deploy-pages` only if all pass; PRs run the checks without deploying
-- [ ] Playwright smoke: each tab opens from its hash and shows its purpose line or content
-- [ ] No analytics, cookies, third-party requests, service worker or runtime fetch
+- [x] TypeScript `strict`, React (built-in state only), Vite, npm; Vite `base` is `/echo-helper/`; MIT licence
+- [x] ESLint (TypeScript and React hooks rules) and Prettier configured; Vitest (Node for Core, React Testing Library for components) and Playwright (Chromium) set up, each with at least one passing test
+- [x] Tabs are `<a>` links with `aria-current` and a 3px accent underline on the open tab; the hash is `#evaluation`, `#strategy`, `#about` (and `#about-<section>` reaches About); an empty or unknown hash opens Echo Evaluation
+- [x] The header shows the build date as "Updated 20 Nov 2026" (stamped at build time in UTC, month spelled out) as plain muted text on every tab, with a reserved place at the far right for the theme button
+- [x] Phone header (≤600px): row 1 holds the name left and the date right; row 2 holds the three tabs
+- [x] Purpose lines under the tab bar on Echo Evaluation and Upgrade Strategy (not About), worded as in ticket 17's Answer, each ending in "How it works" linking to that tab's About section anchor
+- [x] Browser tab title is "Echo Helper — Wuthering Waves Echo tuning calculator" on every tab
+- [x] One GitHub Actions workflow on push to `main` and `workflow_dispatch`; gate in order: `npm ci`, type check, ESLint, Prettier check, Vitest, `vite build`, Playwright against the built output (including a phone-width run); deploys with `upload-pages-artifact` / `deploy-pages` only if all pass; PRs run the checks without deploying
+- [x] Playwright smoke: each tab opens from its hash and shows its purpose line or content
+- [x] No analytics, cookies, third-party requests, service worker or runtime fetch

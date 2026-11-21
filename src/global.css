@@ -1,0 +1,42 @@
+/* Placeholder tokens (dark palette). The full light/dark token set and theme switch come in ticket 02. */
+:root {
+  color-scheme: dark;
+  --font: system-ui, sans-serif;
+  --fs: 15px;
+  --pad: 20px;
+  --bg: #121722;
+  --panel: #1a2130;
+  --ink: #e7ebf3;
+  --mute: #9ba5b8;
+  --line: #2f394c;
+  --acc: #8f9cff;
+}
+
+@media (max-width: 600px) {
+  :root {
+    --pad: 12px;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font: var(--fs) / 1.5 var(--font);
+  color: var(--ink);
+  background: var(--bg);
+  font-variant-numeric: tabular-nums;
+}
+
+a {
+  color: var(--acc);
+}
+
+:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 2px;
+}
