@@ -6,7 +6,7 @@
 
 **Blocked by:** 12 (Remember Echo Evaluation), 13 (Custom Weight Tables)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [ ] The Custom tables entry holds all saved tables (never drafts), uses the stored-entry mechanism and is written whenever a table is saved, renamed or deleted
 - [ ] Salvage: a table with a bad weight, an empty name or a name over 40 characters is dropped; a duplicate name is renamed by the "(custom 2)" rule
