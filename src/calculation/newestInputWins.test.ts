@@ -4,6 +4,7 @@ import type {
   EchoEvaluationInput,
   EchoEvaluationListInput,
   EchoEvaluationResult,
+  StrategyName,
   TopEchoScoresInput,
   UpgradeStrategyInput,
   UpgradeStrategyResult,
@@ -49,14 +50,16 @@ function fakeJobs() {
 const topScoresFor = ({ topPercents }: TopEchoScoresInput) => ({
   echoScores: topPercents.map((topPercent) => topPercent * 100),
 });
-const topScoresRequest = (id: number, topPercents: number[]) => ({
+const topScoresRequest = (id: number, topPercents: number[], strategy: StrategyName = 'A') => ({
   kind: 'topEchoScores',
   id,
+  strategy,
   input: { table: tableNamed('A'), topPercents },
 });
-const topScoresResponse = (id: number, topPercents: number[]) => ({
+const topScoresResponse = (id: number, topPercents: number[], strategy: StrategyName = 'A') => ({
   kind: 'topEchoScores',
   id,
+  strategy,
   result: topScoresFor({ table: tableNamed('A'), topPercents }),
 });
 
@@ -70,14 +73,16 @@ const strategyInput = (groups: number): UpgradeStrategyInput => ({
     })),
   },
 });
-const strategyRequest = (id: number, groups: number) => ({
+const strategyRequest = (id: number, groups: number, strategy: StrategyName = 'A') => ({
   kind: 'upgradeStrategy',
   id,
+  strategy,
   input: strategyInput(groups),
 });
-const strategyResponse = (id: number, groups: number) => ({
+const strategyResponse = (id: number, groups: number, strategy: StrategyName = 'A') => ({
   kind: 'upgradeStrategy',
   id,
+  strategy,
   result: { successRate: groups },
 });
 
@@ -228,6 +233,50 @@ describe('the worker side', () => {
     expect(port.sent).toEqual([strategyResponse(2, 2)]);
   });
 
+  it('runs one job per strategy when comparing, A before B', () => {
+    const port = fakePort();
+    const { schedule, runAll } = stepper();
+    serveCalculations(port, fakeJobs(), schedule);
+
+    deliver(port, strategyRequest(1, 2, 'B'));
+    deliver(port, strategyRequest(2, 1, 'A'));
+    runAll();
+
+    expect(port.sent).toEqual([strategyResponse(2, 1, 'A'), strategyResponse(1, 2, 'B')]);
+  });
+
+  it('replaces only the queued request of the same strategy', () => {
+    const port = fakePort();
+    const jobs = fakeJobs();
+    const { schedule, runAll } = stepper();
+    serveCalculations(port, jobs, schedule);
+
+    deliver(port, strategyRequest(1, 1, 'A'));
+    deliver(port, strategyRequest(2, 3, 'B'));
+    deliver(port, strategyRequest(3, 2, 'A'));
+    runAll();
+
+    expect(jobs.upgradeStrategy.run).toHaveBeenCalledTimes(2);
+    expect(port.sent).toEqual([strategyResponse(3, 2, 'A'), strategyResponse(2, 3, 'B')]);
+  });
+
+  it('works out both strategies’ Top Echo Scores, A’s first, before either strategy', () => {
+    const port = fakePort();
+    const { schedule, runAll } = stepper();
+    serveCalculations(port, fakeJobs(), schedule);
+
+    deliver(port, strategyRequest(1, 1, 'A'));
+    deliver(port, topScoresRequest(2, [0.1], 'B'));
+    deliver(port, topScoresRequest(3, [0.05], 'A'));
+    runAll();
+
+    expect(port.sent).toEqual([
+      topScoresResponse(3, [0.05], 'A'),
+      topScoresResponse(2, [0.1], 'B'),
+      strategyResponse(1, 1, 'A'),
+    ]);
+  });
+
   it('runs only the newest Top Echo Scores request that arrived before it got to work', () => {
     const port = fakePort();
     const jobs = fakeJobs();
@@ -288,9 +337,9 @@ describe('the app side', () => {
     const calculated = vi.fn();
     const first = vi.fn();
     const second = vi.fn();
-    calculator.calculateUpgradeStrategy(strategyInput(1), calculated);
-    calculator.topEchoScores({ table: tableNamed('A'), topPercents: [0.1] }, first);
-    calculator.topEchoScores({ table: tableNamed('A'), topPercents: [0.05] }, second);
+    calculator.calculateUpgradeStrategy('A', strategyInput(1), calculated);
+    calculator.topEchoScores('A', { table: tableNamed('A'), topPercents: [0.1] }, first);
+    calculator.topEchoScores('A', { table: tableNamed('A'), topPercents: [0.05] }, second);
     expect(port.sent).toEqual([
       strategyRequest(1, 1),
       topScoresRequest(2, [0.1]),
@@ -313,8 +362,8 @@ describe('the app side', () => {
     const first = vi.fn();
     const second = vi.fn();
     calculator.evaluate(listInput(['A']), evaluated);
-    calculator.calculateUpgradeStrategy(strategyInput(1), first);
-    calculator.calculateUpgradeStrategy(strategyInput(2), second);
+    calculator.calculateUpgradeStrategy('A', strategyInput(1), first);
+    calculator.calculateUpgradeStrategy('A', strategyInput(2), second);
     expect(port.sent).toEqual([
       request(1, listInput(['A'])),
       strategyRequest(2, 1),
@@ -328,5 +377,44 @@ describe('the app side', () => {
     expect(first).not.toHaveBeenCalled();
     expect(second.mock.calls).toEqual([[{ successRate: 2 }]]);
     expect(evaluated.mock.calls).toEqual([[{ tableName: 'A @1' }]]);
+  });
+
+  it('passes on each strategy’s newest result apart from the other’s', () => {
+    const port = fakePort();
+    const calculator = createCalculator(port);
+    const a = vi.fn();
+    const b = vi.fn();
+    const newerA = vi.fn();
+    calculator.calculateUpgradeStrategy('A', strategyInput(1), a);
+    calculator.calculateUpgradeStrategy('B', strategyInput(2), b);
+    calculator.calculateUpgradeStrategy('A', strategyInput(3), newerA);
+    expect(port.sent).toEqual([
+      strategyRequest(1, 1, 'A'),
+      strategyRequest(2, 2, 'B'),
+      strategyRequest(3, 3, 'A'),
+    ]);
+
+    deliver(port, strategyResponse(1, 1, 'A'));
+    deliver(port, strategyResponse(3, 3, 'A'));
+    deliver(port, strategyResponse(2, 2, 'B'));
+
+    expect(a).not.toHaveBeenCalled();
+    expect(newerA.mock.calls).toEqual([[{ successRate: 3 }]]);
+    expect(b.mock.calls).toEqual([[{ successRate: 2 }]]);
+  });
+
+  it('passes on each strategy’s newest Top Echo Scores apart from the other’s', () => {
+    const port = fakePort();
+    const calculator = createCalculator(port);
+    const a = vi.fn();
+    const b = vi.fn();
+    calculator.topEchoScores('A', { table: tableNamed('A'), topPercents: [0.05] }, a);
+    calculator.topEchoScores('B', { table: tableNamed('A'), topPercents: [0.1] }, b);
+
+    deliver(port, topScoresResponse(2, [0.1], 'B'));
+    deliver(port, topScoresResponse(1, [0.05], 'A'));
+
+    expect(a.mock.calls).toEqual([[{ echoScores: [5] }]]);
+    expect(b.mock.calls).toEqual([[{ echoScores: [10] }]]);
   });
 });

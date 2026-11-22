@@ -7,6 +7,17 @@
   border-bottom: 1px solid var(--line);
 }
 
+/* Compare mode: name and Discard Rate above the rules (the prototype's `.col .stage`). */
+.narrow .stage {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+}
+
+/* Below the strategy's example picker, the first stage keeps its top padding too. */
+.narrow .stage:first-child {
+  padding-top: 14px;
+}
+
 .stage:first-child {
   padding-top: 0;
 }

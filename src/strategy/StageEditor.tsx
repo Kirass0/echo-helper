@@ -40,6 +40,8 @@ export interface StageEditorProps {
   stale: boolean;
   /** A loaded example's Top x% thresholds still being worked out: those fields wait, empty. */
   calculating: readonly PendingThreshold[];
+  /** In a strategy's half of compare mode: each stage's name and Discard Rate sit above its rules. */
+  narrow?: boolean;
   onChange(draft: StrategyDraft): void;
 }
 
@@ -57,6 +59,7 @@ export function StageEditor({
   discardRates,
   stale,
   calculating,
+  narrow = false,
   onChange,
 }: StageEditorProps) {
   const listRef = useRef<HTMLDivElement>(null);
@@ -85,7 +88,7 @@ export function StageEditor({
   }
 
   return (
-    <div ref={listRef} className={styles.stages}>
+    <div ref={listRef} className={narrow ? styles.narrow : undefined}>
       {draft.stages.map((boxes, index) => {
         const tuneStage = index + 1;
         return (

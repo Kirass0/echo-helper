@@ -28,6 +28,24 @@ test.describe('Upgrade Strategy', () => {
     await expect(results.getByRole('row', { name: /^Echoes started/ })).toContainText('13.00');
   });
 
+  test('compares an example in Strategy B with Strategy A', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name === 'phone', 'The phone layout comes with ticket 22.');
+    await page.goto('#strategy');
+    await page.getByRole('combobox', { name: 'Substat Weight Table' }).selectOption('Mornye');
+    await page.getByRole('button', { name: 'Compare with another strategy' }).click();
+    await page
+      .getByRole('region', { name: 'Strategy B' })
+      .getByRole('combobox', { name: 'Start from an example' })
+      .selectOption('Double crit, or one great crit roll');
+
+    // "Crit first" against "Double crit…": every row of the table has a pill with a relative change.
+    const comparison = page.getByRole('region', { name: 'B compared with A' });
+    await expect(
+      comparison.getByRole('row', { name: /^Echoes started per Successful Echo/ }),
+    ).toContainText(/[+−]\d+\.\d% (better|worse)$/);
+    await expect(comparison.getByText(/^[+−]\d+\.\d%$/)).toHaveCount(6);
+  });
+
   test('loads an example with its Top x% thresholds worked out', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name === 'phone', 'The phone layout comes with ticket 22.');
     await page.goto('#strategy');

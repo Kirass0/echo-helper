@@ -7,6 +7,7 @@ import {
   newRule,
   removeRule,
   ruleProblem,
+  stageSummary,
   updateRule,
   type RuleDraft,
   type StrategyDraft,
@@ -180,5 +181,28 @@ describe('editing a strategy', () => {
     ]);
     const changed = updateRule(draft, 1, 0, 0, { substatType: 'Hp_Flat' });
     expect(changed.stages[0]?.[0]?.[0]).toMatchObject({ substatType: 'Hp_Flat', minValue: 320 });
+  });
+});
+
+describe('a Tune Stage’s summary', () => {
+  it('joins rules in a box with "and" and boxes with "or"', () => {
+    expect(
+      stageSummary([
+        [rule({ count: 1, substatTypes: ['Critical_Damage', 'Critical_Rate'] })],
+        [rule({ kind: 'substatRoll', substatType: 'Critical_Rate', minValue: 9.3 })],
+      ]),
+    ).toBe('at least 1 of Crit Rate, Crit Damage or Crit Rate at least 9.3');
+    expect(
+      stageSummary([
+        [
+          rule({ kind: 'echoScore', echoScoreText: '11.8' }),
+          rule({ kind: 'targetChance', chanceText: '5', targetScoreText: '7.4' }),
+        ],
+      ]),
+    ).toBe('Echo Score at least 11.8 and at least 5% chance to reach a Target Score of 7.4');
+  });
+
+  it('reads "every Echo keeps tuning" for an empty stage', () => {
+    expect(stageSummary([])).toBe('every Echo keeps tuning');
   });
 });

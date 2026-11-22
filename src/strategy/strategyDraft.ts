@@ -2,6 +2,7 @@
 // rules included. Each rule keeps the fields of all four kinds, so switching kind loses nothing.
 import { MAX_TUNE_STAGE, possibleRolls, type SubstatType } from '../core/gameData';
 import type { RuleGroup, UpgradeRule, UpgradeStrategy } from '../core/upgradeStrategy';
+import { SUBSTAT_DISPLAY_ORDER, SUBSTAT_NAMES } from '../evaluation/substats';
 import { INVALID_NUMBER_MESSAGE, parseNonNegativeNumber } from '../ui/nonNegativeNumber';
 
 export type RuleKind = UpgradeRule['kind'];
@@ -192,3 +193,33 @@ export const updateRule = (
           }),
     ),
   );
+
+/** A number field's text in a summary; "…" while it is empty. */
+const fieldText = (text: string) => text.trim() || '…';
+
+/** One rule as a phrase, as the Done summary reads it. */
+function ruleSummary(rule: RuleDraft): string {
+  switch (rule.kind) {
+    case 'substatCount': {
+      const names = SUBSTAT_DISPLAY_ORDER.filter((type) => rule.substatTypes.includes(type)).map(
+        (type) => SUBSTAT_NAMES[type],
+      );
+      return `at least ${rule.count} of ${names.join(', ') || '…'}`;
+    }
+    case 'substatRoll':
+      return `${SUBSTAT_NAMES[rule.substatType]} at least ${rule.minValue}`;
+    case 'echoScore':
+      return `Echo Score at least ${fieldText(rule.echoScoreText)}`;
+    case 'targetChance':
+      return `at least ${fieldText(rule.chanceText)}% chance to reach a Target Score of ${fieldText(rule.targetScoreText)}`;
+  }
+}
+
+/**
+ * A Tune Stage's rules as one line for the Done summary (spec §8, "Comparing two strategies"): rules in a box joined
+ * by "and", boxes by "or"; "every Echo keeps tuning" for an empty stage.
+ */
+export function stageSummary(boxes: StageDraft): string {
+  if (boxes.length === 0) return 'every Echo keeps tuning';
+  return boxes.map((rules) => rules.map(ruleSummary).join(' and ')).join(' or ');
+}

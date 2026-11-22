@@ -483,8 +483,10 @@ function holdingTopScores() {
   const held: (() => void)[] = [];
   const calculator: Calculator = {
     evaluate: (input, onResult) => inner.evaluate(input, onResult),
-    calculateUpgradeStrategy: (input, onResult) => inner.calculateUpgradeStrategy(input, onResult),
-    topEchoScores: (input, onResult) => held.push(() => inner.topEchoScores(input, onResult)),
+    calculateUpgradeStrategy: (strategy, input, onResult) =>
+      inner.calculateUpgradeStrategy(strategy, input, onResult),
+    topEchoScores: (strategy, input, onResult) =>
+      held.push(() => inner.topEchoScores(strategy, input, onResult)),
   };
   return {
     calculator,
@@ -625,5 +627,195 @@ describe('the example strategies', () => {
     release();
     await waitFor(() => expect(echoScoreField(5)).toHaveValue('7.4'));
     expect(within(stage(3)).queryByRole('combobox', { name: 'Substat' })).toBeNull();
+  });
+});
+
+const strategyPanel = (name: 'A' | 'B') => screen.getByRole('region', { name: `Strategy ${name}` });
+const panelStage = (name: 'A' | 'B', n: number) =>
+  within(strategyPanel(name)).getByRole('region', { name: `Tune Stage ${n}/5 (+${n * 5})` });
+const comparison = () => screen.getByRole('region', { name: 'B compared with A' });
+const comparisonRow = (label: string) =>
+  within(comparison()).getByRole('row', { name: new RegExp(`^${label}`) });
+
+async function startComparing(user: User) {
+  await user.click(screen.getByRole('button', { name: 'Compare with another strategy' }));
+}
+
+/** In Strategy B, which starts in Edit: "+ add a rule" at a Tune Stage and these Substats for its new rule. */
+async function addCountRuleToB(user: User, n: number, substats: string[]) {
+  await user.click(within(panelStage('B', n)).getByRole('button', { name: '+ add a rule' }));
+  await pickSubstats(
+    user,
+    within(panelStage('B', n)).getByRole('button', { name: 'pick Substats' }),
+    substats,
+  );
+}
+
+describe('comparing two strategies', () => {
+  it('turns the current strategy into Strategy A and adds an empty Strategy B beside it, at most two', async () => {
+    const user = open();
+    await user.selectOptions(picker(), 'Crit Rate only');
+    await within(results()).findByText(/%$/);
+    await startComparing(user);
+
+    // A keeps "Crit first", shown as Done; B is empty, in Edit.
+    expect(strategyPanel('A')).toHaveTextContent('at least 2 of Crit Rate, Crit Damage');
+    for (const n of [1, 2, 3, 4, 5])
+      expect(
+        within(panelStage('B', n)).getByRole('button', { name: '+ add a rule' }),
+      ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Compare with another strategy' })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Results' })).toBeNull();
+  });
+
+  it('keeps A and discards B on "Stop comparing"', async () => {
+    const user = await openWithTable();
+    await addCountRule(user, 2, ['Crit Rate']);
+    await startComparing(user);
+    await addCountRuleToB(user, 3, ['Crit Damage']);
+    await user.click(screen.getByRole('button', { name: 'Stop comparing' }));
+
+    expect(screen.queryByRole('region', { name: 'Strategy B' })).toBeNull();
+    expect(within(stage(2)).getByRole('button', { name: 'Crit Rate' })).toBeInTheDocument();
+    expect(within(stage(3)).queryByRole('combobox', { name: 'Kind of rule' })).toBeNull();
+    // Crit Rate is one of an Echo's first two Substats 2 times in 13.
+    await within(results()).findByText('15.4%');
+
+    await startComparing(user);
+    expect(
+      within(panelStage('B', 3)).getByRole('button', { name: '+ add a rule' }),
+    ).toBeInTheDocument();
+  });
+
+  it('gives each strategy its own example picker, asking before replacing one with rules', async () => {
+    const user = await openWithTable();
+    await addCountRule(user, 1, ['Crit Rate']);
+    await startComparing(user);
+    const examplesOf = (name: 'A' | 'B') =>
+      within(strategyPanel(name)).getByRole('combobox', { name: 'Start from an example' });
+
+    await user.selectOptions(examplesOf('B'), 'Crit first');
+    expect(screen.queryByRole('dialog')).toBeNull();
+
+    await user.selectOptions(examplesOf('A'), 'Keep every Echo');
+    const dialog = screen.getByRole('dialog', { name: replaceMessage('Keep every Echo') });
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    expect(strategyPanel('A')).toHaveTextContent('at least 1 of Crit Rate');
+    expect(
+      within(panelStage('B', 4)).getByRole('button', { name: 'Crit Rate, Crit Damage' }),
+    ).toBeInTheDocument();
+  });
+
+  it('switches each strategy between Edit, like the one-strategy editor, and Done, a summary', async () => {
+    const user = await openWithTable();
+    await addCountRule(user, 1, ['Crit Rate']);
+    await startComparing(user);
+
+    const lines = within(strategyPanel('A')).getAllByRole('listitem');
+    expect(lines.map((line) => line.textContent)).toEqual([
+      'Tune Stage 1/5 (+5)at least 1 of Crit Rate92.3% discarded here',
+      'Tune Stage 2/5 (+10)every Echo keeps tuningnothing discarded',
+      'Tune Stage 3/5 (+15)every Echo keeps tuningnothing discarded',
+      'Tune Stage 4/5 (+20)every Echo keeps tuningnothing discarded',
+      'Tune Stage 5/5 (+25)every Echo keeps tuningnothing discarded',
+    ]);
+    expect(strategyPanel('A')).toHaveTextContent(/Success Rate 7\.7%$/);
+
+    await user.click(within(strategyPanel('A')).getByRole('button', { name: 'Edit' }));
+    expect(panelStage('A', 1)).toHaveTextContent('92.3% discarded here');
+    expect(
+      within(panelStage('A', 1)).getByRole('combobox', { name: 'Kind of rule' }),
+    ).toBeInTheDocument();
+    await user.click(within(strategyPanel('A')).getByRole('button', { name: 'Done' }));
+    expect(within(strategyPanel('A')).queryByRole('region', { name: /Tune Stage/ })).toBeNull();
+  });
+
+  it('compares B with A in cost and Echo Scores, with no Success Rate row', async () => {
+    const user = await openWithTable();
+    await startComparing(user);
+    await addCountRuleToB(user, 1, ['Crit Rate']);
+
+    await waitFor(() => expect(comparisonRow('Echoes started')).toHaveTextContent('13.00'));
+    expect(
+      within(comparison())
+        .getAllByRole('columnheader')
+        .map((header) => header.textContent),
+    ).toEqual(['Strategy A', 'Strategy B', 'B compared with A']);
+    expect(
+      within(comparison())
+        .getAllByRole('rowheader')
+        .map((header) => header.textContent),
+    ).toEqual([
+      'Echoes started per Successful Echo',
+      'Echo EXP per Successful Echo',
+      'Tuners per Successful Echo',
+      'Shell Credits per Successful Echo',
+      'Average Echo Score of Successful Echoes',
+      'Lowest Echo Score of a Successful Echo',
+    ]);
+    // 13 Echoes started instead of 1 is worse; a higher Average Echo Score is better.
+    expect(comparisonRow('Echoes started')).toHaveTextContent(
+      'Echoes started per Successful Echo1.0013.00▼+1200.0% worse',
+    );
+    expect(comparisonRow('Average Echo Score')).toHaveTextContent(/▲\+[\d.]+% better$/);
+    // A's lowest Successful Echo has no Crit Rate, so an Echo Score of 0: there is no relative change from 0.
+    expect(comparisonRow('Lowest Echo Score')).toHaveTextContent(
+      /^Lowest Echo Score of a Successful Echo0\.005\.04$/,
+    );
+  });
+
+  it('shows a grey pill with no arrow for equal values, and an empty cell without Successful Echoes', async () => {
+    const user = await openWithTable();
+    await startComparing(user);
+    await waitFor(() => expect(comparisonRow('Tuners')).toHaveTextContent(/0\.0%$/));
+    expect(comparisonRow('Tuners')).not.toHaveTextContent(/[▲▼]|better|worse/);
+
+    await addCountRuleToB(user, 1, ['Crit Rate']);
+    await user.selectOptions(
+      within(panelStage('B', 1)).getByRole('combobox', { name: 'How many' }),
+      '2',
+    );
+    await waitFor(() => expect(comparisonRow('Tuners')).toHaveTextContent(/—$/));
+  });
+
+  it('draws the paired chart for screens only, with an A/B legend', async () => {
+    const user = await openWithTable();
+    await startComparing(user);
+    const chart = within(comparison()).getByTestId('paired-chart');
+    expect(chart).toHaveAttribute('aria-hidden', 'true');
+    expect(chart).toHaveTextContent(/^AB/);
+  });
+
+  it('works out Top x% thresholds for examples pending in both strategies at once', async () => {
+    const { calculator, release } = holdingTopScores();
+    const user = open(calculator);
+    await user.selectOptions(picker(), 'Crit Rate only');
+    await startComparing(user);
+    await user.click(within(strategyPanel('A')).getByRole('button', { name: 'Edit' }));
+    await user.selectOptions(
+      within(strategyPanel('A')).getByRole('combobox', { name: 'Start from an example' }),
+      'Chance to reach a Top 5% Echo',
+    );
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Replace' }));
+    await user.selectOptions(
+      within(strategyPanel('B')).getByRole('combobox', { name: 'Start from an example' }),
+      'Double crit, or one great crit roll',
+    );
+    release();
+    const field = (name: 'A' | 'B') =>
+      within(panelStage(name, 5)).getByRole('textbox', { name: 'Echo Score' });
+    await waitFor(() => expect(field('A')).toHaveValue('7.4'));
+    await waitFor(() => expect(field('B')).toHaveValue('6.5'));
+  });
+
+  it('calculates one job per strategy, A before B', async () => {
+    const calculator = inProcessCalculator();
+    const asked = vi.spyOn(calculator, 'calculateUpgradeStrategy');
+    const user = open(calculator);
+    await user.selectOptions(picker(), 'Crit Rate only');
+    await startComparing(user);
+    asked.mockClear();
+    await user.selectOptions(picker(), 'Atk only');
+    expect(asked.mock.calls.map(([strategy]) => strategy)).toEqual(['A', 'B']);
   });
 });

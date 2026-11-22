@@ -84,6 +84,9 @@ export interface EchoEvaluationResponse {
   readonly result: EchoEvaluationResult;
 }
 
+/** Which strategy a request is for: Strategy A, the only one unless comparing, or Strategy B. */
+export type StrategyName = 'A' | 'B';
+
 /** What Upgrade Strategy asks for: one finished strategy on fresh Echoes, for one Weight Table. */
 export interface UpgradeStrategyInput {
   readonly strategy: UpgradeStrategy;
@@ -93,12 +96,14 @@ export interface UpgradeStrategyInput {
 export interface UpgradeStrategyRequest {
   readonly kind: 'upgradeStrategy';
   readonly id: number;
+  readonly strategy: StrategyName;
   readonly input: UpgradeStrategyInput;
 }
 
 export interface UpgradeStrategyResponse {
   readonly kind: 'upgradeStrategy';
   readonly id: number;
+  readonly strategy: StrategyName;
   readonly result: UpgradeStrategyResult;
 }
 
@@ -117,12 +122,14 @@ export interface TopEchoScoresResult {
 export interface TopEchoScoresRequest {
   readonly kind: 'topEchoScores';
   readonly id: number;
+  readonly strategy: StrategyName;
   readonly input: TopEchoScoresInput;
 }
 
 export interface TopEchoScoresResponse {
   readonly kind: 'topEchoScores';
   readonly id: number;
+  readonly strategy: StrategyName;
   readonly result: TopEchoScoresResult;
 }
 

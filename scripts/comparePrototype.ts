@@ -107,8 +107,25 @@ const PAIRS: Pair[] = [
       await stage.getByRole('combobox', { name: 'Kind of rule' }).selectOption('Echo Score');
     },
   },
-  // Comparing comes with ticket 17: add its `app` step then.
-  { name: 'strategy-compare', prototype: '?strat=compare#upgrade-strategy', screen: 'strategy' },
+  {
+    name: 'strategy-compare',
+    prototype: '?strat=compare#upgrade-strategy',
+    screen: 'strategy',
+    app: async (page) => {
+      // The prototype's A is "Crit first", in Done; its B is "Double crit, or one great crit roll", in Edit.
+      await critFirst(page);
+      await page.getByRole('button', { name: 'Compare with another strategy' }).click();
+      await page
+        .getByRole('region', { name: 'Strategy B' })
+        .getByRole('combobox', { name: 'Start from an example' })
+        .selectOption('Double crit, or one great crit roll');
+      await page
+        .getByRole('region', { name: 'B compared with A' })
+        .getByText(/^[+−]\d+\.\d%$/)
+        .first()
+        .waitFor();
+    },
+  },
   { name: 'about', prototype: '#about', screen: 'about', app: async () => {} },
 ];
 

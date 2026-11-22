@@ -1,21 +1,25 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import type { Calculator } from '../calculation/newestInputWins';
-import type { UpgradeStrategyInput, UpgradeStrategyResult } from '../calculation/protocol';
+import type { StrategyName } from '../calculation/protocol';
 import { BUILT_IN_TABLES, findTable, type WeightTableData } from '../catalogue/catalogue';
 import type { TableEvents } from '../customTables/tableEvents';
 import { TableOptions } from '../evaluation/TableOptions';
 import { TERM_TOOLTIPS } from '../evaluation/termTooltips';
 import { WeightsDialog, type WeightsDialogStart } from '../evaluation/WeightsDialog';
-import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { IconButton } from '../ui/IconButton';
 import { SlidersIcon } from '../ui/icons';
 import surfaces from '../ui/surfaces.module.css';
 import { Term } from '../ui/Term';
-import { EXAMPLE_NAMES, fillThresholds, loadExample, type LoadedExample } from './examples';
+import compare from './Compare.module.css';
+import { CompareBlock } from './CompareBlock';
+import { ExamplePicker } from './ExamplePicker';
+import { loadExample } from './examples';
 import { ResultsPanel } from './ResultsPanel';
-import { StageEditor } from './StageEditor';
-import { finishedStrategy, type StrategyDraft } from './strategyDraft';
+import { stageName, StageEditor } from './StageEditor';
+import { emptyStrategy } from './strategyDraft';
+import { StrategySummary } from './StrategySummary';
 import styles from './UpgradeStrategy.module.css';
+import { useStrategy, type HeldStrategy } from './useStrategy';
 
 export interface UpgradeStrategyProps {
   calculator: Calculator;
@@ -35,9 +39,10 @@ export interface UpgradeStrategyProps {
 const NEW_TABLE = ' new';
 const CHOOSE = 'Choose a Weight Table…';
 
-const hasRules = (draft: StrategyDraft) => draft.stages.some((boxes) => boxes.length > 0);
-
-/** The Upgrade Strategy tab with one strategy (spec §8): the header, the five Tune Stages and the results. */
+/**
+ * The Upgrade Strategy tab (spec §8): the header, then one strategy's five Tune Stages and results, or, while comparing,
+ * Strategy A and Strategy B side by side above "B compared with A".
+ */
 export function UpgradeStrategy({
   calculator,
   builtInTables = BUILT_IN_TABLES,
@@ -52,36 +57,26 @@ export function UpgradeStrategy({
     [customTables, builtInTables],
   );
   const table = tableName === null ? undefined : findTable(allTables, tableName);
-  // Nothing is remembered yet (ticket 18), so every visit is a first visit: "Crit first" with no table (spec §6).
-  const [draft, setDraft] = useState<StrategyDraft>(() => loadExample('Crit first').draft);
   const [dialog, setDialog] = useState<WeightsDialogStart | null>(null);
-  const [replacing, setReplacing] = useState<string | null>(null);
-  const pending = usePendingThresholds(calculator, table, setDraft);
+  // Nothing is remembered yet (ticket 18), so every visit is a first visit: "Crit first" with no table (spec §6).
+  const a = useStrategy(calculator, 'A', table, true, () => loadExample('Crit first').draft);
+  // Strategy B exists only while comparing; it is calculated after A (spec §11).
+  const [comparing, setComparing] = useState(false);
+  const b = useStrategy(calculator, 'B', table, comparing, emptyStrategy);
+  // Which strategies show in Edit while comparing; the others show their Done summary.
+  const [editing, setEditing] = useState<Record<StrategyName, boolean>>({ A: true, B: true });
 
-  const finished = useMemo(() => finishedStrategy(draft), [draft]);
-  // While an example's Top x% thresholds are pending, the results wait.
-  const input = useMemo(
-    (): UpgradeStrategyInput | null =>
-      table && !pending.example && 'strategy' in finished
-        ? { strategy: finished.strategy, table }
-        : null,
-    [table, finished, pending.example],
-  );
-  const result = useUpgradeStrategyResult(calculator, input);
-  const unfinishedStage =
-    !pending.example && 'unfinishedStage' in finished ? finished.unfinishedStage : null;
-  const waiting = pending.example !== null || unfinishedStage !== null;
-
-  /** Replaces the strategy with an example; one with rules is replaced only once confirmed. */
-  function chooseExample(name: string) {
-    if (hasRules(draft)) setReplacing(name);
-    else replaceWith(name);
+  /** A becomes Strategy A, in Done unless it holds an unfinished rule, beside an empty Strategy B in Edit. */
+  function startComparing() {
+    b.reset(emptyStrategy());
+    setEditing({ A: a.unfinishedStage !== null, B: true });
+    setComparing(true);
   }
 
-  function replaceWith(name: string) {
-    const loaded = loadExample(name);
-    setDraft(loaded.draft);
-    pending.load(loaded);
+  /** Keeps A and discards B. */
+  function stopComparing() {
+    setComparing(false);
+    b.reset(emptyStrategy());
   }
 
   /** A new table becomes the strategy's table; a renamed one stays it, and the other tabs follow the rename. */
@@ -141,63 +136,49 @@ export function UpgradeStrategy({
             />
           )}
         </span>
-        {/* Comparing comes with ticket 17. */}
-        <label className={styles.field}>
-          Start from an example
-          {/* As wide as "Choose…", which it always shows, as in the prototype. */}
-          <span className={styles.pickerFit}>
-            <span className={styles.pickerSizer} aria-hidden="true">
-              Choose…
-            </span>
-            <select
-              className={styles.tablePicker}
-              disabled={!table}
-              value=""
-              onChange={(event) => {
-                if (event.target.value) chooseExample(event.target.value);
-              }}
-            >
-              <option value="">Choose…</option>
-              {EXAMPLE_NAMES.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
-          </span>
-        </label>
-        <button type="button" className={styles.button} disabled={!table}>
-          Compare with another strategy
+        {/* While comparing, each strategy has its own example picker. */}
+        {!comparing && <ExamplePicker draft={a.draft} disabled={!table} onLoad={a.loadExample} />}
+        <button
+          type="button"
+          className={styles.button}
+          disabled={!table && !comparing}
+          onClick={comparing ? stopComparing : startComparing}
+        >
+          {comparing ? 'Stop comparing' : 'Compare with another strategy'}
         </button>
       </div>
-      {table ? (
-        <div className={styles.columns}>
-          <div className={surfaces.panel}>
-            <StageEditor
-              draft={draft}
-              discardRates={result?.discards.map(({ discardRate }) => discardRate) ?? null}
-              stale={waiting}
-              calculating={pending.example?.thresholds ?? []}
-              onChange={setDraft}
-            />
-          </div>
-          <ResultsPanel result={result} stale={waiting} unfinishedStage={unfinishedStage} />
-        </div>
-      ) : (
+      {!table ? (
         <p className={styles.prompt}>
           Pick a Substat Weight Table above to build an Upgrade Strategy.
         </p>
-      )}
-      {replacing !== null && (
-        <ConfirmDialog
-          message={`Replace your current strategy with '${replacing}'? This can't be undone.`}
-          confirm="Replace"
-          onConfirm={() => {
-            setReplacing(null);
-            replaceWith(replacing);
-          }}
-          onCancel={() => setReplacing(null)}
-        />
+      ) : comparing ? (
+        <>
+          <div className={compare.columns}>
+            {(['A', 'B'] as const).map((name) => (
+              <StrategyPanel
+                key={name}
+                name={name}
+                strategy={name === 'A' ? a : b}
+                editing={editing[name]}
+                onEditingChange={(now) => setEditing((was) => ({ ...was, [name]: now }))}
+              />
+            ))}
+          </div>
+          <CompareBlock a={a.result} b={b.result} stale={a.waiting || b.waiting} />
+        </>
+      ) : (
+        <div className={styles.columns}>
+          <div className={surfaces.panel}>
+            <StageEditor
+              draft={a.draft}
+              discardRates={discardRates(a)}
+              stale={a.waiting}
+              calculating={a.calculating}
+              onChange={a.setDraft}
+            />
+          </div>
+          <ResultsPanel result={a.result} stale={a.waiting} unfinishedStage={a.unfinishedStage} />
+        </div>
       )}
       {dialog && (
         <WeightsDialog
@@ -213,51 +194,61 @@ export function UpgradeStrategy({
   );
 }
 
-/**
- * The loaded example whose Top x% thresholds are still being worked out, if any (spec §8, "Example strategies"). They
- * are worked out for the selected table, and filled into the strategy once that table's distribution is ready. A newer
- * example, or another table, supersedes a pending one: only the newest request's result is passed on.
- */
-function usePendingThresholds(
-  calculator: Calculator,
-  table: WeightTableData | undefined,
-  setDraft: (change: (draft: StrategyDraft) => StrategyDraft) => void,
-) {
-  const [example, setExample] = useState<LoadedExample | null>(null);
-  const newest = useRef<LoadedExample | null>(null);
-
-  useEffect(() => {
-    if (!example || !table) return;
-    calculator.topEchoScores({ table, topPercents: example.topPercents }, ({ echoScores }) => {
-      if (newest.current !== example) return;
-      newest.current = null;
-      setDraft((draft) => fillThresholds(draft, example, echoScores));
-      setExample(null);
-    });
-  }, [calculator, example, table, setDraft]);
-
-  return {
-    example,
-    /** Starts working out a just-loaded example's thresholds; one without any has nothing pending. */
-    load(loaded: LoadedExample) {
-      const waiting = loaded.topPercents.length > 0 ? loaded : null;
-      newest.current = waiting;
-      setExample(waiting);
-    },
-  };
-}
+const discardRates = ({ result }: HeldStrategy) =>
+  result?.discards.map(({ discardRate }) => discardRate) ?? null;
 
 /**
- * The newest result of the strategy: every valid change is sent at once, with no debounce; results of outdated
- * inputs are dropped. While a rule is unfinished nothing is sent, and the last result stays.
+ * One strategy's half of compare mode (spec §8, "Comparing two strategies"): headed "Strategy A" or "Strategy B", with
+ * its own example picker and an Edit/Done button. Edit looks like the one-strategy editor, Discard Rates included;
+ * Done shows a summary. A strategy holding an unfinished rule stays in Edit.
  */
-function useUpgradeStrategyResult(
-  calculator: Calculator,
-  input: UpgradeStrategyInput | null,
-): UpgradeStrategyResult | null {
-  const [result, setResult] = useState<UpgradeStrategyResult | null>(null);
-  useEffect(() => {
-    if (input) calculator.calculateUpgradeStrategy(input, setResult);
-  }, [calculator, input]);
-  return result;
+function StrategyPanel({
+  name,
+  strategy,
+  editing,
+  onEditingChange,
+}: {
+  name: StrategyName;
+  strategy: HeldStrategy;
+  editing: boolean;
+  onEditingChange(editing: boolean): void;
+}) {
+  const headingId = useId();
+  const unfinished = strategy.unfinishedStage;
+  return (
+    <section className={surfaces.panel} aria-labelledby={headingId}>
+      <h2 className={compare.heading}>
+        <span id={headingId}>Strategy {name}</span>
+        <button
+          type="button"
+          className={`${compare.button} ${editing ? compare.primary : ''}`}
+          disabled={editing && unfinished !== null}
+          onClick={() => onEditingChange(!editing)}
+        >
+          {editing ? 'Done' : 'Edit'}
+        </button>
+      </h2>
+      <div className={compare.examples}>
+        <ExamplePicker draft={strategy.draft} onLoad={strategy.loadExample} />
+      </div>
+      {unfinished !== null && (
+        <p className={compare.staleMessage}>
+          Results are from before your last change. Finish the highlighted rule at{' '}
+          {stageName(unfinished)} to update them.
+        </p>
+      )}
+      {editing || unfinished !== null ? (
+        <StageEditor
+          draft={strategy.draft}
+          discardRates={discardRates(strategy)}
+          stale={strategy.waiting}
+          calculating={strategy.calculating}
+          narrow
+          onChange={strategy.setDraft}
+        />
+      ) : (
+        <StrategySummary draft={strategy.draft} result={strategy.result} stale={strategy.waiting} />
+      )}
+    </section>
+  );
 }
