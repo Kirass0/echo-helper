@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import type { Calculator } from '../calculation/newestInputWins';
 import type { StrategyName } from '../calculation/protocol';
 import { BUILT_IN_TABLES, findTable, type WeightTableData } from '../catalogue/catalogue';
@@ -13,10 +13,9 @@ import { Term } from '../ui/Term';
 import compare from './Compare.module.css';
 import { CompareBlock } from './CompareBlock';
 import { ExamplePicker } from './ExamplePicker';
-import { loadExample } from './examples';
 import { ResultsPanel } from './ResultsPanel';
 import { stageName, StageEditor } from './StageEditor';
-import { emptyStrategy } from './strategyDraft';
+import { emptyStrategy, finishedStrategy, type StrategyDraft } from './strategyDraft';
 import { StrategySummary } from './StrategySummary';
 import styles from './UpgradeStrategy.module.css';
 import { useStrategy, type HeldStrategy } from './useStrategy';
@@ -33,7 +32,25 @@ export interface UpgradeStrategyProps {
   onTableChange: (name: string) => void;
   /** Where renames and deletions of Custom tables are told to the other tabs. */
   tableEvents?: TableEvents;
+  /** The strategies as remembered: Strategy A and, while comparing, Strategy B (spec §12). */
+  strategies: RememberedStrategies;
+  /** Called with both strategies whenever either changes, or compare mode starts or stops. */
+  onStrategiesChange: (strategies: RememberedStrategies) => void;
 }
+
+export interface RememberedStrategies {
+  readonly a: StrategyDraft;
+  /** Strategy B while comparing; null otherwise. */
+  readonly b: StrategyDraft | null;
+}
+
+const holdsUnfinishedRule = (draft: StrategyDraft) => 'unfinishedStage' in finishedStrategy(draft);
+
+/** How each strategy opens: in Done, unless it holds an unfinished rule (spec §12). */
+const openingModes = ({ a, b }: RememberedStrategies): Record<StrategyName, boolean> => ({
+  A: holdsUnfinishedRule(a),
+  B: b !== null && holdsUnfinishedRule(b),
+});
 
 /** The picker's value for "New Custom Weight Table…": table names are trimmed, so none starts with a space. */
 const NEW_TABLE = ' new';
@@ -51,6 +68,8 @@ export function UpgradeStrategy({
   tableName,
   onTableChange,
   tableEvents,
+  strategies: remembered,
+  onStrategiesChange,
 }: UpgradeStrategyProps) {
   const allTables = useMemo(
     () => [...customTables, ...builtInTables],
@@ -58,13 +77,21 @@ export function UpgradeStrategy({
   );
   const table = tableName === null ? undefined : findTable(allTables, tableName);
   const [dialog, setDialog] = useState<WeightsDialogStart | null>(null);
-  // Nothing is remembered yet (ticket 18), so every visit is a first visit: "Crit first" with no table (spec §6).
-  const a = useStrategy(calculator, 'A', table, true, () => loadExample('Crit first').draft);
+  // The strategies open as remembered; with nothing remembered, A is "Crit first" (spec §6).
+  const a = useStrategy(calculator, 'A', table, true, () => remembered.a);
   // Strategy B exists only while comparing; it is calculated after A (spec §11).
-  const [comparing, setComparing] = useState(false);
-  const b = useStrategy(calculator, 'B', table, comparing, emptyStrategy);
+  const [comparing, setComparing] = useState(remembered.b !== null);
+  const b = useStrategy(calculator, 'B', table, comparing, () => remembered.b ?? emptyStrategy());
   // Which strategies show in Edit while comparing; the others show their Done summary.
-  const [editing, setEditing] = useState<Record<StrategyName, boolean>>({ A: true, B: true });
+  const [editing, setEditing] = useState(() => openingModes(remembered));
+
+  // Every change to either strategy, or to compare mode, is remembered. What another tab saves remounts the tab.
+  const heldA = a.draft;
+  const heldB = comparing ? b.draft : null;
+  useEffect(() => {
+    if (heldA !== remembered.a || heldB !== remembered.b)
+      onStrategiesChange({ a: heldA, b: heldB });
+  }, [heldA, heldB, remembered, onStrategiesChange]);
 
   /** A becomes Strategy A, in Done unless it holds an unfinished rule, beside an empty Strategy B in Edit. */
   function startComparing() {

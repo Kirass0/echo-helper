@@ -6,7 +6,12 @@ import { createTableEvents } from '../customTables/tableEvents';
 import { useCustomTables } from '../customTables/useCustomTables';
 import { EchoEvaluation } from '../evaluation/EchoEvaluation';
 import { followRenamesInEchoEvaluation } from '../evaluation/useRememberedEchoEvaluation';
-import { UpgradeStrategy } from '../strategy/UpgradeStrategy';
+import type { RenamedTable } from '../customTables/customTablesEntry';
+import { UpgradeStrategy, type RememberedStrategies } from '../strategy/UpgradeStrategy';
+import {
+  followRenames,
+  useRememberedUpgradeStrategy,
+} from '../strategy/useRememberedUpgradeStrategy';
 import { formatBuildDate } from './buildDate';
 import { Header } from './Header';
 import { Notices } from './Notices';
@@ -32,8 +37,17 @@ export interface AppProps {
 
 export function App({ buildDate, calculator, builtInTables = BUILT_IN_TABLES }: AppProps) {
   const tab = useHashTab();
+  // Upgrade Strategy's table, by name, and its strategies. A name that no longer exists means no table.
+  const { state: strategy, update: setStrategy, otherTabChanges } = useRememberedUpgradeStrategy();
+  const followAllRenames = useCallback(
+    (renamed: readonly RenamedTable[]) => {
+      followRenamesInEchoEvaluation(renamed);
+      setStrategy((last) => followRenames(last, renamed));
+    },
+    [setStrategy],
+  );
   // Loaded before any tab, so what the tabs remember under a renamed table's name is repaired before they read it.
-  const customTables = useCustomTables(builtInTables, followRenamesInEchoEvaluation);
+  const customTables = useCustomTables(builtInTables, followAllRenames);
   // Renames and deletions in one tab's weights dialog, told to the other.
   const [tableEvents] = useState(createTableEvents);
   const allTables = useMemo(
@@ -41,15 +55,23 @@ export function App({ buildDate, calculator, builtInTables = BUILT_IN_TABLES }: 
     [customTables.tables, builtInTables],
   );
 
-  // Upgrade Strategy's table, by name. A name that no longer exists means no table.
-  const [strategyTable, setStrategyTable] = useState<string | null>(null);
+  const setStrategyTable = useCallback(
+    (change: (name: string | null) => string | null) =>
+      setStrategy((last) => ({ ...last, table: change(last.table) })),
+    [setStrategy],
+  );
   useEffect(
     () =>
       tableEvents.subscribe((event) => {
         if (event.kind === 'renamed')
           setStrategyTable((name) => (name === event.from ? event.to : name));
       }),
-    [tableEvents],
+    [tableEvents, setStrategyTable],
+  );
+  const pickTable = useCallback((name: string) => setStrategyTable(() => name), [setStrategyTable]);
+  const saveStrategies = useCallback(
+    (strategies: RememberedStrategies) => setStrategy((last) => ({ ...last, ...strategies })),
+    [setStrategy],
   );
   // While Upgrade Strategy has no table, a table added on Echo Evaluation is picked there too (spec §8).
   const pickIfNoTable = useCallback(
@@ -57,7 +79,7 @@ export function App({ buildDate, calculator, builtInTables = BUILT_IN_TABLES }: 
       setStrategyTable((name) =>
         name !== null && findTable(allTables, name) !== undefined ? name : added,
       ),
-    [allTables],
+    [allTables, setStrategyTable],
   );
 
   return (
@@ -84,12 +106,16 @@ export function App({ buildDate, calculator, builtInTables = BUILT_IN_TABLES }: 
         <div hidden={tab !== 'strategy'}>
           {customTables.ready && (
             <UpgradeStrategy
+              // Another tab's change opens the tab again, as on load (spec §12).
+              key={otherTabChanges}
               calculator={calculator}
               builtInTables={builtInTables}
               customTables={customTables.tables}
               onCustomTablesChange={customTables.save}
-              tableName={strategyTable}
-              onTableChange={setStrategyTable}
+              tableName={strategy.table}
+              onTableChange={pickTable}
+              strategies={strategy}
+              onStrategiesChange={saveStrategies}
               tableEvents={tableEvents}
             />
           )}

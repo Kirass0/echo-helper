@@ -118,7 +118,10 @@ test.describe('Echo Evaluation', () => {
 
     await page.reload();
 
-    await expect(page.getByText('Tune Stage 1/5 (+5)')).toBeVisible();
+    // Upgrade Strategy, hidden, has Tune Stages too: it remembers the table Echo Evaluation picked for it.
+    await expect(
+      page.getByRole('region', { name: 'Your Echo' }).getByText('Tune Stage 1/5 (+5)'),
+    ).toBeVisible();
     await expect(page.getByRole('list', { name: 'Tune slots' })).toContainText('8.1%');
     await expect(page.getByRole('heading', { name: 'Jinhsi' })).toBeVisible();
     await expect(
