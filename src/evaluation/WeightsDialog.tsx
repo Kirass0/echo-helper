@@ -88,10 +88,11 @@ export function WeightsDialog({
 
   // The table shown, or the one a draft edits, can vanish: a Custom table deleted in another tab (spec §12). The dialog
   // then closes silently, as on Close, discarding a draft's unsaved edits.
+  const viewed = screen.kind === 'draft' ? undefined : findTable(allTables, screen.name);
   const vanished =
     screen.kind === 'draft'
       ? screen.editing !== null && !findTable(customTables, screen.editing)
-      : !findTable(allTables, screen.name);
+      : !viewed;
   useEffect(() => {
     if (vanished) onClose();
   }, [vanished, onClose]);
@@ -125,8 +126,8 @@ export function WeightsDialog({
 
   let title: string;
   let body: ReactNode;
-  if (vanished) return null;
   if (screen.kind === 'draft') {
+    if (vanished) return null;
     const checked = checkDraft(screen.draft, allNames, screen.editing);
     title = screen.editing === null ? 'New Custom Weight Table' : `Edit ${screen.editing}`;
     body = (
@@ -146,7 +147,7 @@ export function WeightsDialog({
       />
     );
   } else {
-    const table = findTable(allTables, screen.name);
+    const table = viewed;
     if (!table) return null; // vanished
     title = table.name;
     const custom = isCustom(table.name);

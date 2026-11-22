@@ -20,12 +20,11 @@ export const isRecord = (value: unknown): value is Record<string, unknown> =>
 export const isWeight = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value) && value >= 0;
 
-/** What can be wrong with a table's name read from untrusted data. */
-export type NameProblem = 'missing' | 'empty' | 'tooLong';
+/** What can be wrong with a table's name. */
+export type NameProblem = 'empty' | 'tooLong';
 
-/** The problem with a table's name, or null: it must be text, not blank, and at most 40 characters. */
-export function nameProblem(name: unknown): NameProblem | null {
-  if (typeof name !== 'string') return 'missing';
+/** The problem with a table's name, or null: it must not be blank, and at most 40 characters. */
+export function nameProblem(name: string): NameProblem | null {
   if (name.trim() === '') return 'empty';
   if (name.length > MAX_TABLE_NAME_LENGTH) return 'tooLong';
   return null;
@@ -79,14 +78,16 @@ export function catalogueProblems(catalogue: unknown): string[] {
     const { name, weights } = table;
     const label = typeof name === 'string' && name.trim() !== '' ? `'${name}'` : position;
 
-    const badName = nameProblem(name);
-    if (badName === 'missing') problems.push(`${position} has no name.`);
-    else if (badName === 'empty') problems.push(`${position} has an empty name.`);
-    else if (badName === 'tooLong')
-      problems.push(`${label} has a name longer than ${MAX_TABLE_NAME_LENGTH} characters.`);
-    else if (typeof name === 'string' && namesSeen.has(name.toLowerCase()))
-      problems.push(`${label} has the same name as another table, ignoring case.`);
-    if (typeof name === 'string') namesSeen.add(name.toLowerCase());
+    if (typeof name !== 'string') problems.push(`${position} has no name.`);
+    else {
+      const badName = nameProblem(name);
+      if (badName === 'empty') problems.push(`${position} has an empty name.`);
+      else if (badName === 'tooLong')
+        problems.push(`${label} has a name longer than ${MAX_TABLE_NAME_LENGTH} characters.`);
+      else if (namesSeen.has(name.toLowerCase()))
+        problems.push(`${label} has the same name as another table, ignoring case.`);
+      namesSeen.add(name.toLowerCase());
+    }
 
     for (const property of Object.keys(table)) {
       if (!TABLE_PROPERTIES.has(property))

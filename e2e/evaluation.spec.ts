@@ -150,12 +150,12 @@ test.describe('Echo Evaluation', () => {
 
     /**
      * At each width: each box's height, marked if anything in it reaches past its edges, and for each row the
-     * smallest space left under a box's content.
+     * smallest space under a box's content.
      */
     const WIDTHS = [1280, 1000, 830];
     async function measure() {
       const sizes: string[] = [];
-      const spaceLeft: number[] = [];
+      const spaceBelow: number[] = [];
       for (const width of WIDTHS) {
         await page.setViewportSize({ width, height: 900 });
         const measured = await boxes.evaluateAll((groups) =>
@@ -172,7 +172,7 @@ test.describe('Echo Evaluation', () => {
               top: box.top,
               height: box.height,
               overflows,
-              left: box.bottom - contentBottom,
+              spaceBelow: box.bottom - contentBottom,
             };
           }),
         );
@@ -182,15 +182,17 @@ test.describe('Echo Evaluation', () => {
           ),
         );
         const rows = [...new Set(measured.map(({ top }) => Math.round(top)))];
-        spaceLeft.push(
+        spaceBelow.push(
           ...rows.map((top) =>
             Math.min(
-              ...measured.filter((box) => Math.round(box.top) === top).map(({ left }) => left),
+              ...measured
+                .filter((box) => Math.round(box.top) === top)
+                .map(({ spaceBelow }) => spaceBelow),
             ),
           ),
         );
       }
-      return { sizes, spaceLeft };
+      return { sizes, spaceBelow };
     }
 
     // Reasons in all three boxes that can give one.
@@ -215,9 +217,9 @@ test.describe('Echo Evaluation', () => {
     expect(verdicts.sizes).toEqual(first.sizes);
 
     // No taller than needed: in each row, some content the boxes can show fills a box to its bottom edge.
-    const tightest = first.spaceLeft.map((left, i) =>
-      Math.min(left, numbers.spaceLeft[i] ?? Infinity, verdicts.spaceLeft[i] ?? Infinity),
+    const tightest = first.spaceBelow.map((space, i) =>
+      Math.min(space, numbers.spaceBelow[i] ?? Infinity, verdicts.spaceBelow[i] ?? Infinity),
     );
-    expect(tightest.filter((left) => left > 1)).toEqual([]);
+    expect(tightest.filter((space) => space > 1)).toEqual([]);
   });
 });

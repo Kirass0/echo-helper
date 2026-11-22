@@ -45,6 +45,8 @@ export interface WeightTableListProps {
   onOpenWeights(name: string): void;
   /** Opens the weights dialog on a new blank table: "New Custom Weight Table…". */
   onNewTable(): void;
+  /** Whether the weights dialog is open: when it closes with its opener gone, the list places focus. */
+  weightsDialogOpen: boolean;
 }
 
 /** The add picker's value for "New Custom Weight Table…": table names are trimmed, so none starts with a space. */
@@ -65,6 +67,7 @@ export function WeightTableList({
   onTargetsChange,
   onOpenWeights,
   onNewTable,
+  weightsDialogOpen,
 }: WeightTableListProps) {
   const listedNames = new Set(rows.map((row) => row.name));
   const customNames = new Set(customTables.map((table) => table.name));
@@ -84,6 +87,23 @@ export function WeightTableList({
     const removeButtons = tableRef.current?.querySelectorAll<HTMLElement>('[data-remove]');
     (removeButtons?.[index] ?? addRef.current)?.focus();
   }, [rows]);
+
+  // The weights dialog gives focus back to its opener. When that is gone with its row (the table deleted, here or in
+  // another tab), focus goes to the sliders of the row taking its place, or of the row above if it was last, else to
+  // the add picker: as a row's × does (spec §15).
+  /** The index of the row whose sliders opened the dialog; null when the add picker did. */
+  const dialogOpenedFrom = useRef<number | null>(null);
+  const dialogWasOpen = useRef(weightsDialogOpen);
+  useLayoutEffect(() => {
+    const closed = dialogWasOpen.current && !weightsDialogOpen;
+    dialogWasOpen.current = weightsDialogOpen;
+    if (!closed) return;
+    if (document.activeElement !== null && document.activeElement !== document.body) return;
+    const row = dialogOpenedFrom.current;
+    const sliders = tableRef.current?.querySelectorAll<HTMLElement>('[data-weights]');
+    const next = row === null ? undefined : (sliders?.[row] ?? sliders?.[row - 1]);
+    (next ?? addRef.current)?.focus();
+  }, [weightsDialogOpen]);
 
   return (
     <section className={styles.list} aria-labelledby="weight-tables-heading">
@@ -157,7 +177,10 @@ export function WeightTableList({
                   onRemove(index);
                 }}
                 onTargetsChange={(targets) => onTargetsChange(row.name, targets)}
-                onOpenWeights={() => onOpenWeights(row.name)}
+                onOpenWeights={() => {
+                  dialogOpenedFrom.current = index;
+                  onOpenWeights(row.name);
+                }}
               />
             ))}
           </tbody>
@@ -166,12 +189,13 @@ export function WeightTableList({
       <select
         ref={addRef}
         className={styles.add}
-        data-add=""
         aria-label="Add a Weight Table"
         value=""
         onChange={(event) => {
-          if (event.target.value === NEW_TABLE) onNewTable();
-          else onAdd(event.target.value);
+          if (event.target.value === NEW_TABLE) {
+            dialogOpenedFrom.current = null;
+            onNewTable();
+          } else onAdd(event.target.value);
         }}
       >
         <option value="" disabled>
@@ -243,15 +267,21 @@ function Row({
     >
       <td>
         <div className={styles.nameCell}>
-          <select
-            className={styles.picker}
-            title={name}
-            aria-label={`Swap ${name} for another Weight Table`}
-            value={name}
-            onChange={(event) => onSwap(event.target.value)}
-          >
-            {options}
-          </select>
+          {/* A hidden copy of the name sets the picker's width, in every browser; the picker fills it. */}
+          <span className={styles.pickerFit}>
+            <span className={styles.pickerSizer} aria-hidden="true">
+              {name}
+            </span>
+            <select
+              className={styles.picker}
+              title={name}
+              aria-label={`Swap ${name} for another Weight Table`}
+              value={name}
+              onChange={(event) => onSwap(event.target.value)}
+            >
+              {options}
+            </select>
+          </span>
           {isCustom && <CustomTag />}
         </div>
       </td>

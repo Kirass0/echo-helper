@@ -1,4 +1,27 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator } from '@playwright/test';
+
+/**
+ * How much wider a select is than its chosen option needs: Chromium sizes a select to its content, freed from any
+ * width or cap, as the measure of what it needs.
+ */
+const widthPastItsName = (picker: Locator) =>
+  picker.evaluate((select: HTMLSelectElement) => {
+    const width = select.getBoundingClientRect().width;
+    const before = select.style.cssText;
+    const free = {
+      position: 'static',
+      'field-sizing': 'content',
+      width: 'auto',
+      'min-width': '0',
+      'max-width': 'none',
+      flex: 'none',
+    };
+    for (const [property, value] of Object.entries(free))
+      select.style.setProperty(property, value, 'important');
+    const needed = select.getBoundingClientRect().width;
+    select.style.cssText = before;
+    return width - needed;
+  });
 
 test.describe('Custom Weight Tables', () => {
   test('duplicates a built-in, edits a weight and sees the row update', async ({
@@ -83,23 +106,37 @@ test.describe('Substat Weight Tables list', () => {
     // The main column is 1220px wide.
     expect((await page.locator('main').boundingBox())?.width).toBe(1220);
 
-    // The picker is as wide as its name needs: freed from its cap and from shrinking, it would be no wider.
-    const squeezedBy = await picker.evaluate((select: HTMLSelectElement) => {
-      const width = select.getBoundingClientRect().width;
-      select.style.maxWidth = 'none';
-      select.style.flex = 'none';
-      const free = select.getBoundingClientRect().width;
-      select.style.maxWidth = '';
-      select.style.flex = '';
-      return free - width;
-    });
-    expect(squeezedBy).toBeLessThanOrEqual(0.5);
+    // The picker is as wide as its name needs.
+    expect(await widthPastItsName(picker)).toBeGreaterThanOrEqual(-0.5);
 
     // The tag sits whole inside the cell.
     const tagBox = await tag.boundingBox();
     const cellBox = await cell.boundingBox();
     if (!tagBox || !cellBox) throw new Error('Nothing to measure');
     expect(tagBox.x + tagBox.width).toBeLessThanOrEqual(cellBox.x + cellBox.width);
+  });
+});
+
+test.describe('Substat Weight Tables list pickers', () => {
+  test('fit their table, even where a browser cannot size a select to its content', async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name === 'phone', 'The phone layout comes with ticket 21.');
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto('#evaluation');
+    // As Firefox and Safari, which have no `field-sizing: content`.
+    await page.addStyleTag({ content: 'select { field-sizing: fixed !important; }' });
+    const add = page.getByRole('combobox', { name: 'Add a Weight Table' });
+    await add.selectOption('Mornye');
+    await add.selectOption('Changli');
+
+    for (const name of ['Mornye', 'Changli']) {
+      const picker = page.getByRole('combobox', { name: `Swap ${name} for another Weight Table` });
+      const past = await widthPastItsName(picker);
+      // Never narrower than its name, and at most a little wider: not as wide as the longest table's name.
+      expect(past, name).toBeGreaterThanOrEqual(-0.5);
+      expect(past, name).toBeLessThanOrEqual(8);
+    }
   });
 });
 

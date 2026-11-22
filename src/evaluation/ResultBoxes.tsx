@@ -9,6 +9,10 @@ const SET_TARGET = 'Set a Target Score below';
 const SET_ER_TARGET = 'Set an ER Target Score below';
 const NO_ENERGY_REGEN = 'No Energy Regen';
 
+// A wide box's label before 5/5, then at 5/5.
+const TARGET_LABELS = ['Target Chance', 'Target Score'] as const;
+const ER_TARGET_LABELS = ['ER Target Chance', 'ER Target Score'] as const;
+
 /** What a box shows: a figure, or "—" with the reason there is none. */
 type BoxContent = { value: string; tone?: 'good' | 'bad' } | { reason: string };
 
@@ -60,19 +64,16 @@ export function ResultBoxes({ result }: { result: EchoEvaluationResult | null })
     <div className={styles.boxes}>
       <Box
         wide
-        label={fullyTuned ? 'Target Score' : 'Target Chance'}
+        label={TARGET_LABELS[fullyTuned ? 1 : 0]}
         content={target()}
-        sizes={{ labels: ['Target Chance', 'Target Score'], reasons: [SET_TARGET] }}
+        sizes={{ labels: TARGET_LABELS, reasons: [SET_TARGET] }}
       />
       <Box
         wide
         er
-        label={fullyTuned ? 'ER Target Score' : 'ER Target Chance'}
+        label={ER_TARGET_LABELS[fullyTuned ? 1 : 0]}
         content={erTarget()}
-        sizes={{
-          labels: ['ER Target Chance', 'ER Target Score'],
-          reasons: [SET_ER_TARGET, NO_ENERGY_REGEN],
-        }}
+        sizes={{ labels: ER_TARGET_LABELS, reasons: [SET_ER_TARGET, NO_ENERGY_REGEN] }}
       />
       <Box label="Echo Score" content={score((r) => r.echoScore)} />
       <Box
@@ -83,7 +84,7 @@ export function ResultBoxes({ result }: { result: EchoEvaluationResult | null })
         er
         label="ER Top Percent"
         content={erTopPercent()}
-        sizes={{ labels: ['ER Top Percent'], reasons: [NO_ENERGY_REGEN] }}
+        sizes={{ reasons: [NO_ENERGY_REGEN] }}
       />
       <Box label="Median Echo Score" content={score((r) => r.median)} />
       <Box label="Average Echo Score" content={score((r) => r.average)} />
@@ -93,9 +94,9 @@ export function ResultBoxes({ result }: { result: EchoEvaluationResult | null })
 }
 
 /**
- * A box. `sizes` names every label and reason it can show besides a one-line value; hidden copies of each, stacked
- * under what it shows, give the box the height of the tallest, so it never resizes as its content changes. A box with
- * no `sizes` only ever shows its label and a one-line value.
+ * A box. `sizes` names every reason it can show, and every label when it can have more than one; hidden copies of
+ * each label with each reason, stacked under what it shows, give the box the height of the tallest, so it never
+ * resizes as its content changes. A box with no `sizes` only ever shows its label and a one-line value.
  */
 function Box({
   label,
@@ -108,21 +109,21 @@ function Box({
   content: BoxContent;
   wide?: boolean;
   er?: boolean;
-  sizes?: { labels: readonly string[]; reasons: readonly string[] };
+  sizes?: { labels?: readonly string[]; reasons: readonly string[] };
 }) {
   const labelId = useId();
   const classes = [styles.box, wide && styles.wide, er && styles.er].filter(Boolean).join(' ');
   return (
     <div className={classes}>
-      {sizes?.labels.flatMap((sizeLabel) =>
-        sizes.reasons.map((reason) => (
-          <span key={`${sizeLabel}|${reason}`} className={styles.sizer} aria-hidden="true">
-            <span className={styles.label}>{sizeLabel}</span>
-            <span className={`${styles.value} ${styles.none}`}>—</span>
-            <span className={styles.reason}>{reason}</span>
-          </span>
-        )),
-      )}
+      {sizes &&
+        (sizes.labels ?? [label]).flatMap((sizeLabel) =>
+          sizes.reasons.map((reason) => (
+            <span key={`${sizeLabel}|${reason}`} className={styles.sizer} aria-hidden="true">
+              <span className={styles.label}>{sizeLabel}</span>
+              <NoFigure reason={reason} />
+            </span>
+          )),
+        )}
       <div role="group" aria-labelledby={labelId} className={styles.shown}>
         <span id={labelId} className={styles.label}>
           {label in TERM_TOOLTIPS ? (
@@ -136,12 +137,17 @@ function Box({
             {content.value}
           </span>
         ) : (
-          <>
-            <span className={`${styles.value} ${styles.none}`}>—</span>
-            <span className={styles.reason}>{content.reason}</span>
-          </>
+          <NoFigure reason={content.reason} />
         )}
       </div>
     </div>
   );
 }
+
+/** "—" in place of a figure, and why there is none. */
+const NoFigure = ({ reason }: { reason: string }) => (
+  <>
+    <span className={`${styles.value} ${styles.none}`}>—</span>
+    <span className={styles.reason}>{reason}</span>
+  </>
+);

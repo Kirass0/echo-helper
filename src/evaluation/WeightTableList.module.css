@@ -83,12 +83,32 @@
   box-shadow: inset 3px 0 0 var(--acc);
 }
 
-/* As wide as the table it shows, where the browser can size a picker to its choice; never past the cell. */
-.picker {
+/*
+ * A row's picker is as wide as the table it shows, never past the cell. A select is as wide as its longest option in
+ * browsers without `field-sizing: content`, so a hidden copy of the name, with the picker's padding, border and room
+ * for its arrow, takes the room, and the picker lies over it.
+ */
+.pickerFit {
+  --picker-arrow: 20px;
+  position: relative;
   flex: 0 1 auto;
-  field-sizing: content;
   min-width: 0;
-  max-width: 100%;
+}
+
+.pickerSizer {
+  display: block;
+  overflow: hidden;
+  visibility: hidden;
+  white-space: pre;
+  line-height: normal;
+  padding: 3px calc(6px + var(--picker-arrow)) 3px 6px;
+  border: 1px solid transparent;
+}
+
+.picker {
+  position: absolute;
+  inset: 0;
+  width: 100%;
   padding: 3px 6px;
   text-overflow: ellipsis;
 }
