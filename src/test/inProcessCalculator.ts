@@ -7,6 +7,7 @@ import {
   type Calculator,
   type MessagePortLike,
 } from '../calculation/newestInputWins';
+import { createUpgradeStrategyJobs } from '../calculation/upgradeStrategyJob';
 
 function portPair(): [MessagePortLike, MessagePortLike] {
   const a: MessagePortLike = { onmessage: null, postMessage: (data) => send(b, data) };
@@ -18,6 +19,9 @@ function portPair(): [MessagePortLike, MessagePortLike] {
 
 export function inProcessCalculator(): Calculator {
   const [app, worker] = portPair();
-  serveCalculations(worker, createEchoEvaluationJobs());
+  serveCalculations(worker, {
+    echoEvaluation: createEchoEvaluationJobs(),
+    upgradeStrategy: createUpgradeStrategyJobs(),
+  });
   return createCalculator(app);
 }

@@ -1,0 +1,98 @@
+/* The ticket 11 prototype's `.us-head` and `.us`, variant D. */
+.layout {
+  padding: var(--gap) 0;
+}
+
+.layout select,
+.layout input {
+  padding: 3px 7px;
+}
+
+.layout select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 22px;
+  align-items: center;
+  margin-bottom: var(--gap);
+}
+
+.field {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* As the Weight Table list's pickers: as wide as the name shown, not the longest option. */
+.pickerFit {
+  --picker-arrow: 20px;
+  position: relative;
+  min-width: 0;
+  max-width: 22em;
+}
+
+.pickerSizer {
+  display: block;
+  overflow: hidden;
+  visibility: hidden;
+  white-space: pre;
+  line-height: normal;
+  padding: 3px calc(7px + var(--picker-arrow)) 3px 7px;
+  border: 1px solid transparent;
+}
+
+.layout .tablePicker {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  text-overflow: ellipsis;
+}
+
+/* The sliders sit closer to the picker than the label does. */
+.pickerFit + * {
+  margin-left: -4px;
+}
+
+.button {
+  padding: 5px 12px;
+  border: 1px solid var(--field-line);
+  border-radius: var(--radius-s);
+  background: var(--panel);
+  cursor: pointer;
+}
+
+.button:hover:not(:disabled) {
+  border-color: var(--acc);
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 330px;
+  gap: var(--gap);
+  align-items: start;
+}
+
+/* As Echo Evaluation's first-open prompt: centred in a dashed box, muted. */
+.prompt {
+  margin: 0;
+  padding: 28px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  text-align: center;
+  color: var(--mute);
+}
+
+@media (max-width: 820px) {
+  .columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

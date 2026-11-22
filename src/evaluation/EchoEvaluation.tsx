@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BUILT_IN_TABLES, findTable, type WeightTableData } from '../catalogue/catalogue';
 import type { Calculator } from '../calculation/newestInputWins';
+import type { TableEvents } from '../customTables/tableEvents';
 import type {
   EchoEvaluationListInput,
   EchoEvaluationResult,
@@ -26,6 +27,10 @@ export interface EchoEvaluationProps {
   customTables: readonly WeightTableData[];
   /** Called with all Custom tables after one is saved, renamed or deleted. */
   onCustomTablesChange: (tables: readonly WeightTableData[]) => void;
+  /** Called with each table added to the list, a new Custom one included. */
+  onTableAdded?: (name: string) => void;
+  /** Where renames and deletions of Custom tables are told to, and heard from, the other tabs. */
+  tableEvents?: TableEvents;
 }
 
 const NO_TARGETS: TargetTexts = { targetText: '', erTargetText: '' };
@@ -36,6 +41,8 @@ export function EchoEvaluation({
   builtInTables = BUILT_IN_TABLES,
   customTables,
   onCustomTablesChange: setCustomTables,
+  onTableAdded,
+  tableEvents,
 }: EchoEvaluationProps) {
   const allTables = useMemo(
     () => [...customTables, ...builtInTables],
@@ -69,7 +76,21 @@ export function EchoEvaluation({
 
   function add(name: string) {
     update((state) => ({ listed: [...state.listed, name], focused: name }));
+    onTableAdded?.(name);
   }
+
+  // A Custom table renamed or deleted on another tab takes along, or forgets, what is remembered under its name.
+  useEffect(
+    () =>
+      tableEvents?.subscribe((event) =>
+        update((remembered) =>
+          event.kind === 'renamed'
+            ? renameTable(remembered, event.from, event.to)
+            : forgetTable(remembered, event.name),
+        ),
+      ),
+    [tableEvents, update],
+  );
 
   function swap(index: number, name: string) {
     update((state) => {
@@ -94,13 +115,16 @@ export function EchoEvaluation({
       return;
     }
     setCustomTables(customTables.map((custom) => (custom.name === editing ? table : custom)));
-    if (table.name !== editing)
+    if (table.name !== editing) {
       update((remembered) => renameTable(remembered, editing, table.name));
+      tableEvents?.publish({ kind: 'renamed', from: editing, to: table.name });
+    }
   }
 
   function deleteTable(name: string) {
     setCustomTables(customTables.filter((table) => table.name !== name));
     update((remembered) => forgetTable(remembered, name));
+    tableEvents?.publish({ kind: 'deleted', name });
     setDialog(null);
   }
 

@@ -2,6 +2,10 @@
 // structured cloning.
 import type { WeightTableData } from '../catalogue/catalogue';
 import type { SubstatType } from '../core/gameData';
+import type { UpgradeStrategy } from '../core/upgradeStrategy';
+import type { UpgradeStrategyResult } from '../core/upgradeStrategyPass';
+
+export type { UpgradeStrategyResult };
 
 /** One Substat on the Echo. */
 export interface SubstatEntry {
@@ -79,3 +83,24 @@ export interface EchoEvaluationResponse {
   readonly id: number;
   readonly result: EchoEvaluationResult;
 }
+
+/** What Upgrade Strategy asks for: one finished strategy on fresh Echoes, for one Weight Table. */
+export interface UpgradeStrategyInput {
+  readonly strategy: UpgradeStrategy;
+  readonly table: WeightTableData;
+}
+
+export interface UpgradeStrategyRequest {
+  readonly kind: 'upgradeStrategy';
+  readonly id: number;
+  readonly input: UpgradeStrategyInput;
+}
+
+export interface UpgradeStrategyResponse {
+  readonly kind: 'upgradeStrategy';
+  readonly id: number;
+  readonly result: UpgradeStrategyResult;
+}
+
+export type CalculationRequest = EchoEvaluationRequest | UpgradeStrategyRequest;
+export type CalculationResponse = EchoEvaluationResponse | UpgradeStrategyResponse;

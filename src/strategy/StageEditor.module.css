@@ -1,0 +1,173 @@
+/* The ticket 11 prototype's `stagesEditor()` and `ruleRow()`, variant D. */
+.stage {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.stage:first-child {
+  padding-top: 0;
+}
+
+.stage:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.stageName {
+  font-size: 1em;
+  line-height: 1.25;
+  margin: 0 0 6px;
+}
+
+.dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-right: 7px;
+  vertical-align: 1px;
+}
+
+.discardBar {
+  height: 7px;
+  background: var(--panel2);
+  border-radius: 99px;
+  overflow: hidden;
+  margin: 6px 0 3px;
+}
+
+.discardBar span {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.2s;
+}
+
+.small {
+  font-size: 0.86em;
+}
+
+.mute {
+  color: var(--mute);
+}
+
+/* The pending fade's look, shared with the results panel. */
+.stale {
+  opacity: 0.42;
+}
+
+.box {
+  border-left: 3px solid var(--line);
+  padding: 2px 0 4px 12px;
+}
+
+.rule {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px 7px;
+  padding: 4px 0;
+}
+
+.unfinished {
+  background: var(--bad-soft);
+  box-shadow: 0 0 0 1px var(--bad);
+  border-radius: var(--radius-s);
+  padding: 6px 8px;
+  margin: 2px 0;
+}
+
+.problem {
+  flex-basis: 100%;
+  color: var(--bad);
+  font-size: 0.86em;
+}
+
+.and,
+.or {
+  font-weight: 600;
+  color: var(--mute);
+  font-size: 0.84em;
+}
+
+.or {
+  display: block;
+  margin: 6px 0 6px 2px;
+}
+
+/* "+ and", "+ or" and "+ add a rule": buttons that look like links, with a hit area of at least 24px. */
+.link {
+  min-height: 24px;
+  border: none;
+  background: none;
+  color: var(--acc);
+  padding: 2px 0;
+  cursor: pointer;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+.addOr {
+  margin-top: 4px;
+}
+
+.number {
+  width: 5.2em;
+  text-align: right;
+}
+
+.number[aria-invalid='true'] {
+  border-color: var(--bad);
+}
+
+/* The Substat popover, below its button. */
+.picker {
+  position: relative;
+  display: inline-block;
+}
+
+.pick {
+  border: 1px solid var(--field-line);
+  border-radius: var(--radius-s);
+  padding: 3px 9px;
+  background: var(--panel);
+  cursor: pointer;
+  text-align: left;
+}
+
+.pickEmpty {
+  color: var(--mute);
+}
+
+.popover {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  display: grid;
+  gap: 2px;
+  min-width: 15em;
+  padding: 8px 10px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+}
+
+.option {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .discardBar span {
+    transition: none;
+  }
+}
