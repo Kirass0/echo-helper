@@ -11,3 +11,7 @@ The five default triage labels plus `done` for completed tasks, recorded as a `S
 ### Domain docs
 
 Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+### UI review
+
+UI review: `docs/agents/ui-review.md`

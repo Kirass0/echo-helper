@@ -11,6 +11,7 @@
                   in the comparison, B's icons for Weights / Change and an icon remove button, dark by default, no labels on
                   the chart's target lines. The About side panel replaces the links on top in every variant.
   The bar also switches the screen state (empty / 2/5 / picking a Substat / 5/5; one strategy / compare / unfinished rule).
+  The URL sets it too: ?echo=empty|two|picking|full, ?strat=single|unfinished|compare, ?dialog=<table name>.
   Mostly read-only: tabs, focusing a table row, Change and Weights buttons, tooltips and the dialog work; rule fields do not.
   Echo Evaluation numbers are exact (07's enumeration, 0.01 buckets); strategy results are sampled (08's method).
   Tooltip and prompt texts are placeholders: the wording is ticket 17. Fonts load from Google Fonts here; the app would self-host.
@@ -424,6 +425,8 @@ const qs = new URLSearchParams(location.search);
 const P = { variant: qs.get('variant') || 'D', theme: qs.get('theme'), echo: qs.get('echo') || 'two', strat: qs.get('strat') || 'single', dialog: null, focus: 0, pickSlot: 2 };
 const CUSTOM = [{ name: 'Changli (my rotation)', weights: { ...BUILTIN.find(t => t.name === 'Changli').weights, Liberation: 2.4 } }];
 const tableByName = n => CUSTOM.find(t => t.name === n) || BUILTIN.find(t => t.name === n);
+// ?dialog=<table name> opens that table's weights dialog, so screenshots need no click.
+if (tableByName(qs.get('dialog'))) P.dialog = qs.get('dialog');
 const isCustom = n => CUSTOM.some(t => t.name === n);
 const tagFor = n => isCustom(n) ? '<span class="tag">Custom</span>' : '';
 const ECHO = {

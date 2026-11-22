@@ -6,16 +6,16 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] An npm script (e.g. `compare:prototype`) builds or serves the app, opens the prototype from its file, and saves a pair of desktop PNGs (1220px wide) per state and theme to a folder outside the repo or a gitignored one:
+- [x] An npm script (e.g. `compare:prototype`) builds or serves the app, opens the prototype from its file, and saves a pair of desktop PNGs (1220px wide) per state and theme to a folder outside the repo or a gitignored one:
   - Echo Evaluation: first open, 2/5 Echo, picking a Substat, 5/5 (prototype `?echo=empty|two|picking|full`)
   - the weights dialog for a Built-in and for a Custom table
   - Upgrade Strategy: one strategy, unfinished rule, compare (`?strat=single|unfinished|compare#upgrade-strategy`), skipped until the app has the screen
   - About (`#about`), skipped until the app has the screen
-- [ ] The app side gets each state the same way e2e tests do: entering the same Echo, tables and targets as the prototype's sample data (`Changli (my rotation)` as the Custom table)
-- [ ] The prototype gains a `dialog=<table name>` URL parameter that opens its weights dialog, so the dialog can be shot without clicking
-- [ ] Each pair has the same name with `-app` / `-prototype` suffixes, plus an index listing them; the script prints the folder path
-- [ ] The script isn't part of CI or `npm test`; a missing app screen skips its pair with a note
-- [ ] `docs/agents/ui-review.md` tells the spec reviewer of a UI change to run the script, read each pair, and report every visible difference from the prototype as a finding, unless the spec states otherwise. Keep it short.
-- [ ] One line in `CLAUDE.md` points to it: UI review: `docs/agents/ui-review.md`
+- [x] The app side gets each state the same way e2e tests do: entering the same Echo, tables and targets as the prototype's sample data (`Changli (my rotation)` as the Custom table)
+- [x] The prototype gains a `dialog=<table name>` URL parameter that opens its weights dialog, so the dialog can be shot without clicking
+- [x] Each pair has the same name with `-app` / `-prototype` suffixes, plus an index listing them; the script prints the folder path
+- [x] The script isn't part of CI or `npm test`; a missing app screen skips its pair with a note
+- [x] `docs/agents/ui-review.md` tells the spec reviewer of a UI change to run the script, read each pair, and report every visible difference from the prototype as a finding, unless the spec states otherwise. Keep it short.
+- [x] One line in `CLAUDE.md` points to it: UI review: `docs/agents/ui-review.md`
