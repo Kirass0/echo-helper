@@ -16,3 +16,7 @@
 - [ ] Caches are in worker memory only, evicted least-recently-used under a fixed budget of about 10M entries; the focused table's caches are never evicted; an evicted table is recalculated on demand with the pending fade
 - [ ] If a job throws or runs out of memory, the worker is restarted once and the job retried; if that fails too, each affected results area shows "Couldn't calculate this. Reload the page to try again." while the rest keeps working, and nothing is reported anywhere
 - [ ] Tests cover newest-wins dropping, job order and the restart-then-message path (e.g. with an injected failing job)
+
+## Comments
+
+**2026-11-22, from the second review of PR #2:** a job that throws inside the worker stalls the rest of its request today. In `src/calculation/newestInputWins.ts`, `runNext` clears `scheduled` before calling `jobs.run`, and `scheduleNext` only runs after a successful post. So when one listed table's job throws, the tables queued after it are never calculated and keep showing "—" or an old result until the next edit. `createCalculator` also sets no `onerror`, so the app is never told. When building the restart-then-message path, make sure a failing job doesn't stop the queue (e.g. `try`/`finally` around `jobs.run` so `scheduleNext` still runs) and that the failure reaches the app. Add a test with an injected failing job followed by a healthy one.
