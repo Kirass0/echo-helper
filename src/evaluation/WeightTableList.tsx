@@ -8,6 +8,7 @@ import {
 } from 'react';
 import type { WeightTableData } from '../catalogue/catalogue';
 import type { EchoEvaluationResult } from '../calculation/protocol';
+import { CalculationStatus, fadedWhen, type CalculationState } from '../ui/CalculationStatus';
 import { IconButton } from '../ui/IconButton';
 import { CrossIcon, SlidersIcon } from '../ui/icons';
 import { formatChance, formatEchoScore } from './format';
@@ -27,6 +28,8 @@ export interface TargetTexts {
 export interface ListedRow extends TargetTexts {
   readonly name: string;
   readonly result: EchoEvaluationResult | null;
+  /** Whether its result is calculating for a while, or was given up; the last result then stays, faded. */
+  readonly state?: CalculationState;
 }
 
 export interface WeightTableListProps {
@@ -240,7 +243,8 @@ function Row({
   onTargetsChange(targets: TargetTexts): void;
   onOpenWeights(): void;
 }) {
-  const { name, result } = row;
+  const { name, result, state = 'done' } = row;
+  const faded = fadedWhen(state !== 'done');
   const errorId = useId();
   const targetInvalid = parseNonNegativeNumber(row.targetText).invalid;
   const erTargetInvalid = parseNonNegativeNumber(row.erTargetText).invalid;
@@ -307,16 +311,24 @@ function Row({
           onChange={(erTargetText) => onTargetsChange({ targetText: row.targetText, erTargetText })}
         />
       </td>
-      <td className={styles.figure}>{result ? formatEchoScore(result.echoScore) : NONE}</td>
-      <td className={styles.figure}>
+      <td className={`${styles.figure} ${faded ?? ''}`}>
+        {result ? formatEchoScore(result.echoScore) : NONE}
+      </td>
+      <td className={`${styles.figure} ${faded ?? ''}`}>
         <Chance result={result} chance={(r) => r.targetChance} verdict={(r) => r.reachesTarget} />
       </td>
-      <td className={styles.figure}>
-        <Chance
-          result={result}
-          chance={(r) => r.erTargetChance}
-          verdict={(r) => r.reachesErTarget}
-        />
+      <td className={`${styles.figure} ${styles.statusCell}`}>
+        <span className={faded}>
+          <Chance
+            result={result}
+            chance={(r) => r.erTargetChance}
+            verdict={(r) => r.reachesErTarget}
+          />
+        </span>
+        {/* The row's line kept free under its results, running back across them from the right. */}
+        <span className={styles.status}>
+          <CalculationStatus state={state} inline />
+        </span>
       </td>
       <td className={styles.icon}>
         <IconButton

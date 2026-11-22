@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createCalculator, serveCalculations, type MessagePortLike } from './newestInputWins';
+import {
+  createCalculator,
+  serveCalculations,
+  type MessagePortLike,
+  type WorkerLike,
+} from './newestInputWins';
 import type {
   EchoEvaluationInput,
   EchoEvaluationListInput,
@@ -39,7 +44,7 @@ function fakeJobs() {
   return {
     echoEvaluation: {
       run: vi.fn(resultFor),
-      keepOnly: vi.fn<(tableNames: readonly string[]) => void>(),
+      keepOnly: vi.fn<(tableNames: readonly string[], focusedTableName: string | null) => void>(),
     },
     upgradeStrategy: { run: vi.fn(strategyResultFor) },
     topEchoScores: { run: vi.fn(topScoresFor) },
@@ -86,15 +91,38 @@ const strategyResponse = (id: number, groups: number, strategy: StrategyName = '
   result: { successRate: groups },
 });
 
-function fakePort(): MessagePortLike & { sent: unknown[] } {
+function fakePort(): WorkerLike & { sent: unknown[]; terminated: boolean } {
   return {
     sent: [],
+    terminated: false,
     onmessage: null,
+    onerror: null,
     postMessage(message: unknown) {
       this.sent.push(message);
     },
+    terminate() {
+      this.terminated = true;
+    },
   };
 }
+
+/** Starts a fake worker each time the app asks for one; `workers` holds them, the newest last. */
+function fakeWorkers() {
+  const workers: ReturnType<typeof fakePort>[] = [];
+  return {
+    workers,
+    start: () => {
+      const worker = fakePort();
+      workers.push(worker);
+      return worker;
+    },
+    newest: () => workers.at(-1) as ReturnType<typeof fakePort>,
+  };
+}
+
+/** The worker crashing, as a Worker's `error` event says. */
+const crash = (worker: WorkerLike) =>
+  worker.onerror?.(new Event('error', { cancelable: true }) as ErrorEvent);
 
 const deliver = (port: MessagePortLike, data: unknown) =>
   port.onmessage?.(new MessageEvent('message', { data }));
@@ -197,15 +225,15 @@ describe('the worker side', () => {
     expect(port.sent).toHaveLength(2);
   });
 
-  it('keeps tables only for the Weight Tables listed now', () => {
+  it('keeps tables only for the Weight Tables listed now, and tells which is in focus', () => {
     const port = fakePort();
     const jobs = fakeJobs();
     const { schedule, runAll } = stepper();
     serveCalculations(port, jobs, schedule);
 
-    deliver(port, request(1, listInput(['A', 'B'])));
+    deliver(port, request(1, listInput(['A', 'B'], 'B')));
     runAll();
-    expect(jobs.echoEvaluation.keepOnly).toHaveBeenLastCalledWith(['A', 'B']);
+    expect(jobs.echoEvaluation.keepOnly).toHaveBeenLastCalledWith(['A', 'B'], 'B');
   });
 
   it('runs an Upgrade Strategy request as one job and posts its result', () => {
@@ -291,6 +319,88 @@ describe('the worker side', () => {
     expect(port.sent).toEqual([topScoresResponse(2, [0.05])]);
   });
 
+  it('runs Echo Evaluation’s jobs first while its tab is visible', () => {
+    const port = fakePort();
+    const { schedule, runAll } = stepper();
+    serveCalculations(port, fakeJobs(), schedule);
+
+    deliver(port, { kind: 'visibleTab', tab: 'echoEvaluation' });
+    deliver(port, strategyRequest(1, 1));
+    deliver(port, request(2, listInput(['A', 'B'])));
+    runAll();
+
+    expect(port.sent).toEqual([response(2, 'A @1'), response(2, 'B @1'), strategyResponse(1, 1)]);
+  });
+
+  it('runs Upgrade Strategy’s jobs first while its tab is visible, and Echo Evaluation’s after', () => {
+    const port = fakePort();
+    const { schedule, runAll } = stepper();
+    serveCalculations(port, fakeJobs(), schedule);
+
+    deliver(port, { kind: 'visibleTab', tab: 'upgradeStrategy' });
+    deliver(port, request(1, listInput(['A', 'B'])));
+    deliver(port, strategyRequest(2, 1, 'B'));
+    deliver(port, topScoresRequest(3, [0.1], 'A'));
+    runAll();
+
+    expect(port.sent).toEqual([
+      topScoresResponse(3, [0.1], 'A'),
+      strategyResponse(2, 1, 'B'),
+      response(1, 'A @1'),
+      response(1, 'B @1'),
+    ]);
+  });
+
+  it('turns to the newly visible tab’s jobs between jobs', () => {
+    const port = fakePort();
+    const { schedule, step, runAll } = stepper();
+    serveCalculations(port, fakeJobs(), schedule);
+
+    deliver(port, request(1, listInput(['A', 'B'])));
+    deliver(port, strategyRequest(2, 1));
+    step();
+    deliver(port, { kind: 'visibleTab', tab: 'upgradeStrategy' });
+    runAll();
+
+    expect(port.sent).toEqual([response(1, 'A @1'), strategyResponse(2, 1), response(1, 'B @1')]);
+  });
+
+  it('tells the app when a job throws, and goes on with the jobs after it', () => {
+    const port = fakePort();
+    const jobs = fakeJobs();
+    jobs.echoEvaluation.run.mockImplementationOnce(() => {
+      throw new Error('Out of memory');
+    });
+    const { schedule, runAll } = stepper();
+    serveCalculations(port, jobs, schedule);
+
+    deliver(port, request(1, listInput(['A', 'B'])));
+    deliver(port, strategyRequest(2, 1));
+    runAll();
+
+    expect(port.sent).toEqual([
+      { kind: 'failed', id: 1, tableName: 'A' },
+      response(1, 'B @1'),
+      strategyResponse(2, 1),
+    ]);
+  });
+
+  it('tells the app when a strategy’s job throws', () => {
+    const port = fakePort();
+    const jobs = fakeJobs();
+    jobs.upgradeStrategy.run.mockImplementationOnce(() => {
+      throw new Error('Out of memory');
+    });
+    const { schedule, runAll } = stepper();
+    serveCalculations(port, jobs, schedule);
+
+    deliver(port, strategyRequest(1, 1, 'A'));
+    deliver(port, strategyRequest(2, 2, 'B'));
+    runAll();
+
+    expect(port.sent).toEqual([{ kind: 'failed', id: 1 }, strategyResponse(2, 2, 'B')]);
+  });
+
   it('keeps an Echo Evaluation request when an Upgrade Strategy request arrives, and the other way round', () => {
     const port = fakePort();
     const { schedule, runAll } = stepper();
@@ -310,14 +420,14 @@ describe('the worker side', () => {
 describe('the app side', () => {
   it('sends each input to the worker', () => {
     const port = fakePort();
-    const calculator = createCalculator(port);
+    const calculator = createCalculator(() => port);
     calculator.evaluate(listInput(['A']), () => {});
     expect(port.sent).toEqual([request(1, listInput(['A']))]);
   });
 
   it('passes on every result of the newest input and drops outdated ones', () => {
     const port = fakePort();
-    const calculator = createCalculator(port);
+    const calculator = createCalculator(() => port);
     const first = vi.fn();
     const second = vi.fn();
     calculator.evaluate(listInput(['A', 'B']), first);
@@ -333,7 +443,7 @@ describe('the app side', () => {
 
   it('passes on only the newest Top Echo Scores result, apart from Upgrade Strategy’s', () => {
     const port = fakePort();
-    const calculator = createCalculator(port);
+    const calculator = createCalculator(() => port);
     const calculated = vi.fn();
     const first = vi.fn();
     const second = vi.fn();
@@ -357,7 +467,7 @@ describe('the app side', () => {
 
   it('passes on only the newest Upgrade Strategy result, apart from Echo Evaluation’s', () => {
     const port = fakePort();
-    const calculator = createCalculator(port);
+    const calculator = createCalculator(() => port);
     const evaluated = vi.fn();
     const first = vi.fn();
     const second = vi.fn();
@@ -381,7 +491,7 @@ describe('the app side', () => {
 
   it('passes on each strategy’s newest result apart from the other’s', () => {
     const port = fakePort();
-    const calculator = createCalculator(port);
+    const calculator = createCalculator(() => port);
     const a = vi.fn();
     const b = vi.fn();
     const newerA = vi.fn();
@@ -405,7 +515,7 @@ describe('the app side', () => {
 
   it('passes on each strategy’s newest Top Echo Scores apart from the other’s', () => {
     const port = fakePort();
-    const calculator = createCalculator(port);
+    const calculator = createCalculator(() => port);
     const a = vi.fn();
     const b = vi.fn();
     calculator.topEchoScores('A', { table: tableNamed('A'), topPercents: [0.05] }, a);
@@ -416,5 +526,114 @@ describe('the app side', () => {
 
     expect(a.mock.calls).toEqual([[{ echoScores: [5] }]]);
     expect(b.mock.calls).toEqual([[{ echoScores: [10] }]]);
+  });
+});
+
+describe('the app side, when the worker fails', () => {
+  const failed = (id: number, tableName?: string) =>
+    tableName === undefined ? { kind: 'failed', id } : { kind: 'failed', id, tableName };
+
+  it('tells the worker which tab is visible', () => {
+    const { start, newest } = fakeWorkers();
+    const calculator = createCalculator(start);
+    calculator.showTab('upgradeStrategy');
+    expect(newest().sent).toEqual([{ kind: 'visibleTab', tab: 'upgradeStrategy' }]);
+  });
+
+  it('restarts the worker once a job throws, and sends again what is still to come', () => {
+    const { start, workers, newest } = fakeWorkers();
+    const calculator = createCalculator(start);
+    const evaluated = vi.fn();
+    const onFailed = vi.fn();
+    calculator.showTab('upgradeStrategy');
+    calculator.evaluate(listInput(['A', 'B', 'C'], 'B'), evaluated, onFailed);
+    calculator.calculateUpgradeStrategy('A', strategyInput(1), vi.fn());
+    const first = newest();
+
+    deliver(first, response(1, 'B'));
+    deliver(first, failed(1, 'A'));
+
+    expect(first.terminated).toBe(true);
+    expect(workers).toHaveLength(2);
+    // The tab, then the tables still to come, the one that failed included, and the strategy.
+    expect(newest().sent).toEqual([
+      { kind: 'visibleTab', tab: 'upgradeStrategy' },
+      request(1, listInput(['A', 'C'], 'B')),
+      strategyRequest(2, 1),
+    ]);
+    deliver(newest(), response(1, 'A'));
+    expect(evaluated.mock.calls).toEqual([[{ tableName: 'B' }], [{ tableName: 'A' }]]);
+    expect(onFailed).not.toHaveBeenCalled();
+  });
+
+  it('says a job failed when it fails again after the restart, and the rest keeps working', () => {
+    const { start, newest } = fakeWorkers();
+    const calculator = createCalculator(start);
+    const strategyFailed = vi.fn();
+    const calculatedB = vi.fn();
+    calculator.calculateUpgradeStrategy('A', strategyInput(1), vi.fn(), strategyFailed);
+    calculator.calculateUpgradeStrategy('B', strategyInput(2), calculatedB);
+
+    deliver(newest(), failed(1));
+    expect(strategyFailed).not.toHaveBeenCalled();
+    deliver(newest(), failed(1));
+    expect(strategyFailed).toHaveBeenCalledTimes(1);
+
+    // The worker after that runs what is left, without the job that failed twice.
+    expect(newest().sent).toEqual([strategyRequest(2, 2, 'B')]);
+    deliver(newest(), strategyResponse(2, 2, 'B'));
+    expect(calculatedB.mock.calls).toEqual([[{ successRate: 2 }]]);
+  });
+
+  it('says which Echo Evaluation table failed twice', () => {
+    const { start, newest } = fakeWorkers();
+    const calculator = createCalculator(start);
+    const onFailed = vi.fn();
+    calculator.evaluate(listInput(['A', 'B']), vi.fn(), onFailed);
+
+    deliver(newest(), failed(1, 'B'));
+    deliver(newest(), failed(1, 'B'));
+    expect(onFailed.mock.calls).toEqual([['B']]);
+  });
+
+  it('gives each new input its own retry', () => {
+    const { start, newest } = fakeWorkers();
+    const calculator = createCalculator(start);
+    const onFailed = vi.fn();
+    calculator.calculateUpgradeStrategy('A', strategyInput(1), vi.fn(), onFailed);
+    deliver(newest(), failed(1));
+    calculator.calculateUpgradeStrategy('A', strategyInput(2), vi.fn(), onFailed);
+    deliver(newest(), failed(2));
+    expect(onFailed).not.toHaveBeenCalled();
+  });
+
+  it('restarts after a crash and retries every job still to come, once', () => {
+    const { start, workers, newest } = fakeWorkers();
+    const calculator = createCalculator(start);
+    const evaluationFailed = vi.fn();
+    const strategyFailed = vi.fn();
+    calculator.evaluate(listInput(['A', 'B']), vi.fn(), evaluationFailed);
+    calculator.calculateUpgradeStrategy('A', strategyInput(1), vi.fn(), strategyFailed);
+    deliver(newest(), response(1, 'A'));
+
+    crash(newest());
+    expect(workers).toHaveLength(2);
+    expect(newest().sent).toEqual([request(1, listInput(['B'], 'A')), strategyRequest(2, 1)]);
+
+    crash(newest());
+    expect(evaluationFailed.mock.calls).toEqual([['B']]);
+    expect(strategyFailed).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores what an old worker still sends after its restart', () => {
+    const { start, workers } = fakeWorkers();
+    const calculator = createCalculator(start);
+    const calculated = vi.fn();
+    calculator.calculateUpgradeStrategy('A', strategyInput(1), calculated);
+    const [old] = workers as [ReturnType<typeof fakePort>];
+    const listening = old.onmessage;
+    deliver(old, failed(1));
+    listening?.(new MessageEvent('message', { data: strategyResponse(1, 1) }));
+    expect(calculated).not.toHaveBeenCalled();
   });
 });

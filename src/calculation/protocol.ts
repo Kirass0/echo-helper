@@ -133,7 +133,25 @@ export interface TopEchoScoresResponse {
   readonly result: TopEchoScoresResult;
 }
 
+/**
+ * A job that threw, so its result never comes (spec §11, "Failure"). Echo Evaluation's names its Weight Table; the
+ * other kinds have one job per request.
+ */
+export interface FailedResponse {
+  readonly kind: 'failed';
+  readonly id: number;
+  readonly tableName?: string;
+}
+
+/** Where the app is: the visible tab's jobs run first (spec §11, "Job order"). */
+export type CalculatingTab = 'echoEvaluation' | 'upgradeStrategy';
+
+export interface VisibleTabRequest {
+  readonly kind: 'visibleTab';
+  readonly tab: CalculatingTab;
+}
+
 export type CalculationRequest =
-  EchoEvaluationRequest | UpgradeStrategyRequest | TopEchoScoresRequest;
+  EchoEvaluationRequest | UpgradeStrategyRequest | TopEchoScoresRequest | VisibleTabRequest;
 export type CalculationResponse =
-  EchoEvaluationResponse | UpgradeStrategyResponse | TopEchoScoresResponse;
+  EchoEvaluationResponse | UpgradeStrategyResponse | TopEchoScoresResponse | FailedResponse;

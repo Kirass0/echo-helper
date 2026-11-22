@@ -482,11 +482,8 @@ function holdingTopScores() {
   const inner = inProcessCalculator();
   const held: (() => void)[] = [];
   const calculator: Calculator = {
-    evaluate: (input, onResult) => inner.evaluate(input, onResult),
-    calculateUpgradeStrategy: (strategy, input, onResult) =>
-      inner.calculateUpgradeStrategy(strategy, input, onResult),
-    topEchoScores: (strategy, input, onResult) =>
-      held.push(() => inner.topEchoScores(strategy, input, onResult)),
+    ...inner,
+    topEchoScores: (...args) => held.push(() => inner.topEchoScores(...args)),
   };
   return {
     calculator,

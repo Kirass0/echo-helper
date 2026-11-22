@@ -6,6 +6,8 @@ import type {
   UpgradeStrategyResult,
 } from '../calculation/protocol';
 import type { WeightTableData } from '../catalogue/catalogue';
+import type { CalculationState } from '../ui/CalculationStatus';
+import { useLongPending } from '../ui/useLongPending';
 import { fillThresholds, loadExample, type LoadedExample, type PendingThreshold } from './examples';
 import { finishedStrategy, type StrategyDraft } from './strategyDraft';
 
@@ -19,6 +21,11 @@ export interface HeldStrategy {
   readonly unfinishedStage: number | null;
   /** Whether the results are from before the last change: a rule is unfinished, or thresholds are pending. */
   readonly waiting: boolean;
+  /**
+   * Whether the results have been calculating for about 300 ms or more, or couldn't be calculated (spec §11); the last
+   * results then stay, faded.
+   */
+  readonly state: CalculationState;
   /** A loaded example's Top x% thresholds still being worked out. */
   readonly calculating: readonly PendingThreshold[];
   /** Replaces the strategy with an example, working out its Top x% thresholds for the table. */
@@ -50,16 +57,24 @@ export function useStrategy(
         : null,
     [active, table, finished, pending.example],
   );
-  const { result, clear } = useUpgradeStrategyResult(calculator, name, input);
+  const calculated = useUpgradeStrategyResult(calculator, name, input);
   const unfinishedStage =
     !pending.example && 'unfinishedStage' in finished ? finished.unfinishedStage : null;
+  // The results are pending while the strategy, or a loaded example's thresholds, are being calculated.
+  const long = useLongPending(calculated.pending || pending.calculating ? [RESULTS] : []);
+  const state: CalculationState =
+    calculated.failed || pending.failed ? 'failed' : long.has(RESULTS) ? 'calculating' : 'done';
 
   return {
     draft,
-    setDraft,
-    result,
+    setDraft(next) {
+      pending.forgetFailure();
+      setDraft(next);
+    },
+    result: calculated.result,
     unfinishedStage,
     waiting: pending.example !== null || unfinishedStage !== null,
+    state,
     calculating: pending.example?.thresholds ?? [],
     loadExample(example) {
       const loaded = loadExample(example);
@@ -69,10 +84,13 @@ export function useStrategy(
     reset(next) {
       setDraft(next);
       pending.load(null);
-      clear();
+      calculated.clear();
     },
   };
 }
+
+/** The one key of a strategy's pending results. */
+const RESULTS = 'results';
 
 /**
  * The loaded example whose Top x% thresholds are still being worked out, if any (spec §8, "Example strategies"). They
@@ -86,6 +104,8 @@ function usePendingThresholds(
   setDraft: (change: (draft: StrategyDraft) => StrategyDraft) => void,
 ) {
   const [example, setExample] = useState<LoadedExample | null>(null);
+  // Whether working out the last example's thresholds was given up: they then stay empty (spec §11, "Failure").
+  const [failed, setFailed] = useState(false);
   const newest = useRef<LoadedExample | null>(null);
 
   useEffect(() => {
@@ -99,16 +119,30 @@ function usePendingThresholds(
         setDraft((draft) => fillThresholds(draft, example, echoScores));
         setExample(null);
       },
+      () => {
+        if (newest.current !== example) return;
+        newest.current = null;
+        setExample(null);
+        setFailed(true);
+      },
     );
   }, [calculator, name, example, table, setDraft]);
 
   return {
     example,
+    /** Whether the thresholds are being worked out now: only while there is a table to work them out for. */
+    calculating: example !== null && table !== undefined,
+    failed,
     /** Starts working out a just-loaded example's thresholds; one without any, or none, has nothing pending. */
     load(loaded: LoadedExample | null) {
       const waiting = loaded && loaded.topPercents.length > 0 ? loaded : null;
       newest.current = waiting;
       setExample(waiting);
+      setFailed(false);
+    },
+    /** An edit to the strategy leaves a failure behind. */
+    forgetFailure() {
+      setFailed(false);
     },
   };
 }
@@ -123,20 +157,39 @@ function useUpgradeStrategyResult(
   input: UpgradeStrategyInput | null,
 ) {
   const [result, setResult] = useState<UpgradeStrategyResult | null>(null);
+  // The input the last answer was for, and whether its calculation was given up.
+  const [answered, setAnswered] = useState<{
+    input: UpgradeStrategyInput;
+    failed: boolean;
+  } | null>(null);
   // Counts what was sent; a cleared strategy counts one more, so a result still on its way is dropped.
   const sent = useRef(0);
   useEffect(() => {
     if (!input) return;
     const request = ++sent.current;
-    calculator.calculateUpgradeStrategy(name, input, (calculated) => {
-      if (sent.current === request) setResult(calculated);
-    });
+    calculator.calculateUpgradeStrategy(
+      name,
+      input,
+      (calculated) => {
+        if (sent.current !== request) return;
+        setResult(calculated);
+        setAnswered({ input, failed: false });
+      },
+      () => {
+        if (sent.current === request) setAnswered({ input, failed: true });
+      },
+    );
   }, [calculator, name, input]);
   return {
     result,
+    /** Whether the input's result is still to come. */
+    pending: input !== null && answered?.input !== input,
+    /** Whether the input's calculation was given up (spec §11, "Failure"). */
+    failed: input !== null && answered?.input === input && answered.failed,
     clear() {
       sent.current++;
       setResult(null);
+      setAnswered(null);
     },
   };
 }

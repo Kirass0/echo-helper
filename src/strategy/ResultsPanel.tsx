@@ -5,6 +5,7 @@ import {
   formatRate,
   formatWhole,
 } from '../evaluation/format';
+import { CalculationStatus, type CalculationState } from '../ui/CalculationStatus';
 import surfaces from '../ui/surfaces.module.css';
 import { Term } from '../ui/Term';
 import { stageName } from './StageEditor';
@@ -18,12 +19,27 @@ export interface ResultsPanelProps {
   stale: boolean;
   /** The first Tune Stage holding an unfinished rule, while there is one: the results are then from before. */
   unfinishedStage: number | null;
+  /** Whether the results have been calculating for a while, or couldn't be calculated (spec §11). */
+  state?: CalculationState;
 }
 
 /** The results panel beside the stages (spec §8): Success Rate, where Echoes end, cost and Echo Scores. */
-export function ResultsPanel({ result, stale, unfinishedStage }: ResultsPanelProps) {
+export function ResultsPanel({
+  result,
+  stale,
+  unfinishedStage,
+  state = 'done',
+}: ResultsPanelProps) {
   return (
     <section className={`${surfaces.panel} ${styles.panel}`} aria-label="Results">
+      {/*
+       * Laid over the panel's top right, beside the Success Rate, so it appearing moves nothing; before the first
+       * results, in the empty panel itself.
+       */}
+      <span className={result ? styles.calculating : undefined}>
+        {state === 'calculating' && <CalculationStatus state="calculating" />}
+      </span>
+      {state === 'failed' && <CalculationStatus state="failed" />}
       {unfinishedStage !== null && (
         <p className={styles.staleMessage}>
           Results are from before your last change. Finish the highlighted rule at{' '}

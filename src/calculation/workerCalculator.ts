@@ -1,10 +1,15 @@
 import { createCalculator, type Calculator } from './newestInputWins';
 
-/** Starts the one dedicated calculation worker and returns the app's way of talking to it. */
+/**
+ * Starts the one dedicated calculation worker and returns the app's way of talking to it. The worker is started again
+ * if it fails (spec §11, "Failure").
+ */
 export function startWorkerCalculator(): Calculator {
-  const worker = new Worker(new URL('./calculation.worker.ts', import.meta.url), {
-    type: 'module',
-    name: 'calculation',
-  });
-  return createCalculator(worker);
+  return createCalculator(
+    () =>
+      new Worker(new URL('./calculation.worker.ts', import.meta.url), {
+        type: 'module',
+        name: 'calculation',
+      }),
+  );
 }

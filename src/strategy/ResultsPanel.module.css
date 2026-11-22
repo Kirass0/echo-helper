@@ -4,6 +4,13 @@
   top: 12px;
 }
 
+/* "Calculating…" at the top right, level with the Success Rate. */
+.calculating {
+  position: absolute;
+  top: calc(var(--pad) + 10px);
+  right: var(--pad);
+}
+
 .staleMessage {
   color: var(--bad);
   font-size: 0.88em;

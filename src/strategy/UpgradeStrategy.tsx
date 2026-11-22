@@ -6,6 +6,7 @@ import type { TableEvents } from '../customTables/tableEvents';
 import { TableOptions } from '../evaluation/TableOptions';
 import { TERM_TOOLTIPS } from '../evaluation/termTooltips';
 import { WeightsDialog, type WeightsDialogStart } from '../evaluation/WeightsDialog';
+import { CalculationStatus } from '../ui/CalculationStatus';
 import { IconButton } from '../ui/IconButton';
 import { SlidersIcon } from '../ui/icons';
 import surfaces from '../ui/surfaces.module.css';
@@ -164,7 +165,7 @@ export function UpgradeStrategy({
               />
             ))}
           </div>
-          <CompareBlock a={a.result} b={b.result} stale={a.waiting || b.waiting} />
+          <CompareBlock a={a.result} b={b.result} stale={faded(a) || faded(b)} />
         </>
       ) : (
         <div className={styles.columns}>
@@ -172,12 +173,17 @@ export function UpgradeStrategy({
             <StageEditor
               draft={a.draft}
               discardRates={discardRates(a)}
-              stale={a.waiting}
+              stale={faded(a)}
               calculating={a.calculating}
               onChange={a.setDraft}
             />
           </div>
-          <ResultsPanel result={a.result} stale={a.waiting} unfinishedStage={a.unfinishedStage} />
+          <ResultsPanel
+            result={a.result}
+            stale={faded(a)}
+            unfinishedStage={a.unfinishedStage}
+            state={a.state}
+          />
         </div>
       )}
       {dialog && (
@@ -193,6 +199,9 @@ export function UpgradeStrategy({
     </div>
   );
 }
+
+/** Whether a strategy's results fade: they are from before its last change, calculating, or couldn't be calculated. */
+const faded = ({ waiting, state }: HeldStrategy) => waiting || state !== 'done';
 
 const discardRates = ({ result }: HeldStrategy) =>
   result?.discards.map(({ discardRate }) => discardRate) ?? null;
@@ -219,6 +228,10 @@ function StrategyPanel({
     <section className={surfaces.panel} aria-labelledby={headingId}>
       <h2 className={compare.heading}>
         <span id={headingId}>Strategy {name}</span>
+        {/* Kept free whatever the state, so "Calculating…" appearing moves nothing. */}
+        <span className={compare.calculatingSlot}>
+          {strategy.state === 'calculating' && <CalculationStatus state="calculating" />}
+        </span>
         <button
           type="button"
           className={`${compare.button} ${editing ? compare.primary : ''}`}
@@ -231,6 +244,7 @@ function StrategyPanel({
       <div className={compare.examples}>
         <ExamplePicker draft={strategy.draft} onLoad={strategy.loadExample} />
       </div>
+      {strategy.state === 'failed' && <CalculationStatus state="failed" />}
       {unfinished !== null && (
         <p className={compare.staleMessage}>
           Results are from before your last change. Finish the highlighted rule at{' '}
@@ -241,13 +255,13 @@ function StrategyPanel({
         <StageEditor
           draft={strategy.draft}
           discardRates={discardRates(strategy)}
-          stale={strategy.waiting}
+          stale={faded(strategy)}
           calculating={strategy.calculating}
           narrow
           onChange={strategy.setDraft}
         />
       ) : (
-        <StrategySummary draft={strategy.draft} result={strategy.result} stale={strategy.waiting} />
+        <StrategySummary draft={strategy.draft} result={strategy.result} stale={faded(strategy)} />
       )}
     </section>
   );

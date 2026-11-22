@@ -1,6 +1,7 @@
 import { scaleLinear } from 'd3-scale';
 import { area, line } from 'd3-shape';
 import type { EchoEvaluationResult } from '../calculation/protocol';
+import { CalculationStatus, fadedWhen, type CalculationState } from '../ui/CalculationStatus';
 import { useTooltip } from '../ui/Tooltip';
 import {
   BAND_COUNT,
@@ -22,6 +23,8 @@ export interface EchoDistributionChartProps {
   /** Every listed table, top to bottom. */
   readonly tables: readonly ChartedListedTable[];
   readonly focused: string;
+  /** Whether any table's curve is calculating, or was given up; the chart then fades and says so. */
+  readonly state?: CalculationState;
 }
 
 // The drawing's own coordinates; the SVG scales to the panel's width.
@@ -35,7 +38,11 @@ const PLOT_BOTTOM = HEIGHT - MARGIN.bottom;
  * equal bands over the range of them all. The table in focus is drawn in colour against its target lines, the others
  * as grey lines. The axis depends only on the listed tables and their targets, so switching focus never moves it.
  */
-export function EchoDistributionChart({ tables, focused }: EchoDistributionChartProps) {
+export function EchoDistributionChart({
+  tables,
+  focused,
+  state = 'done',
+}: EchoDistributionChartProps) {
   // Every listed table's targets set the axis; only tables with a result have a curve.
   const charted = tables.map(({ name, targetScore, erTargetScore, result }): ChartedTable => ({
     name,
@@ -56,8 +63,12 @@ export function EchoDistributionChart({ tables, focused }: EchoDistributionChart
         </h2>
         <Legend focused={focused} />
       </div>
+      {/* Laid over the plot's top, so it appearing moves nothing. */}
+      <div className={styles.status}>
+        <CalculationStatus state={state} />
+      </div>
       <svg
-        className={styles.svg}
+        className={`${styles.svg} ${fadedWhen(state !== 'done') ?? ''}`}
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
         role="img"
         aria-label={labelOf(focused, focusedTable)}

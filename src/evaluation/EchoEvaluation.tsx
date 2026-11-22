@@ -7,7 +7,9 @@ import type {
   EchoEvaluationResult,
   ListedTableInput,
 } from '../calculation/protocol';
+import { CalculationStatus, fadedWhen, type CalculationState } from '../ui/CalculationStatus';
 import surfaces from '../ui/surfaces.module.css';
+import { useLongPending } from '../ui/useLongPending';
 import { forgetTable, renameTable } from './rememberedByName';
 import { EchoDistributionChart } from './EchoDistributionChart';
 import { withoutRows } from './echoEvaluationEntry';
@@ -72,7 +74,15 @@ export function EchoEvaluation({
     });
     return tables.length ? { substats, tables, focusedTableName: focused } : null;
   }, [substats, listed, focused, targets, allTables]);
-  const results = useEchoEvaluationResults(calculator, input);
+  const { results, stateOf } = useEchoEvaluationResults(calculator, input);
+  // The chart shows every listed table: it fades while any is calculating, and says so if any was given up.
+  const listedStates = listed.map(stateOf);
+  const chartState: CalculationState = listedStates.includes('failed')
+    ? 'failed'
+    : listedStates.includes('calculating')
+      ? 'calculating'
+      : 'done';
+  const focusedState = focused === null ? 'done' : stateOf(focused);
 
   function add(name: string) {
     update((state) => ({ listed: [...state.listed, name], focused: name }));
@@ -140,8 +150,15 @@ export function EchoEvaluation({
               <h2 className={styles.tableName} title={focused}>
                 <span className={styles.tableNameText}>{focused}</span>
                 {isCustom(focused) && <CustomTag />}
+                {/* Kept free whatever the state, so "Calculating…" appearing moves nothing. */}
+                <span className={styles.calculatingSlot}>
+                  {focusedState === 'calculating' && <CalculationStatus state="calculating" />}
+                </span>
               </h2>
-              <ResultBoxes result={results[focused] ?? null} />
+              {focusedState === 'failed' && <CalculationStatus state="failed" />}
+              <div className={fadedWhen(focusedState !== 'done')}>
+                <ResultBoxes result={results[focused] ?? null} />
+              </div>
             </>
           ) : (
             <div className={styles.prompt}>
@@ -159,6 +176,7 @@ export function EchoEvaluation({
           <div className={surfaces.panel}>
             <EchoDistributionChart
               focused={focused}
+              state={chartState}
               tables={listed.map((name) => ({
                 name,
                 targetScore: parseNonNegativeNumber(targetsOf(name).targetText).value,
@@ -176,6 +194,7 @@ export function EchoEvaluation({
               name,
               ...targetsOf(name),
               result: results[name] ?? null,
+              state: stateOf(name),
             }))}
             focused={focused}
             onAdd={add}
@@ -205,20 +224,41 @@ export function EchoEvaluation({
   );
 }
 
+/** What came back for a table: for which input, and whether it was a result or the calculation was given up. */
+interface Answer {
+  readonly input: EchoEvaluationListInput;
+  readonly failed: boolean;
+}
+
 /**
  * The newest result for each listed table: every change is sent at once, with no debounce, and each table's result
- * replaces its last one as soon as it arrives; results of outdated inputs are dropped.
+ * replaces its last one as soon as it arrives; results of outdated inputs are dropped. Each table is `calculating`
+ * once its result has been pending for about 300 ms (spec §11), and `failed` once its calculation is given up; its
+ * last result stays meanwhile.
  */
-function useEchoEvaluationResults(
-  calculator: Calculator,
-  input: EchoEvaluationListInput | null,
-): Readonly<Record<string, EchoEvaluationResult>> {
+function useEchoEvaluationResults(calculator: Calculator, input: EchoEvaluationListInput | null) {
   const [results, setResults] = useState<Readonly<Record<string, EchoEvaluationResult>>>({});
+  const [answers, setAnswers] = useState<Readonly<Record<string, Answer>>>({});
   useEffect(() => {
-    if (input)
-      calculator.evaluate(input, (result) =>
-        setResults((last) => ({ ...last, [result.tableName]: result })),
-      );
+    if (!input) return;
+    const answer = (tableName: string, failed: boolean) =>
+      setAnswers((last) => ({ ...last, [tableName]: { input, failed } }));
+    calculator.evaluate(
+      input,
+      (result) => {
+        setResults((last) => ({ ...last, [result.tableName]: result }));
+        answer(result.tableName, false);
+      },
+      (tableName) => answer(tableName, true),
+    );
   }, [calculator, input]);
-  return results;
+
+  const names = input?.tables.map(({ table }) => table.name) ?? [];
+  const calculating = useLongPending(names.filter((name) => answers[name]?.input !== input));
+  const stateOf = (name: string): CalculationState => {
+    const answer = answers[name];
+    if (answer?.input === input && answer.failed) return 'failed';
+    return calculating.has(name) ? 'calculating' : 'done';
+  };
+  return { results, stateOf };
 }

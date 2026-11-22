@@ -5,11 +5,13 @@
 // between jobs, the rest of an outdated request is dropped.
 import type { EchoEvaluationJobs } from './echoEvaluationJob';
 import type {
+  CalculatingTab,
   CalculationRequest,
   CalculationResponse,
   EchoEvaluationInput,
   EchoEvaluationListInput,
   EchoEvaluationResult,
+  FailedResponse,
   StrategyName,
   TopEchoScoresInput,
   TopEchoScoresResult,
@@ -25,13 +27,26 @@ export interface MessagePortLike {
   onmessage: ((event: MessageEvent) => void) | null;
 }
 
+/** The app's side of the calculation worker: a Worker, which can be restarted after it fails. */
+export interface WorkerLike extends MessagePortLike {
+  onerror: ((event: ErrorEvent) => void) | null;
+  terminate(): void;
+}
+
 /** What the app calculates with. The real one sends the work to the calculation worker. */
 export interface Calculator {
+  /** Says which tab is visible: its jobs run before the hidden tab's (spec §11, "Job order"). */
+  showTab(tab: CalculatingTab): void;
   /**
-   * Calculates Echo Evaluation for every listed Weight Table, passing on each table's result as it arrives. A later
-   * call replaces this one: once it is made, none of this one's results are passed on.
+   * Calculates Echo Evaluation for every listed Weight Table, passing on each table's result as it arrives, or that the
+   * table couldn't be calculated. A later call replaces this one: once it is made, none of this one's results are
+   * passed on.
    */
-  evaluate(input: EchoEvaluationListInput, onResult: (result: EchoEvaluationResult) => void): void;
+  evaluate(
+    input: EchoEvaluationListInput,
+    onResult: (result: EchoEvaluationResult) => void,
+    onFailed?: (tableName: string) => void,
+  ): void;
   /**
    * Calculates Strategy A or B. A later call for the same strategy replaces this one, as for `evaluate`; one for the
    * other strategy doesn't.
@@ -40,6 +55,7 @@ export interface Calculator {
     strategy: StrategyName,
     input: UpgradeStrategyInput,
     onResult: (result: UpgradeStrategyResult) => void,
+    onFailed?: () => void,
   ): void;
   /**
    * Works out the Echo Score of a Top x% Echo for each x, for an example loaded into Strategy A or B. A later call for
@@ -49,49 +65,134 @@ export interface Calculator {
     strategy: StrategyName,
     input: TopEchoScoresInput,
     onResult: (result: TopEchoScoresResult) => void,
+    onFailed?: () => void,
   ): void;
 }
 
-interface Newest<Result> {
-  readonly id: number;
-  readonly onResult: (result: Result) => void;
+type CalculationJobRequest = Exclude<CalculationRequest, { kind: 'visibleTab' }>;
+
+/** The part of a request whose result is one job's: an Echo Evaluation table, or the one job of the other kinds. */
+const ONLY_JOB = '';
+
+/** The newest request of its kind and strategy, and what of it the app still waits for. */
+interface Newest {
+  readonly request: CalculationJobRequest;
+  /** The jobs whose results are still to come, by part. */
+  readonly waiting: Set<string>;
+  /** The jobs that already failed once, and were retried in a restarted worker. */
+  readonly retried: Set<string>;
+  readonly onResult: (result: never) => void;
+  readonly onFailed: (part: string) => void;
 }
 
-/** The app side: sends inputs to the worker and passes on only the newest one's results, per kind and strategy. */
-export function createCalculator(port: MessagePortLike): Calculator {
+const slotOf = (request: CalculationJobRequest) =>
+  request.kind === 'echoEvaluation' ? request.kind : `${request.kind} ${request.strategy}`;
+
+/** The request again, for only the jobs still to come. */
+function remainderOf({ request, waiting }: Newest): CalculationJobRequest {
+  if (request.kind !== 'echoEvaluation') return request;
+  const tables = request.input.tables.filter(({ table }) => waiting.has(table.name));
+  return { ...request, input: { ...request.input, tables } };
+}
+
+/**
+ * The app side: sends inputs to the worker and passes on only the newest one's results, per kind and strategy.
+ *
+ * When a job throws, or the worker crashes, the worker is restarted and is sent again what is still to come (spec
+ * §11, "Failure"). A job that fails again after that is given up: its `onFailed` is called, and the rest go on.
+ */
+export function createCalculator(start: () => WorkerLike): Calculator {
   let nextId = 1;
-  let newestEvaluation: Newest<EchoEvaluationResult> | null = null;
-  const newestStrategy: Partial<Record<StrategyName, Newest<UpgradeStrategyResult>>> = {};
-  const newestTopScores: Partial<Record<StrategyName, Newest<TopEchoScoresResult>>> = {};
-  port.onmessage = ({ data }: MessageEvent<CalculationResponse>) => {
-    if (data.kind === 'echoEvaluation') {
-      if (newestEvaluation?.id === data.id) newestEvaluation.onResult(data.result);
-    } else if (data.kind === 'topEchoScores') {
-      const newest = newestTopScores[data.strategy];
-      if (newest?.id === data.id) newest.onResult(data.result);
-    } else {
-      const newest = newestStrategy[data.strategy];
-      if (newest?.id === data.id) newest.onResult(data.result);
-    }
-  };
-  function send(request: CalculationRequest) {
-    port.postMessage(request);
+  let visibleTab: CalculatingTab | null = null;
+  const newest = new Map<string, Newest>();
+  let worker = connect(start());
+
+  function connect(started: WorkerLike) {
+    // What a worker still sends once it has been replaced is dropped.
+    started.onmessage = ({ data }: MessageEvent<CalculationResponse>) => {
+      if (started === worker) receive(data);
+    };
+    started.onerror = (event) => {
+      // Handled here, so the browser reports it nowhere (spec §11).
+      event.preventDefault();
+      if (started !== worker) return;
+      // A crash says nothing of which job it was: every job still to come is retried, or given up.
+      fail(
+        [...newest.values()].flatMap((held) =>
+          [...held.waiting].map((part) => [held, part] as const),
+        ),
+      );
+    };
+    return started;
   }
+
+  const holding = (id: number) => [...newest.values()].find((held) => held.request.id === id);
+
+  function receive(data: CalculationResponse) {
+    const held = holding(data.id);
+    if (data.kind === 'failed') {
+      fail(held ? [[held, data.tableName ?? ONLY_JOB]] : []);
+      return;
+    }
+    if (!held) return;
+    held.waiting.delete(data.kind === 'echoEvaluation' ? data.result.tableName : ONLY_JOB);
+    // A request's id is its own, so the result is of the kind its `onResult` takes.
+    (held.onResult as (result: unknown) => void)(data.result);
+  }
+
+  /** Gives up the jobs that failed before, retries the others, and restarts the worker either way. */
+  function fail(failures: readonly (readonly [Newest, string])[]) {
+    for (const [held, part] of failures) {
+      if (!held.waiting.has(part)) continue;
+      if (held.retried.has(part)) {
+        held.waiting.delete(part);
+        held.onFailed(part);
+      } else held.retried.add(part);
+    }
+    worker.onmessage = null;
+    worker.onerror = null;
+    worker.terminate();
+    worker = connect(start());
+    if (visibleTab) worker.postMessage({ kind: 'visibleTab', tab: visibleTab });
+    for (const held of newest.values()) if (held.waiting.size > 0) send(remainderOf(held));
+  }
+
+  function send(request: CalculationRequest) {
+    worker.postMessage(request);
+  }
+
+  function hold(
+    request: CalculationJobRequest,
+    parts: readonly string[],
+    onResult: Newest['onResult'],
+    onFailed: Newest['onFailed'],
+  ) {
+    newest.set(slotOf(request), {
+      request,
+      waiting: new Set(parts),
+      retried: new Set(),
+      onResult,
+      onFailed,
+    });
+    send(request);
+  }
+
   return {
-    evaluate(input, onResult) {
-      const id = nextId++;
-      newestEvaluation = { id, onResult };
-      send({ kind: 'echoEvaluation', id, input });
+    showTab(tab) {
+      visibleTab = tab;
+      send({ kind: 'visibleTab', tab });
     },
-    calculateUpgradeStrategy(strategy, input, onResult) {
-      const id = nextId++;
-      newestStrategy[strategy] = { id, onResult };
-      send({ kind: 'upgradeStrategy', id, strategy, input });
+    evaluate(input, onResult, onFailed = () => {}) {
+      const parts = input.tables.map(({ table }) => table.name);
+      hold({ kind: 'echoEvaluation', id: nextId++, input }, parts, onResult, onFailed);
     },
-    topEchoScores(strategy, input, onResult) {
-      const id = nextId++;
-      newestTopScores[strategy] = { id, onResult };
-      send({ kind: 'topEchoScores', id, strategy, input });
+    calculateUpgradeStrategy(strategy, input, onResult, onFailed = () => {}) {
+      const request = { kind: 'upgradeStrategy', id: nextId++, strategy, input } as const;
+      hold(request, [ONLY_JOB], onResult, onFailed);
+    },
+    topEchoScores(strategy, input, onResult, onFailed = () => {}) {
+      const request = { kind: 'topEchoScores', id: nextId++, strategy, input } as const;
+      hold(request, [ONLY_JOB], onResult, onFailed);
     },
   };
 }
@@ -128,6 +229,7 @@ function takeFirst<Input>(queue: Map<StrategyName, Queued<Input>>) {
 interface ServedEvaluation {
   readonly id: number;
   readonly listedNames: readonly string[];
+  readonly focusedTableName: string | null;
   readonly left: EchoEvaluationInput[];
   started: boolean;
 }
@@ -146,12 +248,16 @@ export function serveCalculations(
   // The queued request of each strategy; A's runs before B's.
   const strategies = new Map<StrategyName, Queued<UpgradeStrategyInput>>();
   const topScores = new Map<StrategyName, Queued<TopEchoScoresInput>>();
+  // Echo Evaluation is visible until the app says otherwise: it is the tab an empty hash opens.
+  let visibleTab: CalculatingTab = 'echoEvaluation';
   let scheduled = false;
   port.onmessage = ({ data }: MessageEvent<CalculationRequest>) => {
-    if (data.kind === 'echoEvaluation')
+    if (data.kind === 'visibleTab') visibleTab = data.tab;
+    else if (data.kind === 'echoEvaluation')
       evaluation = {
         id: data.id,
         listedNames: data.input.tables.map(({ table }) => table.name),
+        focusedTableName: data.input.focusedTableName,
         left: jobsOf(data.input),
         started: false,
       };
@@ -172,25 +278,67 @@ export function serveCalculations(
     schedule(runNext);
   }
 
+  /** Runs the next job of the visible tab, or else of the hidden one, which still calculates. */
   function runNext() {
     scheduled = false;
+    const order =
+      visibleTab === 'echoEvaluation'
+        ? [runEchoEvaluationJob, runUpgradeStrategyJob]
+        : [runUpgradeStrategyJob, runEchoEvaluationJob];
+    order.some((run) => run());
+    scheduleNext();
+  }
+
+  /** Runs Echo Evaluation's next job, if one is queued. */
+  function runEchoEvaluationJob() {
     const request = evaluation;
     const job = request?.left.shift();
-    if (request && job) {
-      if (!request.started) {
-        request.started = true;
-        jobs.echoEvaluation.keepOnly(request.listedNames);
-      }
-      post({ kind: 'echoEvaluation', id: request.id, result: jobs.echoEvaluation.run(job) });
-    } else if (topScores.size > 0) {
+    if (!request || !job) return false;
+    if (!request.started) {
+      request.started = true;
+      jobs.echoEvaluation.keepOnly(request.listedNames, request.focusedTableName);
+    }
+    attempt({ kind: 'failed', id: request.id, tableName: job.table.name }, () => ({
+      kind: 'echoEvaluation',
+      id: request.id,
+      result: jobs.echoEvaluation.run(job),
+    }));
+    return true;
+  }
+
+  /** Runs Upgrade Strategy's next job, if one is queued. */
+  function runUpgradeStrategyJob() {
+    if (topScores.size > 0) {
       // Before the strategies, which wait for an example's Top x% Echo Scores.
       const { id, strategy, input } = takeFirst(topScores);
-      post({ kind: 'topEchoScores', id, strategy, result: jobs.topEchoScores.run(input) });
-    } else if (strategies.size > 0) {
-      const { id, strategy, input } = takeFirst(strategies);
-      post({ kind: 'upgradeStrategy', id, strategy, result: jobs.upgradeStrategy.run(input) });
+      attempt({ kind: 'failed', id }, () => ({
+        kind: 'topEchoScores',
+        id,
+        strategy,
+        result: jobs.topEchoScores.run(input),
+      }));
+      return true;
     }
-    scheduleNext();
+    if (strategies.size === 0) return false;
+    const { id, strategy, input } = takeFirst(strategies);
+    attempt({ kind: 'failed', id }, () => ({
+      kind: 'upgradeStrategy',
+      id,
+      strategy,
+      result: jobs.upgradeStrategy.run(input),
+    }));
+    return true;
+  }
+
+  /** Posts a job's result or, if it throws, that it failed; either way the jobs after it still run. */
+  function attempt(failed: FailedResponse, run: () => CalculationResponse) {
+    let response: CalculationResponse;
+    try {
+      response = run();
+    } catch {
+      response = failed;
+    }
+    post(response);
   }
 
   function post(response: CalculationResponse) {
