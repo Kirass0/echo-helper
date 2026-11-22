@@ -1,5 +1,6 @@
 import type { UpgradeStrategyResult } from '../calculation/protocol';
 import { formatRate } from '../evaluation/format';
+import { fadedWhen } from '../ui/CalculationStatus';
 import { Term } from '../ui/Term';
 import { stageName } from './StageEditor';
 import { stageSummary, type StrategyDraft } from './strategyDraft';
@@ -28,7 +29,7 @@ export function StrategySummary({ draft, result, stale }: StrategySummaryProps) 
             <li key={tuneStage}>
               <b>{stageName(tuneStage)}</b>
               <span className={boxes.length ? undefined : styles.mute}>{stageSummary(boxes)}</span>
-              <span className={`${styles.discarded} ${stale ? styles.stale : ''}`}>
+              <span className={`${styles.discarded} ${fadedWhen(stale) ?? ''}`}>
                 {discardRate > 0 ? (
                   <>
                     {formatRate(discardRate)}{' '}
@@ -43,7 +44,7 @@ export function StrategySummary({ draft, result, stale }: StrategySummaryProps) 
         })}
       </ol>
       {result && (
-        <p className={`${styles.successRate} ${stale ? styles.stale : ''}`}>
+        <p className={`${styles.successRate} ${fadedWhen(stale) ?? ''}`}>
           <Term tooltip={STRATEGY_TOOLTIPS['Success Rate']}>Success Rate</Term>{' '}
           <b>{formatRate(result.successRate)}</b>
         </p>

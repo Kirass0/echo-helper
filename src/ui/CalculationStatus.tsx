@@ -9,6 +9,21 @@ export type CalculationState = 'done' | 'calculating' | 'failed';
 /** The pending fade's class, for a result calculating or given up; its last figures stay, faded. */
 export const fadedWhen = (faded: boolean) => (faded ? styles.faded : undefined);
 
+/** "Calculating…" while `state` says so, in room kept free whatever the state, so it appearing moves nothing. */
+export function CalculatingSlot({
+  state,
+  className,
+}: {
+  state: CalculationState;
+  className?: string;
+}) {
+  return (
+    <span className={[styles.slot, className].filter(Boolean).join(' ')}>
+      {state === 'calculating' && <CalculationStatus state="calculating" />}
+    </span>
+  );
+}
+
 /**
  * The text of a result's slot: "Calculating…", never announced (spec §15), or that it couldn't be calculated. `inline`
  * is for a slot of one line, such as a row's.

@@ -124,6 +124,34 @@ describe('remembering Upgrade Strategy', () => {
       expect(within(stage(n)).getByRole('button', { name: '+ add a rule' })).toBeInTheDocument();
   });
 
+  it('opens a Substat Roll rule whose Substat is unknown as unfinished, with no Substat picked', async () => {
+    localStorage.setItem(
+      UPGRADE_STRATEGY_KEY,
+      stored({
+        table: 'Crit Rate only',
+        a: strategy([[rule({ kind: 'substatRoll', substatType: 'Luck' })]]),
+        b: null,
+      }),
+    );
+    const { user } = open();
+    const substat = within(stage(1)).getByRole('combobox', { name: 'Substat' });
+    expect(substat).toHaveDisplayValue('pick a Substat');
+    expect(substat).toHaveAccessibleDescription('Pick a Substat.');
+    await user.selectOptions(substat, 'Crit Damage');
+    expect(within(stage(1)).getByRole('combobox', { name: 'Lowest value' })).toHaveDisplayValue(
+      '12.6%',
+    );
+    expect(within(stage(1)).queryByText('Pick a Substat.')).toBeNull();
+  });
+
+  it('opens with an empty strategy, not "Crit first", when the stored entry is broken', async () => {
+    localStorage.setItem(UPGRADE_STRATEGY_KEY, '{not json');
+    const { user } = open();
+    await user.selectOptions(picker(), 'Crit Rate only');
+    for (const n of [1, 2, 3, 4, 5])
+      expect(within(stage(n)).getByRole('button', { name: '+ add a rule' })).toBeInTheDocument();
+  });
+
   it('takes on what another tab saved', () => {
     open();
     const newValue = stored({

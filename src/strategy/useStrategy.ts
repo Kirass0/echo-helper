@@ -61,9 +61,15 @@ export function useStrategy(
   const unfinishedStage =
     !pending.example && 'unfinishedStage' in finished ? finished.unfinishedStage : null;
   // The results are pending while the strategy, or a loaded example's thresholds, are being calculated.
-  const long = useLongPending(calculated.pending || pending.calculating ? [RESULTS] : []);
+  const longPending = useLongPending(
+    calculated.pending || pending.calculating ? [STRATEGY_RESULTS] : [],
+  );
   const state: CalculationState =
-    calculated.failed || pending.failed ? 'failed' : long.has(RESULTS) ? 'calculating' : 'done';
+    calculated.failed || pending.failed
+      ? 'failed'
+      : longPending.has(STRATEGY_RESULTS)
+        ? 'calculating'
+        : 'done';
 
   return {
     draft,
@@ -89,8 +95,8 @@ export function useStrategy(
   };
 }
 
-/** The one key of a strategy's pending results. */
-const RESULTS = 'results';
+/** What `useLongPending` watches for a strategy: its one set of results. */
+const STRATEGY_RESULTS = 'strategy results';
 
 /**
  * The loaded example whose Top x% thresholds are still being worked out, if any (spec §8, "Example strategies"). They

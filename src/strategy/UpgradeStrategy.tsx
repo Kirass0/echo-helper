@@ -2,11 +2,13 @@ import { useEffect, useId, useMemo, useState } from 'react';
 import type { Calculator } from '../calculation/newestInputWins';
 import type { StrategyName } from '../calculation/protocol';
 import { BUILT_IN_TABLES, findTable, type WeightTableData } from '../catalogue/catalogue';
+import { deleteCustomTable, saveCustomTable } from '../customTables/customTableEdits';
 import type { TableEvents } from '../customTables/tableEvents';
-import { TableOptions } from '../evaluation/TableOptions';
+import { NEW_TABLE, TableOptions } from '../evaluation/TableOptions';
 import { TERM_TOOLTIPS } from '../evaluation/termTooltips';
 import { WeightsDialog, type WeightsDialogStart } from '../evaluation/WeightsDialog';
-import { CalculationStatus } from '../ui/CalculationStatus';
+import { CalculatingSlot, CalculationStatus } from '../ui/CalculationStatus';
+import { FittedSelect } from '../ui/FittedSelect';
 import { IconButton } from '../ui/IconButton';
 import { SlidersIcon } from '../ui/icons';
 import surfaces from '../ui/surfaces.module.css';
@@ -31,8 +33,8 @@ export interface UpgradeStrategyProps {
   /** The selected table's name; null, or a table that no longer exists, means no table. */
   tableName: string | null;
   onTableChange: (name: string) => void;
-  /** Where renames and deletions of Custom tables are told to the other tabs. */
-  tableEvents?: TableEvents;
+  /** Where renames and deletions of Custom tables are told to every tab; the app follows a rename of the table. */
+  tableEvents: TableEvents;
   /** The strategies as remembered: Strategy A and, while comparing, Strategy B (spec §12). */
   strategies: RememberedStrategies;
   /** Called with both strategies whenever either changes, or compare mode starts or stops. */
@@ -53,8 +55,6 @@ const openingModes = ({ a, b }: RememberedStrategies): Record<StrategyName, bool
   B: b !== null && holdsUnfinishedRule(b),
 });
 
-/** The picker's value for "New Custom Weight Table…": table names are trimmed, so none starts with a space. */
-const NEW_TABLE = ' new';
 const CHOOSE = 'Choose a Weight Table…';
 
 /**
@@ -65,7 +65,7 @@ export function UpgradeStrategy({
   calculator,
   builtInTables = BUILT_IN_TABLES,
   customTables,
-  onCustomTablesChange: setCustomTables,
+  onCustomTablesChange,
   tableName,
   onTableChange,
   tableEvents,
@@ -107,23 +107,16 @@ export function UpgradeStrategy({
     b.reset(emptyStrategy());
   }
 
-  /** A new table becomes the strategy's table; a renamed one stays it, and the other tabs follow the rename. */
+  const edits = { customTables, onCustomTablesChange, tableEvents };
+
+  /** A new table becomes the strategy's table; a renamed one stays it, as the app follows the rename published. */
   function saveTable(editing: string | null, saved: WeightTableData) {
-    if (editing === null) {
-      setCustomTables([...customTables, saved]);
-      onTableChange(saved.name);
-      return;
-    }
-    setCustomTables(customTables.map((custom) => (custom.name === editing ? saved : custom)));
-    if (saved.name !== editing) {
-      if (tableName === editing) onTableChange(saved.name);
-      tableEvents?.publish({ kind: 'renamed', from: editing, to: saved.name });
-    }
+    saveCustomTable(edits, editing, saved);
+    if (editing === null) onTableChange(saved.name);
   }
 
   function deleteTable(name: string) {
-    setCustomTables(customTables.filter((custom) => custom.name !== name));
-    tableEvents?.publish({ kind: 'deleted', name });
+    deleteCustomTable(edits, name);
     setDialog(null);
   }
 
@@ -132,30 +125,25 @@ export function UpgradeStrategy({
       <div className={styles.head}>
         <span className={styles.field}>
           <Term tooltip={TERM_TOOLTIPS['Substat Weight Table']}>Substat Weight Table</Term>
-          {/* A hidden copy of what the picker shows sets its width, in every browser; the picker fills it. */}
-          <span className={styles.pickerFit}>
-            <span className={styles.pickerSizer} aria-hidden="true">
-              {table ? table.name : CHOOSE}
-            </span>
-            <select
-              className={styles.tablePicker}
-              title={table?.name}
-              aria-label="Substat Weight Table"
-              value={table ? table.name : ''}
-              onChange={(event) => {
-                if (event.target.value === NEW_TABLE) setDialog({ kind: 'new' });
-                else onTableChange(event.target.value);
-              }}
-            >
-              {!table && (
-                <option value="" disabled>
-                  {CHOOSE}
-                </option>
-              )}
-              <TableOptions custom={customTables} builtIn={builtInTables} />
-              <option value={NEW_TABLE}>New Custom Weight Table…</option>
-            </select>
-          </span>
+          <FittedSelect
+            shown={table ? table.name : CHOOSE}
+            fitClassName={styles.pickerFit}
+            title={table?.name}
+            aria-label="Substat Weight Table"
+            value={table ? table.name : ''}
+            onChange={(event) => {
+              if (event.target.value === NEW_TABLE) setDialog({ kind: 'new' });
+              else onTableChange(event.target.value);
+            }}
+          >
+            {!table && (
+              <option value="" disabled>
+                {CHOOSE}
+              </option>
+            )}
+            <TableOptions custom={customTables} builtIn={builtInTables} />
+            <option value={NEW_TABLE}>New Custom Weight Table…</option>
+          </FittedSelect>
           {table && (
             <IconButton
               label={`Weights of ${table.name}`}
@@ -255,10 +243,7 @@ function StrategyPanel({
     <section className={surfaces.panel} aria-labelledby={headingId}>
       <h2 className={compare.heading}>
         <span id={headingId}>Strategy {name}</span>
-        {/* Kept free whatever the state, so "Calculating…" appearing moves nothing. */}
-        <span className={compare.calculatingSlot}>
-          {strategy.state === 'calculating' && <CalculationStatus state="calculating" />}
-        </span>
+        <CalculatingSlot state={strategy.state} />
         <button
           type="button"
           className={`${compare.button} ${editing ? compare.primary : ''}`}

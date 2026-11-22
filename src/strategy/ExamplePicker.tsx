@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
+import { FittedSelect } from '../ui/FittedSelect';
 import { EXAMPLE_NAMES } from './examples';
 import type { StrategyDraft } from './strategyDraft';
 import styles from './UpgradeStrategy.module.css';
@@ -24,29 +25,25 @@ export function ExamplePicker({ draft, disabled = false, onLoad }: ExamplePicker
       <label className={styles.field}>
         Start from an example
         {/* As wide as "Choose…", which it always shows, as in the prototype. */}
-        <span className={styles.pickerFit}>
-          <span className={styles.pickerSizer} aria-hidden="true">
-            Choose…
-          </span>
-          <select
-            className={styles.tablePicker}
-            disabled={disabled}
-            value=""
-            onChange={(event) => {
-              const name = event.target.value;
-              if (!name) return;
-              if (hasRules(draft)) setReplacing(name);
-              else onLoad(name);
-            }}
-          >
-            <option value="">Choose…</option>
-            {EXAMPLE_NAMES.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
-        </span>
+        <FittedSelect
+          shown="Choose…"
+          fitClassName={styles.pickerFit}
+          disabled={disabled}
+          value=""
+          onChange={(event) => {
+            const name = event.target.value;
+            if (!name) return;
+            if (hasRules(draft)) setReplacing(name);
+            else onLoad(name);
+          }}
+        >
+          <option value="">Choose…</option>
+          {EXAMPLE_NAMES.map((name) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
+        </FittedSelect>
       </label>
       {replacing !== null && (
         <ConfirmDialog

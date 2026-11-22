@@ -71,16 +71,14 @@ export interface Calculator {
 
 type CalculationJobRequest = Exclude<CalculationRequest, { kind: 'visibleTab' }>;
 
-/** The part of a request whose result is one job's: an Echo Evaluation table, or the one job of the other kinds. */
-const ONLY_JOB = '';
+/** The part name of a request that is a single job: Upgrade Strategy's, or Top x% Echo Scores'. */
+const SINGLE_JOB = '';
 
-/** The newest request of its kind and strategy, and what of it the app still waits for. */
-interface Newest {
+/** The newest request of its kind and strategy, the one whose results the app still passes on. */
+interface AwaitedRequest {
   readonly request: CalculationJobRequest;
-  /** The jobs whose results are still to come, by part. */
+  /** The jobs whose results are still to come, by part: an Echo Evaluation table's name, or `SINGLE_JOB`. */
   readonly waiting: Set<string>;
-  /** The jobs that already failed once, and were retried in a restarted worker. */
-  readonly retried: Set<string>;
   readonly onResult: (result: never) => void;
   readonly onFailed: (part: string) => void;
 }
@@ -89,7 +87,7 @@ const slotOf = (request: CalculationJobRequest) =>
   request.kind === 'echoEvaluation' ? request.kind : `${request.kind} ${request.strategy}`;
 
 /** The request again, for only the jobs still to come. */
-function remainderOf({ request, waiting }: Newest): CalculationJobRequest {
+function remainderOf({ request, waiting }: AwaitedRequest): CalculationJobRequest {
   if (request.kind !== 'echoEvaluation') return request;
   const tables = request.input.tables.filter(({ table }) => waiting.has(table.name));
   return { ...request, input: { ...request.input, tables } };
@@ -98,14 +96,17 @@ function remainderOf({ request, waiting }: Newest): CalculationJobRequest {
 /**
  * The app side: sends inputs to the worker and passes on only the newest one's results, per kind and strategy.
  *
- * When a job throws, or the worker crashes, the worker is restarted and is sent again what is still to come (spec
- * §11, "Failure"). A job that fails again after that is given up: its `onFailed` is called, and the rest go on.
+ * The first time a job throws, or the worker crashes, the worker is restarted, once per page load, and is sent again
+ * what is still to come (spec §11, "Failure"). A job that fails after that is given up: its `onFailed` is called, and
+ * the rest go on. Once the restarted worker has crashed too, nothing more can be calculated: every job still to come,
+ * and every later request, is given up until the page is reloaded.
  */
 export function createCalculator(start: () => WorkerLike): Calculator {
   let nextId = 1;
   let visibleTab: CalculatingTab | null = null;
-  const newest = new Map<string, Newest>();
-  let worker = connect(start());
+  const awaitedBySlot = new Map<string, AwaitedRequest>();
+  let restarted = false;
+  let worker: WorkerLike | null = connect(start());
 
   function connect(started: WorkerLike) {
     // What a worker still sends once it has been replaced is dropped.
@@ -115,66 +116,86 @@ export function createCalculator(start: () => WorkerLike): Calculator {
     started.onerror = (event) => {
       // Handled here, so the browser reports it nowhere (spec §11).
       event.preventDefault();
-      if (started !== worker) return;
-      // A crash says nothing of which job it was: every job still to come is retried, or given up.
-      fail(
-        [...newest.values()].flatMap((held) =>
-          [...held.waiting].map((part) => [held, part] as const),
-        ),
-      );
+      if (started === worker) workerCrashed();
     };
     return started;
   }
 
-  const holding = (id: number) => [...newest.values()].find((held) => held.request.id === id);
+  const awaitedWith = (id: number) =>
+    [...awaitedBySlot.values()].find((awaited) => awaited.request.id === id);
 
   function receive(data: CalculationResponse) {
-    const held = holding(data.id);
+    const awaited = awaitedWith(data.id);
+    // What an outdated request sends, a failure included, is dropped.
+    if (!awaited) return;
     if (data.kind === 'failed') {
-      fail(held ? [[held, data.tableName ?? ONLY_JOB]] : []);
+      jobFailed(awaited, data.tableName ?? SINGLE_JOB);
       return;
     }
-    if (!held) return;
-    held.waiting.delete(data.kind === 'echoEvaluation' ? data.result.tableName : ONLY_JOB);
+    awaited.waiting.delete(data.kind === 'echoEvaluation' ? data.result.tableName : SINGLE_JOB);
     // A request's id is its own, so the result is of the kind its `onResult` takes.
-    (held.onResult as (result: unknown) => void)(data.result);
+    (awaited.onResult as (result: unknown) => void)(data.result);
   }
 
-  /** Gives up the jobs that failed before, retries the others, and restarts the worker either way. */
-  function fail(failures: readonly (readonly [Newest, string])[]) {
-    for (const [held, part] of failures) {
-      if (!held.waiting.has(part)) continue;
-      if (held.retried.has(part)) {
-        held.waiting.delete(part);
-        held.onFailed(part);
-      } else held.retried.add(part);
+  function giveUp(awaited: AwaitedRequest, part: string) {
+    if (awaited.waiting.delete(part)) awaited.onFailed(part);
+  }
+
+  /** A job threw: the first time, the worker is restarted and the job retried; after that, the job is given up. */
+  function jobFailed(awaited: AwaitedRequest, part: string) {
+    if (!awaited.waiting.has(part)) return;
+    if (restarted) giveUp(awaited, part);
+    else restart();
+  }
+
+  /** The worker crashed, which says nothing of which job it was: every job still to come is retried, or given up. */
+  function workerCrashed() {
+    if (!restarted) {
+      restart();
+      return;
     }
+    stop();
+    worker = null;
+    for (const awaited of awaitedBySlot.values())
+      for (const part of [...awaited.waiting]) giveUp(awaited, part);
+  }
+
+  function stop() {
+    if (!worker) return;
     worker.onmessage = null;
     worker.onerror = null;
     worker.terminate();
+  }
+
+  /** Starts the one new worker, and sends it the visible tab and every job still to come. */
+  function restart() {
+    restarted = true;
+    stop();
     worker = connect(start());
-    if (visibleTab) worker.postMessage({ kind: 'visibleTab', tab: visibleTab });
-    for (const held of newest.values()) if (held.waiting.size > 0) send(remainderOf(held));
+    if (visibleTab) send({ kind: 'visibleTab', tab: visibleTab });
+    for (const awaited of awaitedBySlot.values())
+      if (awaited.waiting.size > 0) send(remainderOf(awaited));
   }
 
   function send(request: CalculationRequest) {
-    worker.postMessage(request);
+    worker?.postMessage(request);
   }
 
-  function hold(
+  function sendAwaited(
     request: CalculationJobRequest,
     parts: readonly string[],
-    onResult: Newest['onResult'],
-    onFailed: Newest['onFailed'],
+    onResult: AwaitedRequest['onResult'],
+    onFailed: AwaitedRequest['onFailed'],
   ) {
-    newest.set(slotOf(request), {
-      request,
-      waiting: new Set(parts),
-      retried: new Set(),
-      onResult,
-      onFailed,
-    });
-    send(request);
+    const awaited: AwaitedRequest = { request, waiting: new Set(parts), onResult, onFailed };
+    awaitedBySlot.set(slotOf(request), awaited);
+    if (worker) send(request);
+    // With no worker left, the request fails as soon as a worker's answer could have come, unless replaced by then.
+    else
+      queueMicrotask(() => {
+        if (awaitedBySlot.get(slotOf(request)) === awaited)
+          parts.forEach((part) => giveUp(awaited, part));
+      });
   }
 
   return {
@@ -184,15 +205,15 @@ export function createCalculator(start: () => WorkerLike): Calculator {
     },
     evaluate(input, onResult, onFailed = () => {}) {
       const parts = input.tables.map(({ table }) => table.name);
-      hold({ kind: 'echoEvaluation', id: nextId++, input }, parts, onResult, onFailed);
+      sendAwaited({ kind: 'echoEvaluation', id: nextId++, input }, parts, onResult, onFailed);
     },
     calculateUpgradeStrategy(strategy, input, onResult, onFailed = () => {}) {
       const request = { kind: 'upgradeStrategy', id: nextId++, strategy, input } as const;
-      hold(request, [ONLY_JOB], onResult, onFailed);
+      sendAwaited(request, [SINGLE_JOB], onResult, onFailed);
     },
     topEchoScores(strategy, input, onResult, onFailed = () => {}) {
       const request = { kind: 'topEchoScores', id: nextId++, strategy, input } as const;
-      hold(request, [ONLY_JOB], onResult, onFailed);
+      sendAwaited(request, [SINGLE_JOB], onResult, onFailed);
     },
   };
 }
@@ -217,14 +238,7 @@ interface Queued<Input> {
   readonly input: Input;
 }
 
-/** Takes the first queued request off a non-empty queue: Strategy A's, or else B's (spec §11, "Job order"). */
-function takeFirst<Input>(queue: Map<StrategyName, Queued<Input>>) {
-  const strategy: StrategyName = queue.has('A') ? 'A' : 'B';
-  const queued = queue.get(strategy);
-  if (!queued) throw new Error('Nothing queued');
-  queue.delete(strategy);
-  return { strategy, ...queued };
-}
+const STRATEGY_ORDER: readonly StrategyName[] = ['A', 'B'];
 
 interface ServedEvaluation {
   readonly id: number;
@@ -245,11 +259,11 @@ export function serveCalculations(
   schedule: (job: () => void) => void = (job) => setTimeout(job, 0),
 ): void {
   let evaluation: ServedEvaluation | null = null;
-  // The queued request of each strategy; A's runs before B's.
+  // The queued request of each strategy; A's jobs run before B's.
   const strategies = new Map<StrategyName, Queued<UpgradeStrategyInput>>();
   const topScores = new Map<StrategyName, Queued<TopEchoScoresInput>>();
   // Echo Evaluation is visible until the app says otherwise: it is the tab an empty hash opens.
-  let visibleTab: CalculatingTab = 'echoEvaluation';
+  let visibleTab: CalculatingTab = 'evaluation';
   let scheduled = false;
   port.onmessage = ({ data }: MessageEvent<CalculationRequest>) => {
     if (data.kind === 'visibleTab') visibleTab = data.tab;
@@ -282,7 +296,7 @@ export function serveCalculations(
   function runNext() {
     scheduled = false;
     const order =
-      visibleTab === 'echoEvaluation'
+      visibleTab === 'evaluation'
         ? [runEchoEvaluationJob, runUpgradeStrategyJob]
         : [runUpgradeStrategyJob, runEchoEvaluationJob];
     order.some((run) => run());
@@ -306,26 +320,32 @@ export function serveCalculations(
     return true;
   }
 
-  /** Runs Upgrade Strategy's next job, if one is queued. */
+  /**
+   * Runs Upgrade Strategy's next job, if one is queued: Strategy A's before B's (spec §11, "Job order"), and a
+   * strategy's Top x% Echo Scores before the strategy itself, which waits for them.
+   */
   function runUpgradeStrategyJob() {
-    if (topScores.size > 0) {
-      // Before the strategies, which wait for an example's Top x% Echo Scores.
-      const { id, strategy, input } = takeFirst(topScores);
-      attempt({ kind: 'failed', id }, () => ({
+    const strategy = STRATEGY_ORDER.find((name) => topScores.has(name) || strategies.has(name));
+    if (!strategy) return false;
+    const top = topScores.get(strategy);
+    if (top) {
+      topScores.delete(strategy);
+      attempt({ kind: 'failed', id: top.id }, () => ({
         kind: 'topEchoScores',
-        id,
+        id: top.id,
         strategy,
-        result: jobs.topEchoScores.run(input),
+        result: jobs.topEchoScores.run(top.input),
       }));
       return true;
     }
-    if (strategies.size === 0) return false;
-    const { id, strategy, input } = takeFirst(strategies);
-    attempt({ kind: 'failed', id }, () => ({
+    const queued = strategies.get(strategy);
+    if (!queued) return false;
+    strategies.delete(strategy);
+    attempt({ kind: 'failed', id: queued.id }, () => ({
       kind: 'upgradeStrategy',
-      id,
+      id: queued.id,
       strategy,
-      result: jobs.upgradeStrategy.run(input),
+      result: jobs.upgradeStrategy.run(queued.input),
     }));
     return true;
   }

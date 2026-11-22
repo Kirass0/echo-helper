@@ -1,13 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BUILT_IN_TABLES, findTable, type WeightTableData } from '../catalogue/catalogue';
 import type { Calculator } from '../calculation/newestInputWins';
+import { deleteCustomTable, saveCustomTable } from '../customTables/customTableEdits';
 import type { TableEvents } from '../customTables/tableEvents';
 import type {
   EchoEvaluationListInput,
   EchoEvaluationResult,
   ListedTableInput,
 } from '../calculation/protocol';
-import { CalculationStatus, fadedWhen, type CalculationState } from '../ui/CalculationStatus';
+import {
+  CalculatingSlot,
+  CalculationStatus,
+  fadedWhen,
+  type CalculationState,
+} from '../ui/CalculationStatus';
 import surfaces from '../ui/surfaces.module.css';
 import { useLongPending } from '../ui/useLongPending';
 import { forgetTable, renameTable } from './rememberedByName';
@@ -31,8 +37,8 @@ export interface EchoEvaluationProps {
   onCustomTablesChange: (tables: readonly WeightTableData[]) => void;
   /** Called with each table added to the list, a new Custom one included. */
   onTableAdded?: (name: string) => void;
-  /** Where renames and deletions of Custom tables are told to, and heard from, the other tabs. */
-  tableEvents?: TableEvents;
+  /** Where renames and deletions of Custom tables are told to, and heard from, every tab. */
+  tableEvents: TableEvents;
 }
 
 const NO_TARGETS: TargetTexts = { targetText: '', erTargetText: '' };
@@ -42,7 +48,7 @@ export function EchoEvaluation({
   calculator,
   builtInTables = BUILT_IN_TABLES,
   customTables,
-  onCustomTablesChange: setCustomTables,
+  onCustomTablesChange,
   onTableAdded,
   tableEvents,
 }: EchoEvaluationProps) {
@@ -89,10 +95,11 @@ export function EchoEvaluation({
     onTableAdded?.(name);
   }
 
-  // A Custom table renamed or deleted on another tab takes along, or forgets, what is remembered under its name.
+  // A Custom table renamed or deleted, here or on the other tab, takes along, or forgets, what is remembered under its
+  // name.
   useEffect(
     () =>
-      tableEvents?.subscribe((event) =>
+      tableEvents.subscribe((event) =>
         update((remembered) =>
           event.kind === 'renamed'
             ? renameTable(remembered, event.from, event.to)
@@ -117,24 +124,19 @@ export function EchoEvaluation({
     update((state) => withoutRows(state, (name) => name !== state.listed[index]));
   }
 
-  /** A new table goes at the end of the list, in focus; a renamed one takes along what was remembered under its name. */
+  const edits = { customTables, onCustomTablesChange, tableEvents };
+
+  /**
+   * A new table goes at the end of the list, in focus; a renamed one takes along what was remembered under its name,
+   * as this tab hears the rename it publishes.
+   */
   function saveTable(editing: string | null, table: WeightTableData) {
-    if (editing === null) {
-      setCustomTables([...customTables, table]);
-      add(table.name);
-      return;
-    }
-    setCustomTables(customTables.map((custom) => (custom.name === editing ? table : custom)));
-    if (table.name !== editing) {
-      update((remembered) => renameTable(remembered, editing, table.name));
-      tableEvents?.publish({ kind: 'renamed', from: editing, to: table.name });
-    }
+    saveCustomTable(edits, editing, table);
+    if (editing === null) add(table.name);
   }
 
   function deleteTable(name: string) {
-    setCustomTables(customTables.filter((table) => table.name !== name));
-    update((remembered) => forgetTable(remembered, name));
-    tableEvents?.publish({ kind: 'deleted', name });
+    deleteCustomTable(edits, name);
     setDialog(null);
   }
 
@@ -150,10 +152,7 @@ export function EchoEvaluation({
               <h2 className={styles.tableName} title={focused}>
                 <span className={styles.tableNameText}>{focused}</span>
                 {isCustom(focused) && <CustomTag />}
-                {/* Kept free whatever the state, so "Calculating…" appearing moves nothing. */}
-                <span className={styles.calculatingSlot}>
-                  {focusedState === 'calculating' && <CalculationStatus state="calculating" />}
-                </span>
+                <CalculatingSlot state={focusedState} className={styles.calculatingSlot} />
               </h2>
               {focusedState === 'failed' && <CalculationStatus state="failed" />}
               <div className={fadedWhen(focusedState !== 'done')}>

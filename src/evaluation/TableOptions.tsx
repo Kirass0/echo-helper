@@ -1,6 +1,9 @@
 import type { WeightTableData } from '../catalogue/catalogue';
 import styles from './TableOptions.module.css';
 
+/** A table picker's value for "New Custom Weight Table…": table names are trimmed, so none starts with a space. */
+export const NEW_TABLE = ' new';
+
 const alphabetical = (tables: readonly WeightTableData[]) =>
   [...tables].sort((a, b) => a.name.localeCompare(b.name));
 

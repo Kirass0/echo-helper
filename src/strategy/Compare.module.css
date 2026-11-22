@@ -17,14 +17,6 @@
   line-height: 1.25;
 }
 
-/* "Calculating…" before the Edit/Done button, in room the heading always keeps. */
-.calculatingSlot {
-  flex: none;
-  min-width: 6.5rem;
-  margin-left: auto;
-  text-align: right;
-}
-
 .button {
   padding: 5px 12px;
   border: 1px solid var(--field-line);
@@ -86,10 +78,6 @@
 }
 
 /* The pending fade's look, shared with the results panel. */
-.stale {
-  opacity: 0.42;
-}
-
 .staleMessage {
   color: var(--bad);
   font-size: 0.88em;

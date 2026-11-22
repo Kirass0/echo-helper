@@ -1,5 +1,6 @@
 import type { UpgradeStrategyResult } from '../calculation/protocol';
 import { formatRate } from '../evaluation/format';
+import { fadedWhen } from '../ui/CalculationStatus';
 import surfaces from '../ui/surfaces.module.css';
 import { compareStrategies, type Change } from './comparison';
 import styles from './Compare.module.css';
@@ -15,7 +16,7 @@ export interface CompareBlockProps {
 export function CompareBlock({ a, b, stale }: CompareBlockProps) {
   return (
     <section className={surfaces.panel} aria-label="B compared with A">
-      <div className={stale ? styles.stale : undefined}>
+      <div className={fadedWhen(stale)}>
         <div className={styles.scroll}>
           <table className={styles.table}>
             <thead>

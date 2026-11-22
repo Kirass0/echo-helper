@@ -14,6 +14,14 @@
   white-space: nowrap;
 }
 
+/* Room a result's heading always keeps for "Calculating…" at the end of its line. */
+.slot {
+  flex: none;
+  min-width: 6.5rem;
+  margin-left: auto;
+  text-align: right;
+}
+
 /* "Couldn't calculate this. …", in the look of the prototype's `.stale-msg`. */
 .failed {
   color: var(--bad);

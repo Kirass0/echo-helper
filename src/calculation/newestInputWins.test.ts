@@ -288,7 +288,7 @@ describe('the worker side', () => {
     expect(port.sent).toEqual([strategyResponse(3, 2, 'A'), strategyResponse(2, 3, 'B')]);
   });
 
-  it('works out both strategies’ Top Echo Scores, A’s first, before either strategy', () => {
+  it('runs Strategy A’s Top Echo Scores and strategy before Strategy B’s', () => {
     const port = fakePort();
     const { schedule, runAll } = stepper();
     serveCalculations(port, fakeJobs(), schedule);
@@ -296,12 +296,14 @@ describe('the worker side', () => {
     deliver(port, strategyRequest(1, 1, 'A'));
     deliver(port, topScoresRequest(2, [0.1], 'B'));
     deliver(port, topScoresRequest(3, [0.05], 'A'));
+    deliver(port, strategyRequest(4, 2, 'B'));
     runAll();
 
     expect(port.sent).toEqual([
       topScoresResponse(3, [0.05], 'A'),
-      topScoresResponse(2, [0.1], 'B'),
       strategyResponse(1, 1, 'A'),
+      topScoresResponse(2, [0.1], 'B'),
+      strategyResponse(4, 2, 'B'),
     ]);
   });
 
@@ -324,7 +326,7 @@ describe('the worker side', () => {
     const { schedule, runAll } = stepper();
     serveCalculations(port, fakeJobs(), schedule);
 
-    deliver(port, { kind: 'visibleTab', tab: 'echoEvaluation' });
+    deliver(port, { kind: 'visibleTab', tab: 'evaluation' });
     deliver(port, strategyRequest(1, 1));
     deliver(port, request(2, listInput(['A', 'B'])));
     runAll();
@@ -337,7 +339,7 @@ describe('the worker side', () => {
     const { schedule, runAll } = stepper();
     serveCalculations(port, fakeJobs(), schedule);
 
-    deliver(port, { kind: 'visibleTab', tab: 'upgradeStrategy' });
+    deliver(port, { kind: 'visibleTab', tab: 'strategy' });
     deliver(port, request(1, listInput(['A', 'B'])));
     deliver(port, strategyRequest(2, 1, 'B'));
     deliver(port, topScoresRequest(3, [0.1], 'A'));
@@ -359,7 +361,7 @@ describe('the worker side', () => {
     deliver(port, request(1, listInput(['A', 'B'])));
     deliver(port, strategyRequest(2, 1));
     step();
-    deliver(port, { kind: 'visibleTab', tab: 'upgradeStrategy' });
+    deliver(port, { kind: 'visibleTab', tab: 'strategy' });
     runAll();
 
     expect(port.sent).toEqual([response(1, 'A @1'), strategyResponse(2, 1), response(1, 'B @1')]);
@@ -536,8 +538,8 @@ describe('the app side, when the worker fails', () => {
   it('tells the worker which tab is visible', () => {
     const { start, newest } = fakeWorkers();
     const calculator = createCalculator(start);
-    calculator.showTab('upgradeStrategy');
-    expect(newest().sent).toEqual([{ kind: 'visibleTab', tab: 'upgradeStrategy' }]);
+    calculator.showTab('strategy');
+    expect(newest().sent).toEqual([{ kind: 'visibleTab', tab: 'strategy' }]);
   });
 
   it('restarts the worker once a job throws, and sends again what is still to come', () => {
@@ -545,7 +547,7 @@ describe('the app side, when the worker fails', () => {
     const calculator = createCalculator(start);
     const evaluated = vi.fn();
     const onFailed = vi.fn();
-    calculator.showTab('upgradeStrategy');
+    calculator.showTab('strategy');
     calculator.evaluate(listInput(['A', 'B', 'C'], 'B'), evaluated, onFailed);
     calculator.calculateUpgradeStrategy('A', strategyInput(1), vi.fn());
     const first = newest();
@@ -557,7 +559,7 @@ describe('the app side, when the worker fails', () => {
     expect(workers).toHaveLength(2);
     // The tab, then the tables still to come, the one that failed included, and the strategy.
     expect(newest().sent).toEqual([
-      { kind: 'visibleTab', tab: 'upgradeStrategy' },
+      { kind: 'visibleTab', tab: 'strategy' },
       request(1, listInput(['A', 'C'], 'B')),
       strategyRequest(2, 1),
     ]);
@@ -567,7 +569,7 @@ describe('the app side, when the worker fails', () => {
   });
 
   it('says a job failed when it fails again after the restart, and the rest keeps working', () => {
-    const { start, newest } = fakeWorkers();
+    const { start, workers, newest } = fakeWorkers();
     const calculator = createCalculator(start);
     const strategyFailed = vi.fn();
     const calculatedB = vi.fn();
@@ -579,8 +581,9 @@ describe('the app side, when the worker fails', () => {
     deliver(newest(), failed(1));
     expect(strategyFailed).toHaveBeenCalledTimes(1);
 
-    // The worker after that runs what is left, without the job that failed twice.
-    expect(newest().sent).toEqual([strategyRequest(2, 2, 'B')]);
+    // The restarted worker goes on with the rest; giving up restarts nothing.
+    expect(workers).toHaveLength(2);
+    expect(newest().sent).toEqual([strategyRequest(1, 1, 'A'), strategyRequest(2, 2, 'B')]);
     deliver(newest(), strategyResponse(2, 2, 'B'));
     expect(calculatedB.mock.calls).toEqual([[{ successRate: 2 }]]);
   });
@@ -596,15 +599,32 @@ describe('the app side, when the worker fails', () => {
     expect(onFailed.mock.calls).toEqual([['B']]);
   });
 
-  it('gives each new input its own retry', () => {
-    const { start, newest } = fakeWorkers();
+  it('restarts the worker only once: a job failing after that is given up at once', () => {
+    const { start, workers, newest } = fakeWorkers();
     const calculator = createCalculator(start);
     const onFailed = vi.fn();
     calculator.calculateUpgradeStrategy('A', strategyInput(1), vi.fn(), onFailed);
     deliver(newest(), failed(1));
+    expect(workers).toHaveLength(2);
     calculator.calculateUpgradeStrategy('A', strategyInput(2), vi.fn(), onFailed);
     deliver(newest(), failed(2));
-    expect(onFailed).not.toHaveBeenCalled();
+    expect(onFailed).toHaveBeenCalledTimes(1);
+    expect(workers).toHaveLength(2);
+    // The worker keeps working for what comes next.
+    const calculated = vi.fn();
+    calculator.calculateUpgradeStrategy('A', strategyInput(3), calculated);
+    deliver(newest(), strategyResponse(3, 3));
+    expect(calculated.mock.calls).toEqual([[{ successRate: 3 }]]);
+  });
+
+  it('restarts nothing for a failure of an outdated request', () => {
+    const { start, workers, newest } = fakeWorkers();
+    const calculator = createCalculator(start);
+    calculator.calculateUpgradeStrategy('A', strategyInput(1), vi.fn());
+    calculator.calculateUpgradeStrategy('A', strategyInput(2), vi.fn());
+    deliver(newest(), failed(1));
+    expect(workers).toHaveLength(1);
+    expect(newest().sent).toHaveLength(2);
   });
 
   it('restarts after a crash and retries every job still to come, once', () => {
@@ -623,6 +643,22 @@ describe('the app side, when the worker fails', () => {
     crash(newest());
     expect(evaluationFailed.mock.calls).toEqual([['B']]);
     expect(strategyFailed).toHaveBeenCalledTimes(1);
+    expect(workers).toHaveLength(2);
+  });
+
+  it('once the restarted worker has crashed too, says at once that what comes next failed', async () => {
+    const { start, workers, newest } = fakeWorkers();
+    const calculator = createCalculator(start);
+    crash(newest());
+    crash(newest());
+    const evaluationFailed = vi.fn();
+    const strategyFailed = vi.fn();
+    calculator.evaluate(listInput(['A', 'B']), vi.fn(), evaluationFailed);
+    calculator.calculateUpgradeStrategy('B', strategyInput(1), vi.fn(), strategyFailed);
+    await Promise.resolve();
+    expect(evaluationFailed.mock.calls).toEqual([['A'], ['B']]);
+    expect(strategyFailed).toHaveBeenCalledTimes(1);
+    expect(workers).toHaveLength(2);
   });
 
   it('ignores what an old worker still sends after its restart', () => {

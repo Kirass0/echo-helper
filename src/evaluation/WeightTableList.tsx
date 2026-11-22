@@ -10,11 +10,12 @@ import type { WeightTableData } from '../catalogue/catalogue';
 import type { EchoEvaluationResult } from '../calculation/protocol';
 import { CalculationStatus, fadedWhen, type CalculationState } from '../ui/CalculationStatus';
 import { IconButton } from '../ui/IconButton';
+import { FittedSelect } from '../ui/FittedSelect';
 import { CrossIcon, SlidersIcon } from '../ui/icons';
 import { formatChance, formatEchoScore } from './format';
 import { INVALID_NUMBER_MESSAGE, parseNonNegativeNumber } from '../ui/nonNegativeNumber';
 import { Term } from '../ui/Term';
-import { CustomTag, TableOptions } from './TableOptions';
+import { CustomTag, NEW_TABLE, TableOptions } from './TableOptions';
 import { TERM_TOOLTIPS } from './termTooltips';
 import styles from './WeightTableList.module.css';
 
@@ -51,9 +52,6 @@ export interface WeightTableListProps {
   /** Whether the weights dialog is open: when it closes with its opener gone, the list places focus. */
   weightsDialogOpen: boolean;
 }
-
-/** The add picker's value for "New Custom Weight Table…": table names are trimmed, so none starts with a space. */
-const NEW_TABLE = ' new';
 
 const NONE = '—';
 
@@ -271,21 +269,16 @@ function Row({
     >
       <td>
         <div className={styles.nameCell}>
-          {/* A hidden copy of the name sets the picker's width, in every browser; the picker fills it. */}
-          <span className={styles.pickerFit}>
-            <span className={styles.pickerSizer} aria-hidden="true">
-              {name}
-            </span>
-            <select
-              className={styles.picker}
-              title={name}
-              aria-label={`Swap ${name} for another Weight Table`}
-              value={name}
-              onChange={(event) => onSwap(event.target.value)}
-            >
-              {options}
-            </select>
-          </span>
+          <FittedSelect
+            shown={name}
+            fitClassName={styles.pickerFit}
+            title={name}
+            aria-label={`Swap ${name} for another Weight Table`}
+            value={name}
+            onChange={(event) => onSwap(event.target.value)}
+          >
+            {options}
+          </FittedSelect>
           {isCustom && <CustomTag />}
         </div>
       </td>

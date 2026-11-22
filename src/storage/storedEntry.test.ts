@@ -41,6 +41,13 @@ describe('stored entry', () => {
     expect(createStoredEntry(counterV1, env).load()).toEqual({ count: 0 });
   });
 
+  it('starts from what an entry holds on a first visit, only when nothing is stored', () => {
+    const firstVisit = { ...counterV1, nothingStored: () => ({ count: 1 }) };
+    expect(createStoredEntry(firstVisit, memoryEnvironment().env).load()).toEqual({ count: 1 });
+    const broken = memoryEnvironment({ 'test.counter': '{not json' });
+    expect(createStoredEntry(firstVisit, broken.env).load()).toEqual({ count: 0 });
+  });
+
   it('reads back what it saved, as JSON tagged with its version', () => {
     const { env, items } = memoryEnvironment();
     createStoredEntry(counterV1, env).save({ count: 3 });

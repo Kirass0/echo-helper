@@ -3,7 +3,13 @@
 // one leaves those fields empty, and they are filled once that table's distribution has been worked out. From then on
 // they are ordinary numbers.
 import type { SubstatType } from '../core/gameData';
-import { emptyStrategy, newRule, type RuleDraft, type StrategyDraft } from './strategyDraft';
+import {
+  emptyStrategy,
+  newRule,
+  type RuleDraft,
+  type StageDraft,
+  type StrategyDraft,
+} from './strategyDraft';
 
 /** A rule field holding a Top x% threshold. */
 export type ThresholdField = 'echoScoreText' | 'targetScoreText';
@@ -37,10 +43,11 @@ interface Builder {
   ): RuleDraft;
 }
 
-type Stages = (readonly (readonly RuleDraft[])[])[];
-
-const EXAMPLES: readonly { readonly name: string; readonly stages: (b: Builder) => Stages }[] = [
-  { name: 'Keep every Echo', stages: () => emptyStrategy().stages.map(() => []) },
+const EXAMPLES: readonly {
+  readonly name: string;
+  readonly stages: (b: Builder) => readonly StageDraft[];
+}[] = [
+  { name: 'Keep every Echo', stages: () => emptyStrategy().stages },
   {
     name: 'Crit first',
     stages: (b) => [

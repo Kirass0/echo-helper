@@ -143,8 +143,8 @@ export interface FailedResponse {
   readonly tableName?: string;
 }
 
-/** Where the app is: the visible tab's jobs run first (spec §11, "Job order"). */
-export type CalculatingTab = 'echoEvaluation' | 'upgradeStrategy';
+/** Where the app is, by the tab's id: the visible tab's jobs run first (spec §11, "Job order"). */
+export type CalculatingTab = 'evaluation' | 'strategy';
 
 export interface VisibleTabRequest {
   readonly kind: 'visibleTab';

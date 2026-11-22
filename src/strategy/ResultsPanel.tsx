@@ -5,7 +5,7 @@ import {
   formatRate,
   formatWhole,
 } from '../evaluation/format';
-import { CalculationStatus, type CalculationState } from '../ui/CalculationStatus';
+import { CalculationStatus, fadedWhen, type CalculationState } from '../ui/CalculationStatus';
 import surfaces from '../ui/surfaces.module.css';
 import { Term } from '../ui/Term';
 import { stageName } from './StageEditor';
@@ -47,7 +47,7 @@ export function ResultsPanel({
         </p>
       )}
       {result && (
-        <div className={stale ? styles.stale : undefined}>
+        <div className={fadedWhen(stale)}>
           <p className={styles.big}>{formatRate(result.successRate)}</p>
           <p className={styles.label}>
             <Term tooltip={STRATEGY_TOOLTIPS['Success Rate']}>Success Rate</Term>

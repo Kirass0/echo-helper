@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  addBox,
+  addRuleGroup,
   addRule,
   emptyStrategy,
   finishedStrategy,
@@ -143,12 +143,12 @@ describe('the finished strategy', () => {
 
 describe('editing a strategy', () => {
   it('adds a rule to a box ("+ and") and a new box ("+ or" or "+ add a rule")', () => {
-    let draft = addBox(emptyStrategy(), 2);
+    let draft = addRuleGroup(emptyStrategy(), 2);
     expect(draft.stages[1]).toHaveLength(1);
     expect(draft.stages[1]?.[0]).toHaveLength(1);
     draft = addRule(draft, 2, 0);
     expect(draft.stages[1]?.[0]).toHaveLength(2);
-    draft = addBox(draft, 2);
+    draft = addRuleGroup(draft, 2);
     expect(draft.stages[1]?.map((box) => box.length)).toEqual([2, 1]);
   });
 

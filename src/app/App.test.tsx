@@ -89,9 +89,9 @@ describe('App shell', () => {
     const shown = vi.spyOn(calculator, 'showTab');
     window.location.hash = '#strategy';
     render(<App buildDate="2026-11-20T09:30:00.000Z" calculator={calculator} />);
-    expect(shown.mock.calls).toEqual([['upgradeStrategy']]);
+    expect(shown.mock.calls).toEqual([['strategy']]);
     goTo('#evaluation');
     goTo('#about');
-    expect(shown.mock.calls).toEqual([['upgradeStrategy'], ['echoEvaluation']]);
+    expect(shown.mock.calls).toEqual([['strategy'], ['evaluation']]);
   });
 });

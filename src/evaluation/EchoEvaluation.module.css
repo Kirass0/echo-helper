@@ -28,13 +28,9 @@
   text-overflow: ellipsis;
 }
 
-/* "Calculating…" at the end of the heading's line, in room it always keeps. */
+/* The room kept for "Calculating…" keeps clear of a long table name. */
 .calculatingSlot {
-  flex: none;
-  min-width: 6.5rem;
-  margin-left: auto;
   padding-left: 10px;
-  text-align: right;
 }
 
 /* The ticket 11 prototype's `.empty`: centred in a dashed box, muted. */

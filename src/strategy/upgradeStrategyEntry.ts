@@ -3,11 +3,13 @@
 import { isRecord } from '../catalogue/catalogue';
 import { isSubstatType, MAX_TUNE_STAGE, possibleRolls } from '../core/gameData';
 import type { EntryDefinition } from '../storage/storedEntry';
-import { formatNonNegativeNumber, parseNonNegativeNumber } from '../ui/nonNegativeNumber';
+import { formatNonNegativeNumber } from '../ui/nonNegativeNumber';
 import { loadExample } from './examples';
 import {
   emptyStrategy,
   newRule,
+  RULE_KIND_NAMES,
+  SUBSTAT_COUNTS,
   type RuleDraft,
   type RuleKind,
   type StageDraft,
@@ -26,40 +28,40 @@ export interface UpgradeStrategyState {
 /** The `localStorage` key of the Upgrade Strategy entry. */
 export const UPGRADE_STRATEGY_KEY = 'echo-helper.upgrade-strategy';
 
-const RULE_KINDS: ReadonlySet<unknown> = new Set<RuleKind>([
-  'substatCount',
-  'substatRoll',
-  'echoScore',
-  'targetChance',
-]);
+const RULE_KINDS: ReadonlySet<unknown> = new Set(Object.keys(RULE_KIND_NAMES));
 
 const asArray = (value: unknown): readonly unknown[] => (Array.isArray(value) ? value : []);
 
-/** A number field's text; one that isn't text of a number of 0 or more is cleared. */
+/**
+ * A number field's text, kept as held when it is a number, an invalid one (below 0, or a chance over 100) included;
+ * text that isn't a number at all is cleared (spec §12).
+ */
 function salvageText(stored: unknown): string {
-  if (typeof stored === 'number')
-    return Number.isFinite(stored) && stored >= 0 ? formatNonNegativeNumber(stored) : '';
-  return typeof stored === 'string' && !parseNonNegativeNumber(stored).invalid ? stored : '';
+  if (typeof stored === 'number') {
+    if (!Number.isFinite(stored)) return '';
+    return stored >= 0 ? formatNonNegativeNumber(stored) : String(stored);
+  }
+  if (typeof stored !== 'string') return '';
+  const trimmed = stored.trim();
+  return trimmed !== '' && Number.isFinite(Number(trimmed)) ? stored : '';
 }
 
 /**
- * A stored rule with a new id, keeping the fields of all four kinds. An unknown Substat is removed (which may leave the
- * rule unfinished); a field that isn't a number is cleared, or for the selects starts as in a new rule. A rule of no
- * known kind is dropped.
+ * A stored rule with a new id, keeping the fields of all four kinds, each salvaged on its own (spec §12): an unknown
+ * Substat is removed, which may leave the rule unfinished; a field that isn't a number is cleared; a select holding
+ * no option it has (the kind, the count, a value the Substat never rolls) starts as in a new rule. What isn't a rule
+ * at all is dropped.
  */
 function salvageRule(stored: unknown): RuleDraft | null {
-  if (!isRecord(stored) || !RULE_KINDS.has(stored.kind)) return null;
+  if (!isRecord(stored)) return null;
   const fresh = newRule();
   const { count, substatType: type, minValue } = stored;
-  const substatType = isSubstatType(type) ? type : fresh.substatType;
-  const rolls = possibleRolls(substatType).map((roll) => roll.value);
+  const substatType = isSubstatType(type) ? type : null;
+  const rolls = substatType ? possibleRolls(substatType).map((roll) => roll.value) : [];
   return {
     ...fresh,
-    kind: stored.kind as RuleKind,
-    count:
-      Number.isInteger(count) && (count as number) >= 1 && (count as number) <= MAX_TUNE_STAGE
-        ? (count as number)
-        : fresh.count,
+    kind: RULE_KINDS.has(stored.kind) ? (stored.kind as RuleKind) : fresh.kind,
+    count: SUBSTAT_COUNTS.includes(count as number) ? (count as number) : fresh.count,
     substatTypes: [...new Set(asArray(stored.substatTypes).filter(isSubstatType))],
     substatType,
     minValue: rolls.includes(minValue as number) ? (minValue as number) : (rolls[0] ?? 0),
@@ -69,10 +71,10 @@ function salvageRule(stored: unknown): RuleDraft | null {
   };
 }
 
-/** A stage's boxes: rules that can't be read go, and so does a box left without rules. */
+/** A Tune Stage's Rule Groups: what isn't a rule goes, and so does a Rule Group left without rules. */
 function salvageStage(stored: unknown): StageDraft {
   return asArray(stored)
-    .map((box) => asArray(box).flatMap((rule) => salvageRule(rule) ?? []))
+    .map((ruleGroup) => asArray(ruleGroup).flatMap((rule) => salvageRule(rule) ?? []))
     .filter((rules) => rules.length > 0);
 }
 
@@ -86,8 +88,10 @@ function salvageStrategy(stored: unknown): StrategyDraft | null {
 export const upgradeStrategyDefinition: EntryDefinition<UpgradeStrategyState> = {
   key: UPGRADE_STRATEGY_KEY,
   version: 1,
-  // Only when nothing is stored: the first visit holds "Crit first", with no table (spec §6).
-  fallback: () => ({ table: null, a: loadExample('Crit first').draft, b: null }),
+  // Only the first visit, with nothing stored, holds "Crit first" (spec §6); an entry that can't be read is reset to
+  // an empty strategy, as one that can't be read as a strategy is (spec §12).
+  nothingStored: () => ({ table: null, a: loadExample('Crit first').draft, b: null }),
+  fallback: () => ({ table: null, a: emptyStrategy(), b: null }),
   validate: (data) => {
     if (!isRecord(data)) throw new Error('not an Upgrade Strategy');
     return {

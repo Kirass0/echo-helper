@@ -20,10 +20,6 @@
   border-radius: var(--radius-s);
 }
 
-.stale {
-  opacity: 0.42;
-}
-
 .big {
   margin: 0;
   font-size: calc(var(--big) + 6px);

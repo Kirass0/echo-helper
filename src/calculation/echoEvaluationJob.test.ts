@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { createCacheBudget } from './cacheBudget';
 import { createEchoEvaluationJobs } from './echoEvaluationJob';
 import type { EchoEvaluationInput } from './protocol';
 
@@ -168,7 +169,7 @@ describe('the tables kept per listed Weight Table', () => {
     });
     const [crit, atkTable, hp] = tables;
     // Room for any two tables, not all three.
-    const jobs = createEchoEvaluationJobs({ budget: a + b + c - 1 });
+    const jobs = createEchoEvaluationJobs({ cacheBudget: createCacheBudget(a + b + c - 1) });
     for (const table of [crit, atkTable, hp]) jobs.run(input({ table }));
     expect(jobs.built.distributions).toBe(3);
     expect(jobs.keptEntries).toBe(b + c);
@@ -185,7 +186,7 @@ describe('the tables kept per listed Weight Table', () => {
   });
 
   it('never evicts the table in focus', () => {
-    const jobs = createEchoEvaluationJobs({ budget: 1 });
+    const jobs = createEchoEvaluationJobs({ cacheBudget: createCacheBudget(1) });
     jobs.keepOnly(['Crit Rate', 'Atk'], 'Crit Rate');
     for (let round = 0; round < 3; round++) {
       jobs.run(input({ table: atk }));

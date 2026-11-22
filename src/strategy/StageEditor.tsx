@@ -2,14 +2,17 @@ import { useId, useLayoutEffect, useRef } from 'react';
 import { possibleRolls, type SubstatType } from '../core/gameData';
 import { formatRate, formatSubstatValue } from '../evaluation/format';
 import { SUBSTAT_DISPLAY_ORDER, SUBSTAT_NAMES } from '../evaluation/substats';
+import { fadedWhen } from '../ui/CalculationStatus';
 import { IconButton } from '../ui/IconButton';
 import { CrossIcon } from '../ui/icons';
 import { Term } from '../ui/Term';
 import {
-  addBox,
+  addRuleGroup,
   addRule,
   removeRule,
+  RULE_KIND_NAMES,
   ruleProblem,
+  SUBSTAT_COUNTS,
   updateRule,
   type RuleDraft,
   type RuleKind,
@@ -25,12 +28,7 @@ import styles from './StageEditor.module.css';
 /** "Tune Stage 2/5 (+10)". */
 export const stageName = (tuneStage: number) => `Tune Stage ${tuneStage}/5 (+${tuneStage * 5})`;
 
-const KINDS: readonly [RuleKind, string][] = [
-  ['substatCount', 'Substat Count'],
-  ['substatRoll', 'Substat Roll'],
-  ['echoScore', 'Echo Score'],
-  ['targetChance', 'Target Chance'],
-];
+const KINDS = Object.entries(RULE_KIND_NAMES) as [RuleKind, string][];
 
 export interface StageEditorProps {
   draft: StrategyDraft;
@@ -100,7 +98,7 @@ export function StageEditor({
             stale={stale}
             calculating={calculating}
             onAddBox={() =>
-              change(addBox(draft, tuneStage), {
+              change(addRuleGroup(draft, tuneStage), {
                 kind: 'added',
                 tuneStage,
                 index: boxes.flat().length,
@@ -167,7 +165,7 @@ function Stage({
           />
           {stageName(tuneStage)}
         </h3>
-        <div className={stale ? styles.stale : undefined}>
+        <div className={fadedWhen(stale)}>
           <div className={styles.discardBar} aria-hidden="true">
             <span style={{ width: `${discardRate * 100}%`, background: `var(--st${tuneStage})` }} />
           </div>
@@ -292,7 +290,7 @@ function RuleRow({
             value={rule.count}
             onChange={(event) => onUpdate({ count: Number(event.target.value) })}
           >
-            {[1, 2, 3, 4, 5].map((n) => (
+            {SUBSTAT_COUNTS.map((n) => (
               <option key={n} value={n}>
                 {n}
               </option>
@@ -307,14 +305,22 @@ function RuleRow({
         </>
       );
       break;
-    case 'substatRoll':
+    case 'substatRoll': {
+      const { substatType } = rule;
       phrase = (
         <>
           <select
             aria-label="Substat"
-            value={rule.substatType}
+            aria-describedby={describedBy('substatType')}
+            value={substatType ?? ''}
             onChange={(event) => onUpdate({ substatType: event.target.value as SubstatType })}
           >
+            {/* Only a rule read back with an unknown Substat has none (spec §12). */}
+            {!substatType && (
+              <option value="" disabled>
+                pick a Substat
+              </option>
+            )}
             {SUBSTAT_DISPLAY_ORDER.map((type) => (
               <option key={type} value={type}>
                 {SUBSTAT_NAMES[type]}
@@ -325,17 +331,20 @@ function RuleRow({
           <select
             aria-label="Lowest value"
             value={rule.minValue}
+            disabled={!substatType}
             onChange={(event) => onUpdate({ minValue: Number(event.target.value) })}
           >
-            {possibleRolls(rule.substatType).map(({ value }) => (
-              <option key={value} value={value}>
-                {formatSubstatValue(rule.substatType, value)}
-              </option>
-            ))}
+            {substatType &&
+              possibleRolls(substatType).map(({ value }) => (
+                <option key={value} value={value}>
+                  {formatSubstatValue(substatType, value)}
+                </option>
+              ))}
           </select>
         </>
       );
       break;
+    }
     case 'echoScore':
       phrase = (
         <>at least {numberInput('Echo Score', 'echoScore', rule.echoScoreText, 'echoScoreText')}</>

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import type { Calculator } from '../calculation/newestInputWins';
-import type { CalculatingTab } from '../calculation/protocol';
 import { BUILT_IN_TABLES, findTable, type WeightTableData } from '../catalogue/catalogue';
 import { salvageNotices } from '../customTables/customTablesEntry';
 import { createTableEvents } from '../customTables/tableEvents';
@@ -17,7 +16,7 @@ import { formatBuildDate } from './buildDate';
 import { Header } from './Header';
 import { Notices } from './Notices';
 import { PurposeLine } from './PurposeLine';
-import { ABOUT_SECTION_FOR_TAB, type TabId } from './tabs';
+import { ABOUT_SECTION_FOR_TAB } from './tabs';
 import { useHashTab } from './useHashTab';
 import styles from './App.module.css';
 
@@ -26,11 +25,6 @@ const PURPOSE = {
     'Check how good an Echo is for a Resonator, and how likely it is to reach your Target Score once fully tuned.',
   strategy: 'Try different Upgrade Strategies and compare what they cost.',
 } as const;
-
-const CALCULATING_TAB = {
-  evaluation: 'echoEvaluation',
-  strategy: 'upgradeStrategy',
-} as const satisfies Record<Exclude<TabId, 'about'>, CalculatingTab>;
 
 export interface AppProps {
   /** ISO timestamp of the build. */
@@ -46,7 +40,7 @@ export function App({ buildDate, calculator, builtInTables = BUILT_IN_TABLES }: 
   // The visible tab is calculated first (spec §11); About calculates nothing, so the last tab keeps going first. Told
   // before the tabs send anything: layout effects run before them.
   useLayoutEffect(() => {
-    if (tab !== 'about') calculator.showTab(CALCULATING_TAB[tab]);
+    if (tab !== 'about') calculator.showTab(tab);
   }, [calculator, tab]);
   // Upgrade Strategy's table, by name, and its strategies. A name that no longer exists means no table.
   const { state: strategy, update: setStrategy, otherTabChanges } = useRememberedUpgradeStrategy();

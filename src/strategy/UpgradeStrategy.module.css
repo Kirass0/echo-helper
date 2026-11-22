@@ -29,27 +29,8 @@
 
 /* As the Weight Table list's pickers: as wide as the name shown, not the longest option. */
 .pickerFit {
-  --picker-arrow: 20px;
-  position: relative;
-  min-width: 0;
+  --picker-padding-x: 7px;
   max-width: 22em;
-}
-
-.pickerSizer {
-  display: block;
-  overflow: hidden;
-  visibility: hidden;
-  white-space: pre;
-  line-height: normal;
-  padding: 3px calc(7px + var(--picker-arrow)) 3px 7px;
-  border: 1px solid transparent;
-}
-
-.layout .tablePicker {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  text-overflow: ellipsis;
 }
 
 /* The sliders sit closer to the picker than the label does. */

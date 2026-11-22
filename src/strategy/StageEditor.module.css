@@ -66,10 +66,6 @@
 }
 
 /* The pending fade's look, shared with the results panel. */
-.stale {
-  opacity: 0.42;
-}
-
 /* A Top x% threshold still being worked out: its box empty and faded, "Calculating…" beside it. */
 .calculating {
   display: inline-flex;
