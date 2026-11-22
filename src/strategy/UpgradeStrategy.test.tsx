@@ -2,6 +2,7 @@ import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../app/App';
+import type { Calculator } from '../calculation/newestInputWins';
 import type { WeightTableData } from '../catalogue/catalogue';
 import { inProcessCalculator } from '../test/inProcessCalculator';
 
@@ -13,15 +14,11 @@ const TABLES: readonly WeightTableData[] = [
 
 type User = ReturnType<typeof userEvent.setup>;
 
-function open() {
+function open(calculator: Calculator = inProcessCalculator()) {
   window.location.hash = '#strategy';
   const user = userEvent.setup();
   render(
-    <App
-      buildDate="2026-11-20T09:30:00.000Z"
-      calculator={inProcessCalculator()}
-      builtInTables={TABLES}
-    />,
+    <App buildDate="2026-11-20T09:30:00.000Z" calculator={calculator} builtInTables={TABLES} />,
   );
   return user;
 }
@@ -42,10 +39,21 @@ const stage = (n: number) => screen.getByRole('region', { name: `Tune Stage ${n}
 const results = () => screen.getByRole('region', { name: 'Results' });
 const NO_TABLE = 'Pick a Substat Weight Table above to build an Upgrade Strategy.';
 
+/** Opens Upgrade Strategy with this table and, in place of the first visit's "Crit first", an empty strategy. */
 async function openWithTable(name = 'Crit Rate only') {
   const user = open();
   await user.selectOptions(picker(), name);
+  await loadExample(user, 'Keep every Echo');
+  await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Replace' }));
+  // Every Echo passes an empty strategy.
+  await within(results()).findByText('100.0%');
   return user;
+}
+
+const examplePicker = () => screen.getByRole('combobox', { name: 'Start from an example' });
+
+async function loadExample(user: User, name: string) {
+  await user.selectOptions(examplePicker(), name);
 }
 
 /** "+ add a rule" at a Tune Stage, then picks these Substats for the new Substat Count rule. */
@@ -169,7 +177,7 @@ describe('with no Weight Table', () => {
     const user = open();
     await user.selectOptions(picker(), 'New Custom Weight Table…');
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Save' }));
-    await addCountRule(user, 2, ['Crit Rate']);
+    await addCountRule(user, 3, ['Crit Rate']);
     await user.click(screen.getByRole('button', { name: /^Weights of / }));
     const dialog = screen.getByRole('dialog');
     await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
@@ -177,7 +185,7 @@ describe('with no Weight Table', () => {
     expect(screen.getByText(NO_TABLE)).toBeInTheDocument();
     expect(picker()).toHaveDisplayValue('Choose a Weight Table…');
     await user.selectOptions(picker(), 'Atk only');
-    expect(within(stage(2)).getByRole('button', { name: 'Crit Rate' })).toBeInTheDocument();
+    expect(within(stage(3)).getByRole('button', { name: 'Crit Rate' })).toBeInTheDocument();
   });
 
   it('calculates nothing', async () => {
@@ -450,5 +458,172 @@ describe('the results', () => {
       'Crit Damage',
     ]);
     expect(await within(results()).findByText('15.4%')).toBeInTheDocument();
+  });
+});
+
+describe('the first visit', () => {
+  it('holds "Crit first" with no Weight Table', async () => {
+    const user = open();
+    expect(picker()).toHaveDisplayValue('Choose a Weight Table…');
+    await user.selectOptions(picker(), 'Crit Rate only');
+    expect(within(stage(2)).getByRole('combobox', { name: 'How many' })).toHaveDisplayValue('1');
+    expect(within(stage(4)).getByRole('combobox', { name: 'How many' })).toHaveDisplayValue('2');
+    for (const n of [2, 4])
+      expect(
+        within(stage(n)).getByRole('button', { name: 'Crit Rate, Crit Damage' }),
+      ).toBeInTheDocument();
+    for (const n of [1, 3, 5])
+      expect(within(stage(n)).queryByRole('combobox', { name: 'Kind of rule' })).toBeNull();
+  });
+});
+
+/** The in-process calculator, holding back each Top Echo Scores request until `release`. */
+function holdingTopScores() {
+  const inner = inProcessCalculator();
+  const held: (() => void)[] = [];
+  const calculator: Calculator = {
+    evaluate: (input, onResult) => inner.evaluate(input, onResult),
+    calculateUpgradeStrategy: (input, onResult) => inner.calculateUpgradeStrategy(input, onResult),
+    topEchoScores: (input, onResult) => held.push(() => inner.topEchoScores(input, onResult)),
+  };
+  return {
+    calculator,
+    release: () => {
+      for (const send of held.splice(0)) send();
+    },
+  };
+}
+
+const echoScoreField = (n: number) => within(stage(n)).getByRole('textbox', { name: 'Echo Score' });
+const replaceMessage = (name: string) =>
+  `Replace your current strategy with '${name}'? This can't be undone.`;
+
+async function replaceWith(user: User, name: string) {
+  await loadExample(user, name);
+  await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Replace' }));
+}
+
+describe('the example strategies', () => {
+  it('are offered after "Choose…"', async () => {
+    await openWithTable();
+    expect(
+      within(examplePicker())
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual([
+      'Choose…',
+      'Keep every Echo',
+      'Crit first',
+      'Double crit, or one great crit roll',
+      'Chance to reach a Top 5% Echo',
+    ]);
+    expect(examplePicker()).toHaveDisplayValue('Choose…');
+  });
+
+  it('replace an empty strategy without asking', async () => {
+    const user = await openWithTable();
+    await loadExample(user, 'Crit first');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(within(stage(4)).getByRole('combobox', { name: 'How many' })).toHaveDisplayValue('2');
+    expect(examplePicker()).toHaveDisplayValue('Choose…');
+  });
+
+  it('ask before replacing a strategy with rules, and Cancel keeps it', async () => {
+    const user = open();
+    await user.selectOptions(picker(), 'Crit Rate only');
+    await loadExample(user, 'Keep every Echo');
+    const dialog = screen.getByRole('dialog', { name: replaceMessage('Keep every Echo') });
+    expect(
+      within(dialog)
+        .getAllByRole('button')
+        .map((b) => b.textContent),
+    ).toEqual(['Cancel', 'Replace']);
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(within(stage(2)).getByRole('combobox', { name: 'Kind of rule' })).toBeInTheDocument();
+
+    await replaceWith(user, 'Keep every Echo');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(within(stage(2)).queryByRole('combobox', { name: 'Kind of rule' })).toBeNull();
+  });
+
+  it('work out Top x% thresholds for the selected table, rounded to 1 decimal', async () => {
+    const user = await openWithTable('Crit Rate only');
+    await loadExample(user, 'Double crit, or one great crit roll');
+    // A Top 10% Echo has Crit Rate 8.1: 6 × 8.1 / 7.5 = 6.48.
+    await waitFor(() => expect(echoScoreField(5)).toHaveValue('6.5'));
+
+    await replaceWith(user, 'Chance to reach a Top 5% Echo');
+    // A Top 5% Echo has Crit Rate 9.3: 6 × 9.3 / 7.5 = 7.44.
+    await waitFor(() => expect(echoScoreField(5)).toHaveValue('7.4'));
+    for (const n of [1, 2, 3, 4])
+      expect(within(stage(n)).getByRole('textbox', { name: 'Target Score' })).toHaveValue('7.4');
+    expect(
+      [1, 2, 3, 4].map(
+        (n) =>
+          (within(stage(n)).getByRole('textbox', { name: 'Chance in %' }) as HTMLInputElement)
+            .value,
+      ),
+    ).toEqual(['5', '8', '12', '20']);
+  });
+
+  it('keep their thresholds when the table changes, and recompute them when loaded again', async () => {
+    const user = await openWithTable('Crit Rate only');
+    await loadExample(user, 'Double crit, or one great crit roll');
+    await waitFor(() => expect(echoScoreField(5)).toHaveValue('6.5'));
+    await user.selectOptions(picker(), 'Atk only');
+    expect(echoScoreField(5)).toHaveValue('6.5');
+
+    await replaceWith(user, 'Double crit, or one great crit roll');
+    await waitFor(() => expect(echoScoreField(5)).not.toHaveValue(''));
+    expect(echoScoreField(5)).not.toHaveValue('6.5');
+  });
+
+  it('leave pending thresholds empty and faded with "Calculating…", and the results wait', async () => {
+    const { calculator, release } = holdingTopScores();
+    const asked = vi.spyOn(calculator, 'calculateUpgradeStrategy');
+    const user = open(calculator);
+    await user.selectOptions(picker(), 'Crit Rate only');
+    await within(results()).findByText(/%$/);
+    const before = asked.mock.calls.length;
+    await replaceWith(user, 'Double crit, or one great crit roll');
+
+    expect(echoScoreField(5)).toHaveValue('');
+    expect(within(stage(5)).getByText('Calculating…')).toBeInTheDocument();
+    expect(stage(5)).not.toHaveTextContent('Enter an Echo Score.');
+    expect(results()).not.toHaveTextContent('Results are from before your last change.');
+    expect(asked).toHaveBeenCalledTimes(before);
+
+    release();
+    await waitFor(() => expect(echoScoreField(5)).toHaveValue('6.5'));
+    expect(within(stage(5)).queryByText('Calculating…')).toBeNull();
+    expect(asked).toHaveBeenCalledTimes(before + 1);
+  });
+
+  it('are worked out for a table chosen while pending, superseding the pending one', async () => {
+    const { calculator, release } = holdingTopScores();
+    const user = open(calculator);
+    await user.selectOptions(picker(), 'Atk only');
+    await replaceWith(user, 'Double crit, or one great crit roll');
+    release();
+    await waitFor(() => expect(echoScoreField(5)).not.toHaveValue(''));
+    const forAtkOnly = (echoScoreField(5) as HTMLInputElement).value;
+    expect(forAtkOnly).not.toBe('6.5');
+
+    await replaceWith(user, 'Double crit, or one great crit roll');
+    await user.selectOptions(picker(), 'Crit Rate only');
+    release();
+    await waitFor(() => expect(echoScoreField(5)).toHaveValue('6.5'));
+  });
+
+  it('are superseded by a newer example loaded while pending', async () => {
+    const { calculator, release } = holdingTopScores();
+    const user = open(calculator);
+    await user.selectOptions(picker(), 'Crit Rate only');
+    await replaceWith(user, 'Double crit, or one great crit roll');
+    await replaceWith(user, 'Chance to reach a Top 5% Echo');
+    release();
+    await waitFor(() => expect(echoScoreField(5)).toHaveValue('7.4'));
+    expect(within(stage(3)).queryByRole('combobox', { name: 'Substat' })).toBeNull();
   });
 });

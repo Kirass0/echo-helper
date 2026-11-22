@@ -1,7 +1,7 @@
 // Newest input wins (spec §11): each edit sends a request that replaces any queued one of its kind, and the app only
 // passes on the results of the newest request of each kind it sent. The worker runs one job per Weight Table for Echo
-// Evaluation, and one per strategy for Upgrade Strategy, and posts each result as soon as it is ready; between jobs,
-// the rest of an outdated request is dropped.
+// Evaluation, one per strategy for Upgrade Strategy, and one for an example's Top x% Echo Scores, and posts each result
+// as soon as it is ready; between jobs, the rest of an outdated request is dropped.
 import type { EchoEvaluationJobs } from './echoEvaluationJob';
 import type {
   CalculationRequest,
@@ -9,9 +9,12 @@ import type {
   EchoEvaluationInput,
   EchoEvaluationListInput,
   EchoEvaluationResult,
+  TopEchoScoresInput,
+  TopEchoScoresResult,
   UpgradeStrategyInput,
   UpgradeStrategyResult,
 } from './protocol';
+import type { TopEchoScoresJobs } from './topEchoScoresJob';
 import type { UpgradeStrategyJobs } from './upgradeStrategyJob';
 
 /** The part of a Worker, or of the worker's own global scope, that the two sides talk through. */
@@ -32,6 +35,8 @@ export interface Calculator {
     input: UpgradeStrategyInput,
     onResult: (result: UpgradeStrategyResult) => void,
   ): void;
+  /** Works out the Echo Score of a Top x% Echo for each x, for an example. A later call replaces this one. */
+  topEchoScores(input: TopEchoScoresInput, onResult: (result: TopEchoScoresResult) => void): void;
 }
 
 /** The app side: sends inputs to the worker and passes on only the newest one's results, per kind. */
@@ -41,9 +46,13 @@ export function createCalculator(port: MessagePortLike): Calculator {
     null;
   let newestStrategy: { id: number; onResult: (result: UpgradeStrategyResult) => void } | null =
     null;
+  let newestTopScores: { id: number; onResult: (result: TopEchoScoresResult) => void } | null =
+    null;
   port.onmessage = ({ data }: MessageEvent<CalculationResponse>) => {
     if (data.kind === 'echoEvaluation') {
       if (newestEvaluation?.id === data.id) newestEvaluation.onResult(data.result);
+    } else if (data.kind === 'topEchoScores') {
+      if (newestTopScores?.id === data.id) newestTopScores.onResult(data.result);
     } else if (newestStrategy?.id === data.id) newestStrategy.onResult(data.result);
   };
   function send(request: CalculationRequest) {
@@ -60,6 +69,11 @@ export function createCalculator(port: MessagePortLike): Calculator {
       newestStrategy = { id, onResult };
       send({ kind: 'upgradeStrategy', id, input });
     },
+    topEchoScores(input, onResult) {
+      const id = nextId++;
+      newestTopScores = { id, onResult };
+      send({ kind: 'topEchoScores', id, input });
+    },
   };
 }
 
@@ -70,10 +84,11 @@ function jobsOf({ substats, tables, focusedTableName }: EchoEvaluationListInput)
   return [...focused, ...others].map((listed): EchoEvaluationInput => ({ substats, ...listed }));
 }
 
-/** What the worker runs: Echo Evaluation's jobs and Upgrade Strategy's. */
+/** What the worker runs: Echo Evaluation's jobs, Upgrade Strategy's and the examples' Top x% Echo Scores. */
 export interface CalculationJobs {
   readonly echoEvaluation: Pick<EchoEvaluationJobs, 'run' | 'keepOnly'>;
   readonly upgradeStrategy: Pick<UpgradeStrategyJobs, 'run'>;
+  readonly topEchoScores: Pick<TopEchoScoresJobs, 'run'>;
 }
 
 interface ServedEvaluation {
@@ -95,6 +110,7 @@ export function serveCalculations(
 ): void {
   let evaluation: ServedEvaluation | null = null;
   let strategy: { readonly id: number; readonly input: UpgradeStrategyInput } | null = null;
+  let topScores: { readonly id: number; readonly input: TopEchoScoresInput } | null = null;
   let scheduled = false;
   port.onmessage = ({ data }: MessageEvent<CalculationRequest>) => {
     if (data.kind === 'echoEvaluation')
@@ -104,11 +120,13 @@ export function serveCalculations(
         left: jobsOf(data.input),
         started: false,
       };
+    else if (data.kind === 'topEchoScores') topScores = { id: data.id, input: data.input };
     else strategy = { id: data.id, input: data.input };
     scheduleNext();
   };
 
-  const hasWork = () => (evaluation !== null && evaluation.left.length > 0) || strategy !== null;
+  const hasWork = () =>
+    (evaluation !== null && evaluation.left.length > 0) || strategy !== null || topScores !== null;
 
   function scheduleNext() {
     if (scheduled || !hasWork()) return;
@@ -126,6 +144,11 @@ export function serveCalculations(
         jobs.echoEvaluation.keepOnly(request.listedNames);
       }
       post({ kind: 'echoEvaluation', id: request.id, result: jobs.echoEvaluation.run(job) });
+    } else if (topScores) {
+      // Before the strategy, which waits for an example's Top x% Echo Scores.
+      const { id, input } = topScores;
+      topScores = null;
+      post({ kind: 'topEchoScores', id, result: jobs.topEchoScores.run(input) });
     } else if (strategy) {
       const { id, input } = strategy;
       strategy = null;

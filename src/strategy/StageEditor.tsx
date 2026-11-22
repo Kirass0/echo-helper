@@ -17,6 +17,7 @@ import {
   type StageDraft,
   type StrategyDraft,
 } from './strategyDraft';
+import type { PendingThreshold, ThresholdField } from './examples';
 import { SubstatPicker } from './SubstatPicker';
 import { STRATEGY_TOOLTIPS } from './termTooltips';
 import styles from './StageEditor.module.css';
@@ -37,6 +38,8 @@ export interface StageEditorProps {
   discardRates: readonly number[] | null;
   /** Whether the results are from before the last change: the Discard Rates fade with them. */
   stale: boolean;
+  /** A loaded example's Top x% thresholds still being worked out: those fields wait, empty. */
+  calculating: readonly PendingThreshold[];
   onChange(draft: StrategyDraft): void;
 }
 
@@ -49,7 +52,13 @@ type FocusAfter =
   | { readonly kind: 'removed'; readonly tuneStage: number; readonly index: number };
 
 /** The five Tune Stages in one column, each with its Discard Rate and its rules (spec §8, "One strategy"). */
-export function StageEditor({ draft, discardRates, stale, onChange }: StageEditorProps) {
+export function StageEditor({
+  draft,
+  discardRates,
+  stale,
+  calculating,
+  onChange,
+}: StageEditorProps) {
   const listRef = useRef<HTMLDivElement>(null);
   const focusAfter = useRef<FocusAfter | null>(null);
 
@@ -86,6 +95,7 @@ export function StageEditor({ draft, discardRates, stale, onChange }: StageEdito
             boxes={boxes}
             discardRate={discardRates?.[index] ?? 0}
             stale={stale}
+            calculating={calculating}
             onAddBox={() =>
               change(addBox(draft, tuneStage), {
                 kind: 'added',
@@ -126,6 +136,7 @@ function Stage({
   boxes,
   discardRate,
   stale,
+  calculating,
   onAddBox,
   onAddRule,
   onRemoveRule,
@@ -135,6 +146,7 @@ function Stage({
   boxes: StageDraft;
   discardRate: number;
   stale: boolean;
+  calculating: readonly PendingThreshold[];
   onAddBox(): void;
   onAddRule(box: number): void;
   onRemoveRule(box: number, rule: number): void;
@@ -189,6 +201,9 @@ function Stage({
                     <RuleRow
                       key={rule.id}
                       rule={rule}
+                      calculating={calculating
+                        .filter(({ ruleId }) => ruleId === rule.id)
+                        .map(({ field }) => field)}
                       joined={index > 0}
                       onRemove={() => onRemoveRule(box, index)}
                       onUpdate={(fields) => onUpdateRule(box, index, fields)}
@@ -220,16 +235,20 @@ function Stage({
 
 function RuleRow({
   rule,
+  calculating,
   joined,
   onRemove,
   onUpdate,
 }: {
   rule: RuleDraft;
+  /** The fields waiting for a Top x% threshold. */
+  calculating: readonly ThresholdField[];
   joined: boolean;
   onRemove(): void;
   onUpdate(fields: Partial<Omit<RuleDraft, 'id'>>): void;
 }) {
-  const problem = ruleProblem(rule);
+  // A rule waiting for its thresholds isn't unfinished: they come by themselves.
+  const problem = calculating.length > 0 ? null : ruleProblem(rule);
   const problemId = useId();
   const describedBy = (field: RuleProblem['field']) =>
     problem?.field === field ? problemId : undefined;
@@ -240,17 +259,24 @@ function RuleRow({
     field: 'echoScore' | 'chance' | 'targetScore',
     text: string,
     key: 'echoScoreText' | 'chanceText' | 'targetScoreText',
-  ) => (
-    <input
-      className={styles.number}
-      inputMode="decimal"
-      aria-label={label}
-      aria-invalid={invalid(field) || undefined}
-      aria-describedby={describedBy(field)}
-      value={text}
-      onChange={(event) => onUpdate({ [key]: event.target.value })}
-    />
-  );
+  ) =>
+    calculating.includes(key as ThresholdField) ? (
+      // Empty and faded until the threshold is worked out; "Calculating…" is never announced (spec §15).
+      <span className={styles.calculating}>
+        <input className={styles.number} aria-label={label} value="" disabled />
+        <span aria-hidden="true">Calculating…</span>
+      </span>
+    ) : (
+      <input
+        className={styles.number}
+        inputMode="decimal"
+        aria-label={label}
+        aria-invalid={invalid(field) || undefined}
+        aria-describedby={describedBy(field)}
+        value={text}
+        onChange={(event) => onUpdate({ [key]: event.target.value })}
+      />
+    );
 
   let phrase;
   switch (rule.kind) {

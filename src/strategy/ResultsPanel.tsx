@@ -14,16 +14,17 @@ import styles from './ResultsPanel.module.css';
 export interface ResultsPanelProps {
   /** The latest results; null before the first arrives. */
   result: UpgradeStrategyResult | null;
+  /** Whether the results are from before the last change, and so fade. */
+  stale: boolean;
   /** The first Tune Stage holding an unfinished rule, while there is one: the results are then from before. */
   unfinishedStage: number | null;
 }
 
 /** The results panel beside the stages (spec §8): Success Rate, where Echoes end, cost and Echo Scores. */
-export function ResultsPanel({ result, unfinishedStage }: ResultsPanelProps) {
-  const stale = unfinishedStage !== null;
+export function ResultsPanel({ result, stale, unfinishedStage }: ResultsPanelProps) {
   return (
     <section className={`${surfaces.panel} ${styles.panel}`} aria-label="Results">
-      {stale && (
+      {unfinishedStage !== null && (
         <p className={styles.staleMessage}>
           Results are from before your last change. Finish the highlighted rule at{' '}
           {stageName(unfinishedStage)} to update them.

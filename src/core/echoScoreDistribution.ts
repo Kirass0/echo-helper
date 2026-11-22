@@ -16,6 +16,10 @@ export interface EchoScoreDistribution {
 export interface WholeTableDistribution extends EchoScoreDistribution {
   /** The finishing table of a fresh (0/5) Echo, which counts the same fully tuned Echoes. */
   readonly freshEchoFinishing: SortedFinishingEchoScores;
+  /**
+   * The Echo Score of a Top x% Echo: the lowest real Echo Score whose Top Percent is at most `topPercent`, in [0, 1].
+   */
+  echoScoreOfTopPercent(topPercent: number): number;
 }
 
 // Energy Regen comes last, as in the source, which decides the order each Echo Score's contributions are summed in.
@@ -36,6 +40,7 @@ export function echoScoreDistribution(table: SubstatWeightTable): WholeTableDist
   const chanceWithErAbove = chancesAtOrAbove(chancesWithEr);
 
   const firstHigher = (score: number) => firstAbove(added.scores, score + THRESHOLD_TOLERANCE);
+  const topPercentAt = (index: number) => clamp01(chanceAbove[firstHigher(added.scores[index]!)]!);
   let freshEchoFinishing: SortedFinishingEchoScores | undefined;
   return {
     get freshEchoFinishing() {
@@ -44,5 +49,16 @@ export function echoScoreDistribution(table: SubstatWeightTable): WholeTableDist
     },
     topPercent: (score) => clamp01(chanceAbove[firstHigher(score)]!),
     erTopPercent: (score) => clamp01(chanceWithErAbove[firstHigher(score)]!),
+    echoScoreOfTopPercent(topPercent) {
+      // The Top Percent falls as the Echo Score rises, and the highest Echo Score's is 0.
+      let low = 0;
+      let high = added.scores.length - 1;
+      while (low < high) {
+        const middle = (low + high) >>> 1;
+        if (topPercentAt(middle) <= topPercent + THRESHOLD_TOLERANCE) high = middle;
+        else low = middle + 1;
+      }
+      return added.scores[low] ?? 0;
+    },
   };
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Calculator } from '../calculation/newestInputWins';
 import type { UpgradeStrategyInput, UpgradeStrategyResult } from '../calculation/protocol';
 import { BUILT_IN_TABLES, findTable, type WeightTableData } from '../catalogue/catalogue';
@@ -6,13 +6,15 @@ import type { TableEvents } from '../customTables/tableEvents';
 import { TableOptions } from '../evaluation/TableOptions';
 import { TERM_TOOLTIPS } from '../evaluation/termTooltips';
 import { WeightsDialog, type WeightsDialogStart } from '../evaluation/WeightsDialog';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { IconButton } from '../ui/IconButton';
 import { SlidersIcon } from '../ui/icons';
 import surfaces from '../ui/surfaces.module.css';
 import { Term } from '../ui/Term';
+import { EXAMPLE_NAMES, fillThresholds, loadExample, type LoadedExample } from './examples';
 import { ResultsPanel } from './ResultsPanel';
 import { StageEditor } from './StageEditor';
-import { emptyStrategy, finishedStrategy, type StrategyDraft } from './strategyDraft';
+import { finishedStrategy, type StrategyDraft } from './strategyDraft';
 import styles from './UpgradeStrategy.module.css';
 
 export interface UpgradeStrategyProps {
@@ -33,6 +35,8 @@ export interface UpgradeStrategyProps {
 const NEW_TABLE = ' new';
 const CHOOSE = 'Choose a Weight Table…';
 
+const hasRules = (draft: StrategyDraft) => draft.stages.some((boxes) => boxes.length > 0);
+
 /** The Upgrade Strategy tab with one strategy (spec §8): the header, the five Tune Stages and the results. */
 export function UpgradeStrategy({
   calculator,
@@ -48,17 +52,37 @@ export function UpgradeStrategy({
     [customTables, builtInTables],
   );
   const table = tableName === null ? undefined : findTable(allTables, tableName);
-  const [draft, setDraft] = useState<StrategyDraft>(emptyStrategy);
+  // Nothing is remembered yet (ticket 18), so every visit is a first visit: "Crit first" with no table (spec §6).
+  const [draft, setDraft] = useState<StrategyDraft>(() => loadExample('Crit first').draft);
   const [dialog, setDialog] = useState<WeightsDialogStart | null>(null);
+  const [replacing, setReplacing] = useState<string | null>(null);
+  const pending = usePendingThresholds(calculator, table, setDraft);
 
   const finished = useMemo(() => finishedStrategy(draft), [draft]);
+  // While an example's Top x% thresholds are pending, the results wait.
   const input = useMemo(
     (): UpgradeStrategyInput | null =>
-      table && 'strategy' in finished ? { strategy: finished.strategy, table } : null,
-    [table, finished],
+      table && !pending.example && 'strategy' in finished
+        ? { strategy: finished.strategy, table }
+        : null,
+    [table, finished, pending.example],
   );
   const result = useUpgradeStrategyResult(calculator, input);
-  const unfinishedStage = 'unfinishedStage' in finished ? finished.unfinishedStage : null;
+  const unfinishedStage =
+    !pending.example && 'unfinishedStage' in finished ? finished.unfinishedStage : null;
+  const waiting = pending.example !== null || unfinishedStage !== null;
+
+  /** Replaces the strategy with an example; one with rules is replaced only once confirmed. */
+  function chooseExample(name: string) {
+    if (hasRules(draft)) setReplacing(name);
+    else replaceWith(name);
+  }
+
+  function replaceWith(name: string) {
+    const loaded = loadExample(name);
+    setDraft(loaded.draft);
+    pending.load(loaded);
+  }
 
   /** A new table becomes the strategy's table; a renamed one stays it, and the other tabs follow the rename. */
   function saveTable(editing: string | null, saved: WeightTableData) {
@@ -117,12 +141,30 @@ export function UpgradeStrategy({
             />
           )}
         </span>
-        {/* The examples come with ticket 16, and comparing with ticket 17. */}
+        {/* Comparing comes with ticket 17. */}
         <label className={styles.field}>
           Start from an example
-          <select disabled={!table} value="">
-            <option value="">Choose…</option>
-          </select>
+          {/* As wide as "Choose…", which it always shows, as in the prototype. */}
+          <span className={styles.pickerFit}>
+            <span className={styles.pickerSizer} aria-hidden="true">
+              Choose…
+            </span>
+            <select
+              className={styles.tablePicker}
+              disabled={!table}
+              value=""
+              onChange={(event) => {
+                if (event.target.value) chooseExample(event.target.value);
+              }}
+            >
+              <option value="">Choose…</option>
+              {EXAMPLE_NAMES.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </span>
         </label>
         <button type="button" className={styles.button} disabled={!table}>
           Compare with another strategy
@@ -134,16 +176,28 @@ export function UpgradeStrategy({
             <StageEditor
               draft={draft}
               discardRates={result?.discards.map(({ discardRate }) => discardRate) ?? null}
-              stale={unfinishedStage !== null}
+              stale={waiting}
+              calculating={pending.example?.thresholds ?? []}
               onChange={setDraft}
             />
           </div>
-          <ResultsPanel result={result} unfinishedStage={unfinishedStage} />
+          <ResultsPanel result={result} stale={waiting} unfinishedStage={unfinishedStage} />
         </div>
       ) : (
         <p className={styles.prompt}>
           Pick a Substat Weight Table above to build an Upgrade Strategy.
         </p>
+      )}
+      {replacing !== null && (
+        <ConfirmDialog
+          message={`Replace your current strategy with '${replacing}'? This can't be undone.`}
+          confirm="Replace"
+          onConfirm={() => {
+            setReplacing(null);
+            replaceWith(replacing);
+          }}
+          onCancel={() => setReplacing(null)}
+        />
       )}
       {dialog && (
         <WeightsDialog
@@ -157,6 +211,40 @@ export function UpgradeStrategy({
       )}
     </div>
   );
+}
+
+/**
+ * The loaded example whose Top x% thresholds are still being worked out, if any (spec §8, "Example strategies"). They
+ * are worked out for the selected table, and filled into the strategy once that table's distribution is ready. A newer
+ * example, or another table, supersedes a pending one: only the newest request's result is passed on.
+ */
+function usePendingThresholds(
+  calculator: Calculator,
+  table: WeightTableData | undefined,
+  setDraft: (change: (draft: StrategyDraft) => StrategyDraft) => void,
+) {
+  const [example, setExample] = useState<LoadedExample | null>(null);
+  const newest = useRef<LoadedExample | null>(null);
+
+  useEffect(() => {
+    if (!example || !table) return;
+    calculator.topEchoScores({ table, topPercents: example.topPercents }, ({ echoScores }) => {
+      if (newest.current !== example) return;
+      newest.current = null;
+      setDraft((draft) => fillThresholds(draft, example, echoScores));
+      setExample(null);
+    });
+  }, [calculator, example, table, setDraft]);
+
+  return {
+    example,
+    /** Starts working out a just-loaded example's thresholds; one without any has nothing pending. */
+    load(loaded: LoadedExample) {
+      const waiting = loaded.topPercents.length > 0 ? loaded : null;
+      newest.current = waiting;
+      setExample(waiting);
+    },
+  };
 }
 
 /**

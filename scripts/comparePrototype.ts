@@ -112,24 +112,9 @@ const PAIRS: Pair[] = [
   { name: 'about', prototype: '#about', screen: 'about', app: async () => {} },
 ];
 
-/** The prototype's strategy: "Crit first" for Changli, built rule by rule until the examples come (ticket 16). */
+/** The prototype's strategy: "Crit first" for Changli, which a first visit already holds (ticket 16). */
 async function critFirst(page: Page) {
   await page.getByRole('combobox', { name: 'Substat Weight Table' }).selectOption('Changli');
-  for (const [tuneStage, count] of [
-    [2, '1'],
-    [4, '2'],
-  ] as const) {
-    const stage = page.getByRole('region', {
-      name: `Tune Stage ${tuneStage}/5 (+${tuneStage * 5})`,
-    });
-    await stage.getByRole('button', { name: '+ add a rule' }).click();
-    await stage.getByRole('combobox', { name: 'How many' }).selectOption(count);
-    await stage.getByRole('button', { name: 'pick Substats' }).click();
-    const substats = page.getByRole('group', { name: 'Substats' });
-    await substats.getByLabel('Crit Rate').check();
-    await substats.getByLabel('Crit Damage').check();
-    await page.keyboard.press('Escape');
-  }
   await page
     .getByRole('region', { name: 'Results' })
     .getByRole('row', { name: /^Echoes started/ })

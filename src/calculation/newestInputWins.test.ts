@@ -4,6 +4,7 @@ import type {
   EchoEvaluationInput,
   EchoEvaluationListInput,
   EchoEvaluationResult,
+  TopEchoScoresInput,
   UpgradeStrategyInput,
   UpgradeStrategyResult,
 } from './protocol';
@@ -40,8 +41,24 @@ function fakeJobs() {
       keepOnly: vi.fn<(tableNames: readonly string[]) => void>(),
     },
     upgradeStrategy: { run: vi.fn(strategyResultFor) },
+    topEchoScores: { run: vi.fn(topScoresFor) },
   };
 }
+
+// Top Echo Scores that say which input they came from: each Top Percent times 100.
+const topScoresFor = ({ topPercents }: TopEchoScoresInput) => ({
+  echoScores: topPercents.map((topPercent) => topPercent * 100),
+});
+const topScoresRequest = (id: number, topPercents: number[]) => ({
+  kind: 'topEchoScores',
+  id,
+  input: { table: tableNamed('A'), topPercents },
+});
+const topScoresResponse = (id: number, topPercents: number[]) => ({
+  kind: 'topEchoScores',
+  id,
+  result: topScoresFor({ table: tableNamed('A'), topPercents }),
+});
 
 /** A strategy with this many Rule Groups at 1/5, so its fake result's Success Rate says which one it was. */
 const strategyInput = (groups: number): UpgradeStrategyInput => ({
@@ -211,6 +228,20 @@ describe('the worker side', () => {
     expect(port.sent).toEqual([strategyResponse(2, 2)]);
   });
 
+  it('runs only the newest Top Echo Scores request that arrived before it got to work', () => {
+    const port = fakePort();
+    const jobs = fakeJobs();
+    const { schedule, runAll } = stepper();
+    serveCalculations(port, jobs, schedule);
+
+    deliver(port, topScoresRequest(1, [0.1]));
+    deliver(port, topScoresRequest(2, [0.05]));
+    runAll();
+
+    expect(jobs.topEchoScores.run).toHaveBeenCalledTimes(1);
+    expect(port.sent).toEqual([topScoresResponse(2, [0.05])]);
+  });
+
   it('keeps an Echo Evaluation request when an Upgrade Strategy request arrives, and the other way round', () => {
     const port = fakePort();
     const { schedule, runAll } = stepper();
@@ -249,6 +280,30 @@ describe('the app side', () => {
 
     expect(first).not.toHaveBeenCalled();
     expect(second.mock.calls).toEqual([[{ tableName: 'A @1' }], [{ tableName: 'B @1' }]]);
+  });
+
+  it('passes on only the newest Top Echo Scores result, apart from Upgrade Strategy’s', () => {
+    const port = fakePort();
+    const calculator = createCalculator(port);
+    const calculated = vi.fn();
+    const first = vi.fn();
+    const second = vi.fn();
+    calculator.calculateUpgradeStrategy(strategyInput(1), calculated);
+    calculator.topEchoScores({ table: tableNamed('A'), topPercents: [0.1] }, first);
+    calculator.topEchoScores({ table: tableNamed('A'), topPercents: [0.05] }, second);
+    expect(port.sent).toEqual([
+      strategyRequest(1, 1),
+      topScoresRequest(2, [0.1]),
+      topScoresRequest(3, [0.05]),
+    ]);
+
+    deliver(port, topScoresResponse(2, [0.1]));
+    deliver(port, topScoresResponse(3, [0.05]));
+    deliver(port, strategyResponse(1, 1));
+
+    expect(first).not.toHaveBeenCalled();
+    expect(second.mock.calls).toEqual([[{ echoScores: [5] }]]);
+    expect(calculated.mock.calls).toEqual([[{ successRate: 1 }]]);
   });
 
   it('passes on only the newest Upgrade Strategy result, apart from Echo Evaluation’s', () => {

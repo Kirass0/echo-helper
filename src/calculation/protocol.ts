@@ -102,5 +102,31 @@ export interface UpgradeStrategyResponse {
   readonly result: UpgradeStrategyResult;
 }
 
-export type CalculationRequest = EchoEvaluationRequest | UpgradeStrategyRequest;
-export type CalculationResponse = EchoEvaluationResponse | UpgradeStrategyResponse;
+/** What loading an example asks for: the Echo Score of a Top x% Echo for one Weight Table, for each x. */
+export interface TopEchoScoresInput {
+  readonly table: WeightTableData;
+  /** Each x, in [0, 1]. */
+  readonly topPercents: readonly number[];
+}
+
+/** The Echo Score of a Top x% Echo for each of the input's Top Percents, in the same order. */
+export interface TopEchoScoresResult {
+  readonly echoScores: readonly number[];
+}
+
+export interface TopEchoScoresRequest {
+  readonly kind: 'topEchoScores';
+  readonly id: number;
+  readonly input: TopEchoScoresInput;
+}
+
+export interface TopEchoScoresResponse {
+  readonly kind: 'topEchoScores';
+  readonly id: number;
+  readonly result: TopEchoScoresResult;
+}
+
+export type CalculationRequest =
+  EchoEvaluationRequest | UpgradeStrategyRequest | TopEchoScoresRequest;
+export type CalculationResponse =
+  EchoEvaluationResponse | UpgradeStrategyResponse | TopEchoScoresResponse;

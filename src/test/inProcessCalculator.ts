@@ -7,6 +7,7 @@ import {
   type Calculator,
   type MessagePortLike,
 } from '../calculation/newestInputWins';
+import { createTopEchoScoresJobs } from '../calculation/topEchoScoresJob';
 import { createUpgradeStrategyJobs } from '../calculation/upgradeStrategyJob';
 
 function portPair(): [MessagePortLike, MessagePortLike] {
@@ -22,6 +23,7 @@ export function inProcessCalculator(): Calculator {
   serveCalculations(worker, {
     echoEvaluation: createEchoEvaluationJobs(),
     upgradeStrategy: createUpgradeStrategyJobs(),
+    topEchoScores: createTopEchoScoresJobs(),
   });
   return createCalculator(app);
 }
