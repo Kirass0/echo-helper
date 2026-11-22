@@ -2,6 +2,8 @@
 
 **Parent:** [Spec: Echo Helper web app](../../web-rewrite/spec.md) (§8 "Comparing two strategies", §11 "Job order", §15 "Colour")
 
+**Look:** match variant D of the [ticket 11 prototype](../../web-rewrite/prototypes/11-visual-direction/index.html) (`?variant=D&strat=compare#upgrade-strategy`): `compareBlock()` and `upgradeStrategy()`, both themes. Behaviour: variant D of the [ticket 08 prototype](../../web-rewrite/prototypes/08-upgrade-strategy/index.html).
+
 **What to build:** A player clicks "Compare with another strategy", builds Strategy B next to their current one (now Strategy A), and sees how B compares with A in cost and Echo Scores, as relative changes marked better or worse. Both use the header's Weight Table.
 
 **Blocked by:** 16 (Example strategies)

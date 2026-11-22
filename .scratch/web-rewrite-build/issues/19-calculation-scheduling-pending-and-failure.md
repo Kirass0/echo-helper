@@ -2,6 +2,8 @@
 
 **Parent:** [Spec: Echo Helper web app](../../web-rewrite/spec.md) (§3 "Caching", §11)
 
+**Look:** the faded results and their message follow `.stale-wrap` and `.stale-msg` in variant D of the [ticket 11 prototype](../../web-rewrite/prototypes/11-visual-direction/index.html) (`?variant=D&strat=unfinished#upgrade-strategy`).
+
 **What to build:** On slow tables or slow devices the app stays honest and responsive. The visible tab is calculated first. A result that takes longer than about 300 ms fades and says "Calculating…" in a slot kept free for it. Memory stays bounded, and if the worker crashes the app recovers once before showing a clear message in the affected area.
 
 **Blocked by:** 11 (Echo distribution chart), 17 (Compare two strategies)

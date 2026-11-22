@@ -2,6 +2,8 @@
 
 **Parent:** [Spec: Echo Helper web app](../../web-rewrite/spec.md) (§4 "Credits", §9, §16)
 
+**Look:** match variant D of the [ticket 11 prototype](../../web-rewrite/prototypes/11-visual-direction/index.html) (`?variant=D#about`, `about()`): the sticky side panel of sections with the accent bar, both themes.
+
 **What to build:** A new player reads the About tab to understand everything the app does: how to evaluate an Echo, what an Echo Score and a Reference Roll are, where the built-in tables come from, how Upgrade Strategies work, who to thank and where to give feedback. Every "How it works" link lands on its section.
 
 **Blocked by:** 02 (Visual tokens, theme switch and the stored-entry foundation), 03 (Core plain port: Echo Score and Echo Evaluation calculation)

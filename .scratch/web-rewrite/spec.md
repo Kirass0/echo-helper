@@ -12,9 +12,9 @@ Assembled on 2026-11-21. Decisions taken with the owner while assembling are mar
 - Prototypes (throwaway; their numbers are approximations, not the Core):
   - [`prototypes/07-echo-evaluation/PROTOTYPE-echo-evaluation.html`](prototypes/07-echo-evaluation/PROTOTYPE-echo-evaluation.html) (variant D): Echo Evaluation behaviour.
   - [`prototypes/08-upgrade-strategy/index.html`](prototypes/08-upgrade-strategy/index.html) (variant D): Upgrade Strategy behaviour and the example strategies' definitions.
-  - [`prototypes/11-visual-direction/index.html`](prototypes/11-visual-direction/index.html) (variant D, "Chosen"): desktop look, palettes and tokens.
-  - [`prototypes/16-phone-layout/index.html`](prototypes/16-phone-layout/index.html), seen through [`frame.html`](prototypes/16-phone-layout/frame.html) (B, plus C for strategy results and About): phone layout.
-  - Where a prototype and this spec disagree, this spec wins.
+  - [`prototypes/11-visual-direction/index.html`](prototypes/11-visual-direction/index.html) (variant D, "Chosen"): **the desktop design.** Its bottom bar and URL (`?variant=D&theme=&echo=&strat=`, `#tab`) switch screen states.
+  - [`prototypes/16-phone-layout/index.html`](prototypes/16-phone-layout/index.html), seen through [`frame.html`](prototypes/16-phone-layout/frame.html) (B, plus C for strategy results and About): **the phone design.**
+  - **The design prototypes (11, 16) are the design for everything this spec doesn't state:** layout, order, sizes, button placement and component colours. Match them, and open the prototype before building or reviewing a screen. Where a prototype and this spec disagree, this spec wins.
 - Weight method: [`docs/substat-weights.md`](../../docs/substat-weights.md).
 - Source project (read-only reference): `%USERPROFILE%\source\repos\EchoHelperClaude`, commit `53ce242` or later.
 
