@@ -14,4 +14,4 @@ Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/ag
 
 ### UI review
 
-UI review: `docs/agents/ui-review.md`
+Changing or reviewing what the app shows (`*.tsx`, `*.module.css`): compare it with its design prototype, if one exists, as `docs/agents/ui-review.md` says.
