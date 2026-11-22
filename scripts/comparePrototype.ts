@@ -89,16 +89,54 @@ const PAIRS: Pair[] = [
       await page.getByRole('dialog').waitFor();
     },
   })),
-  // Upgrade Strategy: add an `app` step to each once the app has the screen.
-  { name: 'strategy-one', prototype: '?strat=single#upgrade-strategy', screen: 'strategy' },
+  {
+    name: 'strategy-one',
+    prototype: '?strat=single#upgrade-strategy',
+    screen: 'strategy',
+    app: (page) => critFirst(page),
+  },
   {
     name: 'strategy-unfinished',
     prototype: '?strat=unfinished#upgrade-strategy',
     screen: 'strategy',
+    app: async (page) => {
+      await critFirst(page);
+      // The prototype's unfinished rule: an Echo Score rule with no Echo Score yet, at 3/5.
+      const stage = page.getByRole('region', { name: 'Tune Stage 3/5 (+15)' });
+      await stage.getByRole('button', { name: '+ add a rule' }).click();
+      await stage.getByRole('combobox', { name: 'Kind of rule' }).selectOption('Echo Score');
+    },
   },
-  { name: 'strategy-compare', prototype: '?strat=compare#upgrade-strategy', screen: 'strategy' },
+  {
+    name: 'strategy-compare',
+    prototype: '?strat=compare#upgrade-strategy',
+    screen: 'strategy',
+    app: async (page) => {
+      // The prototype's A is "Crit first", in Done; its B is "Double crit, or one great crit roll", in Edit.
+      await critFirst(page);
+      await page.getByRole('button', { name: 'Compare with another strategy' }).click();
+      await page
+        .getByRole('region', { name: 'Strategy B' })
+        .getByRole('combobox', { name: 'Start from an example' })
+        .selectOption('Double crit, or one great crit roll');
+      await page
+        .getByRole('region', { name: 'B compared with A' })
+        .getByText(/^[+−]\d+\.\d%$/)
+        .first()
+        .waitFor();
+    },
+  },
   { name: 'about', prototype: '#about', screen: 'about', app: async () => {} },
 ];
+
+/** The prototype's strategy: "Crit first" for Changli, which a first visit already holds (ticket 16). */
+async function critFirst(page: Page) {
+  await page.getByRole('combobox', { name: 'Substat Weight Table' }).selectOption('Changli');
+  await page
+    .getByRole('region', { name: 'Results' })
+    .getByRole('row', { name: /^Echoes started/ })
+    .waitFor();
+}
 
 async function enterEcho(page: Page, substats: Sample['echo']['two']) {
   for (const [index, { type, value }] of substats.entries()) {

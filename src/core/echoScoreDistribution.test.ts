@@ -171,3 +171,30 @@ describe.each(implementations)('echoScoreDistribution, %s', (_, echoScoreDistrib
     );
   });
 });
+
+describe('the Echo Score of a Top x% Echo', () => {
+  // With only Crit Rate weighted, 5.4% of Echoes are above Crit Rate 8.7 but only 2.3% above 9.3, so a Top 5% Echo
+  // scores what Crit Rate 9.3 does. 8.5% are above 8.1 but 11.5% above 7.5; 1.2% are above 9.9, none above 10.5.
+  it.each([
+    [0.05, 9.3],
+    [0.1, 8.1],
+    [0.01, 10.5],
+  ])('is the lowest Echo Score whose Top Percent is at most %d', (topPercent, critRate) => {
+    const distribution = echoScoreDistribution(critRateTable);
+
+    expect(distribution.echoScoreOfTopPercent(topPercent)).toBe(critRateScore(critRate));
+  });
+
+  it('is 0 when fewer than that many Echoes score anything', () => {
+    // 38.5% of Echoes have Crit Rate.
+    expect(echoScoreDistribution(critRateTable).echoScoreOfTopPercent(0.5)).toBe(0);
+  });
+
+  it('has a Top Percent of at most x, and anything lower one above x, on a real table', () => {
+    const distribution = echoScoreDistribution(resonatorTable);
+    const score = distribution.echoScoreOfTopPercent(0.05);
+
+    expect(distribution.topPercent(score)).toBeLessThanOrEqual(0.05);
+    expect(distribution.topPercent(score - 0.01)).toBeGreaterThan(0.05);
+  });
+});

@@ -2,6 +2,10 @@
 // structured cloning.
 import type { WeightTableData } from '../catalogue/catalogue';
 import type { SubstatType } from '../core/gameData';
+import type { UpgradeStrategy } from '../core/upgradeStrategy';
+import type { UpgradeStrategyResult } from '../core/upgradeStrategyPass';
+
+export type { UpgradeStrategyResult };
 
 /** One Substat on the Echo. */
 export interface SubstatEntry {
@@ -79,3 +83,75 @@ export interface EchoEvaluationResponse {
   readonly id: number;
   readonly result: EchoEvaluationResult;
 }
+
+/** Which strategy a request is for: Strategy A, the only one unless comparing, or Strategy B. */
+export type StrategyName = 'A' | 'B';
+
+/** What Upgrade Strategy asks for: one finished strategy on fresh Echoes, for one Weight Table. */
+export interface UpgradeStrategyInput {
+  readonly strategy: UpgradeStrategy;
+  readonly table: WeightTableData;
+}
+
+export interface UpgradeStrategyRequest {
+  readonly kind: 'upgradeStrategy';
+  readonly id: number;
+  readonly strategy: StrategyName;
+  readonly input: UpgradeStrategyInput;
+}
+
+export interface UpgradeStrategyResponse {
+  readonly kind: 'upgradeStrategy';
+  readonly id: number;
+  readonly strategy: StrategyName;
+  readonly result: UpgradeStrategyResult;
+}
+
+/** What loading an example asks for: the Echo Score of a Top x% Echo for one Weight Table, for each x. */
+export interface TopEchoScoresInput {
+  readonly table: WeightTableData;
+  /** Each x, in [0, 1]. */
+  readonly topPercents: readonly number[];
+}
+
+/** The Echo Score of a Top x% Echo for each of the input's Top Percents, in the same order. */
+export interface TopEchoScoresResult {
+  readonly echoScores: readonly number[];
+}
+
+export interface TopEchoScoresRequest {
+  readonly kind: 'topEchoScores';
+  readonly id: number;
+  readonly strategy: StrategyName;
+  readonly input: TopEchoScoresInput;
+}
+
+export interface TopEchoScoresResponse {
+  readonly kind: 'topEchoScores';
+  readonly id: number;
+  readonly strategy: StrategyName;
+  readonly result: TopEchoScoresResult;
+}
+
+/**
+ * A job that threw, so its result never comes (spec §11, "Failure"). Echo Evaluation's names its Weight Table; the
+ * other kinds have one job per request.
+ */
+export interface FailedResponse {
+  readonly kind: 'failed';
+  readonly id: number;
+  readonly tableName?: string;
+}
+
+/** Where the app is, by the tab's id: the visible tab's jobs run first (spec §11, "Job order"). */
+export type CalculatingTab = 'evaluation' | 'strategy';
+
+export interface VisibleTabRequest {
+  readonly kind: 'visibleTab';
+  readonly tab: CalculatingTab;
+}
+
+export type CalculationRequest =
+  EchoEvaluationRequest | UpgradeStrategyRequest | TopEchoScoresRequest | VisibleTabRequest;
+export type CalculationResponse =
+  EchoEvaluationResponse | UpgradeStrategyResponse | TopEchoScoresResponse | FailedResponse;

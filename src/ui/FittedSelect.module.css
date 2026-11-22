@@ -1,0 +1,29 @@
+/*
+ * A picker as wide as the option it shows, not its longest one. A select is as wide as its longest option in browsers
+ * without `field-sizing: content`, so a hidden copy of what it shows, with the picker's padding, border and room for
+ * its arrow, takes the room, and the picker lies over it. `--picker-padding-x` is the picker's own side padding.
+ */
+.fit {
+  --picker-arrow: 20px;
+  position: relative;
+  min-width: 0;
+}
+
+.sizer {
+  display: block;
+  overflow: hidden;
+  visibility: hidden;
+  white-space: pre;
+  line-height: normal;
+  padding: 3px calc(var(--picker-padding-x, 6px) + var(--picker-arrow)) 3px
+    var(--picker-padding-x, 6px);
+  border: 1px solid transparent;
+}
+
+.select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  padding: 3px var(--picker-padding-x, 6px);
+  text-overflow: ellipsis;
+}

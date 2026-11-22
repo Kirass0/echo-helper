@@ -1,5 +1,5 @@
 import { act, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { inProcessCalculator } from '../test/inProcessCalculator';
 import { App } from './App';
 
@@ -82,5 +82,16 @@ describe('App shell', () => {
     expect(currentTab()).toEqual([screen.getByRole('link', { name: 'Upgrade Strategy' })]);
     goTo('#about');
     expect(currentTab()).toEqual([screen.getByRole('link', { name: 'About' })]);
+  });
+
+  it('has the visible tab calculated first, and keeps the last one while About shows', () => {
+    const calculator = inProcessCalculator();
+    const shown = vi.spyOn(calculator, 'showTab');
+    window.location.hash = '#strategy';
+    render(<App buildDate="2026-11-20T09:30:00.000Z" calculator={calculator} />);
+    expect(shown.mock.calls).toEqual([['strategy']]);
+    goTo('#evaluation');
+    goTo('#about');
+    expect(shown.mock.calls).toEqual([['strategy'], ['evaluation']]);
   });
 });

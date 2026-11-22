@@ -48,6 +48,13 @@ export class FinishingTableCache {
     return this.#tables.size;
   }
 
+  /** How many Echo Scores the finishing tables hold, over all of them. */
+  get entries(): number {
+    let entries = 0;
+    for (const table of this.#tables.values()) entries += table.scores.length;
+    return entries;
+  }
+
   clear(): void {
     this.#tables.clear();
   }

@@ -1,12 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BUILT_IN_TABLES, findTable, type WeightTableData } from '../catalogue/catalogue';
 import type { Calculator } from '../calculation/newestInputWins';
+import { deleteCustomTable, saveCustomTable } from '../customTables/customTableEdits';
+import type { TableEvents } from '../customTables/tableEvents';
 import type {
   EchoEvaluationListInput,
   EchoEvaluationResult,
   ListedTableInput,
 } from '../calculation/protocol';
+import {
+  CalculatingSlot,
+  CalculationStatus,
+  fadedWhen,
+  type CalculationState,
+} from '../ui/CalculationStatus';
 import surfaces from '../ui/surfaces.module.css';
+import { useLongPending } from '../ui/useLongPending';
 import { forgetTable, renameTable } from './rememberedByName';
 import { EchoDistributionChart } from './EchoDistributionChart';
 import { withoutRows } from './echoEvaluationEntry';
@@ -26,6 +35,10 @@ export interface EchoEvaluationProps {
   customTables: readonly WeightTableData[];
   /** Called with all Custom tables after one is saved, renamed or deleted. */
   onCustomTablesChange: (tables: readonly WeightTableData[]) => void;
+  /** Called with each table added to the list, a new Custom one included. */
+  onTableAdded?: (name: string) => void;
+  /** Where renames and deletions of Custom tables are told to, and heard from, every tab. */
+  tableEvents: TableEvents;
 }
 
 const NO_TARGETS: TargetTexts = { targetText: '', erTargetText: '' };
@@ -35,7 +48,9 @@ export function EchoEvaluation({
   calculator,
   builtInTables = BUILT_IN_TABLES,
   customTables,
-  onCustomTablesChange: setCustomTables,
+  onCustomTablesChange,
+  onTableAdded,
+  tableEvents,
 }: EchoEvaluationProps) {
   const allTables = useMemo(
     () => [...customTables, ...builtInTables],
@@ -65,11 +80,34 @@ export function EchoEvaluation({
     });
     return tables.length ? { substats, tables, focusedTableName: focused } : null;
   }, [substats, listed, focused, targets, allTables]);
-  const results = useEchoEvaluationResults(calculator, input);
+  const { results, stateOf } = useEchoEvaluationResults(calculator, input);
+  // The chart shows every listed table: it fades while any is calculating, and says so if any was given up.
+  const listedStates = listed.map(stateOf);
+  const chartState: CalculationState = listedStates.includes('failed')
+    ? 'failed'
+    : listedStates.includes('calculating')
+      ? 'calculating'
+      : 'done';
+  const focusedState = focused === null ? 'done' : stateOf(focused);
 
   function add(name: string) {
     update((state) => ({ listed: [...state.listed, name], focused: name }));
+    onTableAdded?.(name);
   }
+
+  // A Custom table renamed or deleted, here or on the other tab, takes along, or forgets, what is remembered under its
+  // name.
+  useEffect(
+    () =>
+      tableEvents.subscribe((event) =>
+        update((remembered) =>
+          event.kind === 'renamed'
+            ? renameTable(remembered, event.from, event.to)
+            : forgetTable(remembered, event.name),
+        ),
+      ),
+    [tableEvents, update],
+  );
 
   function swap(index: number, name: string) {
     update((state) => {
@@ -86,21 +124,19 @@ export function EchoEvaluation({
     update((state) => withoutRows(state, (name) => name !== state.listed[index]));
   }
 
-  /** A new table goes at the end of the list, in focus; a renamed one takes along what was remembered under its name. */
+  const edits = { customTables, onCustomTablesChange, tableEvents };
+
+  /**
+   * A new table goes at the end of the list, in focus; a renamed one takes along what was remembered under its name,
+   * as this tab hears the rename it publishes.
+   */
   function saveTable(editing: string | null, table: WeightTableData) {
-    if (editing === null) {
-      setCustomTables([...customTables, table]);
-      add(table.name);
-      return;
-    }
-    setCustomTables(customTables.map((custom) => (custom.name === editing ? table : custom)));
-    if (table.name !== editing)
-      update((remembered) => renameTable(remembered, editing, table.name));
+    saveCustomTable(edits, editing, table);
+    if (editing === null) add(table.name);
   }
 
   function deleteTable(name: string) {
-    setCustomTables(customTables.filter((table) => table.name !== name));
-    update((remembered) => forgetTable(remembered, name));
+    deleteCustomTable(edits, name);
     setDialog(null);
   }
 
@@ -116,8 +152,12 @@ export function EchoEvaluation({
               <h2 className={styles.tableName} title={focused}>
                 <span className={styles.tableNameText}>{focused}</span>
                 {isCustom(focused) && <CustomTag />}
+                <CalculatingSlot state={focusedState} className={styles.calculatingSlot} />
               </h2>
-              <ResultBoxes result={results[focused] ?? null} />
+              {focusedState === 'failed' && <CalculationStatus state="failed" />}
+              <div className={fadedWhen(focusedState !== 'done')}>
+                <ResultBoxes result={results[focused] ?? null} />
+              </div>
             </>
           ) : (
             <div className={styles.prompt}>
@@ -135,6 +175,7 @@ export function EchoEvaluation({
           <div className={surfaces.panel}>
             <EchoDistributionChart
               focused={focused}
+              state={chartState}
               tables={listed.map((name) => ({
                 name,
                 targetScore: parseNonNegativeNumber(targetsOf(name).targetText).value,
@@ -152,6 +193,7 @@ export function EchoEvaluation({
               name,
               ...targetsOf(name),
               result: results[name] ?? null,
+              state: stateOf(name),
             }))}
             focused={focused}
             onAdd={add}
@@ -181,20 +223,41 @@ export function EchoEvaluation({
   );
 }
 
+/** What came back for a table: for which input, and whether it was a result or the calculation was given up. */
+interface Answer {
+  readonly input: EchoEvaluationListInput;
+  readonly failed: boolean;
+}
+
 /**
  * The newest result for each listed table: every change is sent at once, with no debounce, and each table's result
- * replaces its last one as soon as it arrives; results of outdated inputs are dropped.
+ * replaces its last one as soon as it arrives; results of outdated inputs are dropped. Each table is `calculating`
+ * once its result has been pending for about 300 ms (spec §11), and `failed` once its calculation is given up; its
+ * last result stays meanwhile.
  */
-function useEchoEvaluationResults(
-  calculator: Calculator,
-  input: EchoEvaluationListInput | null,
-): Readonly<Record<string, EchoEvaluationResult>> {
+function useEchoEvaluationResults(calculator: Calculator, input: EchoEvaluationListInput | null) {
   const [results, setResults] = useState<Readonly<Record<string, EchoEvaluationResult>>>({});
+  const [answers, setAnswers] = useState<Readonly<Record<string, Answer>>>({});
   useEffect(() => {
-    if (input)
-      calculator.evaluate(input, (result) =>
-        setResults((last) => ({ ...last, [result.tableName]: result })),
-      );
+    if (!input) return;
+    const answer = (tableName: string, failed: boolean) =>
+      setAnswers((last) => ({ ...last, [tableName]: { input, failed } }));
+    calculator.evaluate(
+      input,
+      (result) => {
+        setResults((last) => ({ ...last, [result.tableName]: result }));
+        answer(result.tableName, false);
+      },
+      (tableName) => answer(tableName, true),
+    );
   }, [calculator, input]);
-  return results;
+
+  const names = input?.tables.map(({ table }) => table.name) ?? [];
+  const calculating = useLongPending(names.filter((name) => answers[name]?.input !== input));
+  const stateOf = (name: string): CalculationState => {
+    const answer = answers[name];
+    if (answer?.input === input && answer.failed) return 'failed';
+    return calculating.has(name) ? 'calculating' : 'done';
+  };
+  return { results, stateOf };
 }

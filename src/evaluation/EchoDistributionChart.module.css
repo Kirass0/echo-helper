@@ -1,6 +1,21 @@
 /* The Echo distribution chart (spec §7, §13): accent area for the table in focus, grey lines for the others. */
 .chart {
+  position: relative;
   min-width: 0;
+}
+
+/* "Calculating…" or the failure, over the top right of the plot, below the legend. */
+.status {
+  position: absolute;
+  top: 2.2em;
+  right: 14px;
+  max-width: 70%;
+  text-align: right;
+  pointer-events: none;
+}
+
+.status > p {
+  margin: 0;
 }
 
 .head {

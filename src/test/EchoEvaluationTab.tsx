@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import type { Calculator } from '../calculation/newestInputWins';
 import type { WeightTableData } from '../catalogue/catalogue';
+import { createTableEvents } from '../customTables/tableEvents';
 import { useCustomTables } from '../customTables/useCustomTables';
 import { EchoEvaluation } from '../evaluation/EchoEvaluation';
 import { followRenamesInEchoEvaluation } from '../evaluation/useRememberedEchoEvaluation';
@@ -13,6 +15,7 @@ export function EchoEvaluationTab({
   builtInTables: readonly WeightTableData[];
 }) {
   const { tables, save, ready } = useCustomTables(builtInTables, followRenamesInEchoEvaluation);
+  const [tableEvents] = useState(createTableEvents);
   if (!ready) return null;
   return (
     <EchoEvaluation
@@ -20,6 +23,7 @@ export function EchoEvaluationTab({
       builtInTables={builtInTables}
       customTables={tables}
       onCustomTablesChange={save}
+      tableEvents={tableEvents}
     />
   );
 }

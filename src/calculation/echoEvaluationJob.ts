@@ -13,20 +13,26 @@ import {
   type WholeTableDistribution,
 } from '../core';
 import type { WeightTableData } from '../catalogue/catalogue';
+import { createCacheBudget, weightsKeyOf, type CacheBudget } from './cacheBudget';
 import type { EchoEvaluationInput, EchoEvaluationResult } from './protocol';
 
 /** Echo Evaluation's jobs, one per Weight Table, with what is kept between them (spec §3, "Caching"). */
 export interface EchoEvaluationJobs {
   /** The figures behind Echo Evaluation's result boxes for one Weight Table. */
   run(input: EchoEvaluationInput): EchoEvaluationResult;
-  /** Forgets what is kept for tables other than these, the ones listed now. */
-  keepOnly(tableNames: readonly string[]): void;
+  /**
+   * Forgets what is kept for tables other than these, the ones listed now. What is kept for the table in focus is never
+   * evicted to stay within the budget.
+   */
+  keepOnly(tableNames: readonly string[], focusedTableName: string | null): void;
   /** How many whole-table distributions, finishing tables and shifted finishing tables have been built so far. */
   readonly built: {
     readonly distributions: number;
     readonly finishingTables: number;
     readonly shiftedTables: number;
   };
+  /** How many entries (Echo Scores, each with its chances) are kept now, over every listed table. */
+  readonly keptEntries: number;
 }
 
 /**
@@ -46,12 +52,23 @@ interface KeptTables {
   } | null;
 }
 
-const weightsKeyOf = (table: WeightTableData) =>
-  JSON.stringify(Object.entries(table.weights).sort());
+/** The entries kept for one table: its distribution's fresh-Echo finishing table, and its finishing tables. */
+const entriesOf = ({ distribution, finishing }: KeptTables) =>
+  distribution.freshEchoFinishing.scores.length +
+  (finishing?.atZero.scores.length ?? 0) +
+  (finishing?.shifted?.table.scores.length ?? 0);
 
-export function createEchoEvaluationJobs(): EchoEvaluationJobs {
+/**
+ * Keeps what each listed table needs, under the worker's cache budget: past it, the least recently used tables are
+ * forgotten, except the one in focus and the one just calculated. A forgotten table is rebuilt when next calculated.
+ */
+export function createEchoEvaluationJobs({
+  cacheBudget = createCacheBudget(),
+}: { cacheBudget?: CacheBudget } = {}): EchoEvaluationJobs {
   const kept = new Map<string, KeptTables>();
+  const budgetId = (name: string) => `echoEvaluation ${name}`;
   const built = { distributions: 0, finishingTables: 0, shiftedTables: 0 };
+  let focused: string | null = null;
 
   function keptFor(data: WeightTableData): KeptTables {
     const weightsKey = weightsKeyOf(data);
@@ -60,9 +77,18 @@ export function createEchoEvaluationJobs(): EchoEvaluationJobs {
       const table = substatWeightTable(data.name, data.weights);
       built.distributions++;
       tables = { weightsKey, table, distribution: echoScoreDistribution(table), finishing: null };
-      kept.set(data.name, tables);
     }
+    kept.set(data.name, tables);
     return tables;
+  }
+
+  /** Counts the table's entries as just used, evicting the least recently used tables past the budget. */
+  function countAsUsed(name: string, tables: KeptTables) {
+    cacheBudget.use(budgetId(name), {
+      entries: () => entriesOf(tables),
+      pinned: () => name === focused,
+      evict: () => kept.delete(name),
+    });
   }
 
   function finishingFor(tables: KeptTables, echo: Echo): SortedFinishingEchoScores {
@@ -90,8 +116,16 @@ export function createEchoEvaluationJobs(): EchoEvaluationJobs {
 
   return {
     built,
-    keepOnly(tableNames) {
-      for (const name of kept.keys()) if (!tableNames.includes(name)) kept.delete(name);
+    get keptEntries() {
+      return [...kept.values()].reduce((sum, tables) => sum + entriesOf(tables), 0);
+    },
+    keepOnly(tableNames, focusedTableName) {
+      focused = focusedTableName;
+      for (const name of kept.keys())
+        if (!tableNames.includes(name)) {
+          kept.delete(name);
+          cacheBudget.forget(budgetId(name));
+        }
     },
     run(input) {
       const tables = keptFor(input.table);
@@ -101,6 +135,7 @@ export function createEchoEvaluationJobs(): EchoEvaluationJobs {
       const evaluation = evaluateEcho(echo, tables.table, input.targetScore, input.erTargetScore, {
         finishing: finishingFor(tables, echo),
       });
+      countAsUsed(input.table.name, tables);
       const { distribution } = tables;
       const score = evaluation.echoScore;
       const { outlook, verdict } = evaluation;

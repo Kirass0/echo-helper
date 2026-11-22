@@ -33,8 +33,10 @@ export interface EntryDefinition<T> {
   key: string;
   /** The current version. */
   version: number;
-  /** Used when nothing is stored, or what is stored can't be used. */
+  /** Used when what is stored can't be used, and when nothing is stored unless `nothingStored` says otherwise. */
   fallback: () => T;
+  /** Used when nothing is stored at all (a first visit), if that differs from `fallback`. */
+  nothingStored?: () => T;
   /** Turns parsed data of the current version into a value, salvaging what it can. Throw to reset. */
   validate: (data: unknown) => T;
   /** `migrations[n]` turns version-n data into version-(n + 1) data. Throw to reset. */
@@ -84,6 +86,7 @@ export function createStoredEntry<T>(
   env: StorageEnvironment = browserEnvironment,
 ): StoredEntry<T> {
   const { key, version, fallback, validate, migrations = {} } = definition;
+  const nothingStored = definition.nothingStored ?? fallback;
 
   /** Set once an entry from a newer version is seen: this tab then never touches it until reload. */
   let heldByNewerVersion = false;
@@ -110,7 +113,7 @@ export function createStoredEntry<T>(
   }
 
   function read(raw: string | null): T | typeof NEWER {
-    if (raw === null) return fallback();
+    if (raw === null) return nothingStored();
     const envelope = parseEnvelope(raw);
     if (!envelope) return reset();
     if (envelope.version > version) {

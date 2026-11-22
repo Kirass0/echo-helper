@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { formatChance, formatEchoScore, formatSubstatValue, formatTopPercent } from './format';
+import {
+  formatChance,
+  formatEchoScore,
+  formatEchoesStarted,
+  formatRate,
+  formatSubstatValue,
+  formatTopPercent,
+  formatWhole,
+} from './format';
 
 // Number formats, spec §17.
 describe('number formats', () => {
@@ -32,5 +40,25 @@ describe('number formats', () => {
     expect(formatSubstatValue('Critical_Damage', 15)).toBe('15%');
     expect(formatSubstatValue('Hp_Flat', 430)).toBe('430');
     expect(formatSubstatValue('Def_Flat', 50)).toBe('50');
+  });
+});
+
+describe('Upgrade Strategy number formats', () => {
+  it('shows a Success Rate or Discard Rate with 1 decimal, "<0.1%" above 0 but below that', () => {
+    expect(formatRate(0.4567)).toBe('45.7%');
+    expect(formatRate(1)).toBe('100.0%');
+    expect(formatRate(0)).toBe('0.0%');
+    expect(formatRate(0.001)).toBe('0.1%');
+    expect(formatRate(0.0009)).toBe('<0.1%');
+  });
+
+  it('shows Echo EXP, Tuners and Shell Credits as whole numbers with thousands separators', () => {
+    expect(formatWhole(1234567.4)).toBe('1,234,567');
+    expect(formatWhole(999.5)).toBe('1,000');
+    expect(formatWhole(0)).toBe('0');
+  });
+
+  it('shows Echoes started per Successful Echo with 2 decimals', () => {
+    expect(formatEchoesStarted(3.456)).toBe('3.46');
   });
 });

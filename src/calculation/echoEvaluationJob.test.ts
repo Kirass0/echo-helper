@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { createCacheBudget } from './cacheBudget';
 import { createEchoEvaluationJobs } from './echoEvaluationJob';
 import type { EchoEvaluationInput } from './protocol';
 
@@ -158,11 +159,48 @@ describe('the tables kept per listed Weight Table', () => {
     expect(jobs.built).toEqual({ distributions: 2, finishingTables: 2, shiftedTables: 2 });
   });
 
+  it('evicts the least recently used tables past the budget, and rebuilds one on demand', () => {
+    const tables = [critRate, atk, { name: 'Hp', weights: { Hp_Percent: 2 } }];
+    // What each table keeps for a fresh Echo, alone.
+    const [a = 0, b = 0, c = 0] = tables.map((table) => {
+      const alone = createEchoEvaluationJobs();
+      alone.run(input({ table }));
+      return alone.keptEntries;
+    });
+    const [crit, atkTable, hp] = tables;
+    // Room for any two tables, not all three.
+    const jobs = createEchoEvaluationJobs({ cacheBudget: createCacheBudget(a + b + c - 1) });
+    for (const table of [crit, atkTable, hp]) jobs.run(input({ table }));
+    expect(jobs.built.distributions).toBe(3);
+    expect(jobs.keptEntries).toBe(b + c);
+
+    jobs.run(input({ table: atkTable }));
+    expect(jobs.built.distributions).toBe(3);
+    // Crit Rate was evicted; bringing it back evicts Hp, now the least recently used.
+    jobs.run(input({ table: crit }));
+    expect(jobs.built.distributions).toBe(4);
+    jobs.run(input({ table: atkTable }));
+    expect(jobs.built.distributions).toBe(4);
+    jobs.run(input({ table: hp }));
+    expect(jobs.built.distributions).toBe(5);
+  });
+
+  it('never evicts the table in focus', () => {
+    const jobs = createEchoEvaluationJobs({ cacheBudget: createCacheBudget(1) });
+    jobs.keepOnly(['Crit Rate', 'Atk'], 'Crit Rate');
+    for (let round = 0; round < 3; round++) {
+      jobs.run(input({ table: atk }));
+      jobs.run(input({}));
+    }
+    // Atk is rebuilt every round; Crit Rate, in focus, only once.
+    expect(jobs.built.distributions).toBe(4);
+  });
+
   it('forgets the tables that are no longer listed', () => {
     const jobs = createEchoEvaluationJobs();
     jobs.run(input({ substats: [critRateAt(6.3)] }));
     jobs.run(input({ substats: [critRateAt(6.3)], table: atk }));
-    jobs.keepOnly(['Atk']);
+    jobs.keepOnly(['Atk'], null);
     jobs.run(input({ substats: [critRateAt(6.3)], table: atk }));
     jobs.run(input({ substats: [critRateAt(6.3)] }));
     expect(jobs.built).toEqual({ distributions: 3, finishingTables: 3, shiftedTables: 3 });

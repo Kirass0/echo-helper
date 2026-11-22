@@ -28,6 +28,11 @@
   text-overflow: ellipsis;
 }
 
+/* The room kept for "Calculating…" keeps clear of a long table name. */
+.calculatingSlot {
+  padding-left: 10px;
+}
+
 /* The ticket 11 prototype's `.empty`: centred in a dashed box, muted. */
 .prompt {
   padding: 28px;

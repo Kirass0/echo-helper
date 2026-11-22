@@ -53,19 +53,19 @@ test.describe('Echo Evaluation', () => {
     for (const index of [1, 2, 3]) await expect(rows.nth(index)).toContainText(/\d+\.\d\d/);
 
     const layout = () =>
-      page.evaluate(() =>
-        [
-          ...document.querySelectorAll('section[aria-label="Results"] [role="group"]'),
-          ...document.querySelectorAll('svg[role="img"][aria-label^="Echo distribution"]'),
-          ...document.querySelectorAll(
-            'table tr, table th, select[aria-label="Add a Weight Table"]',
-          ),
+      page.evaluate(() => {
+        // Only the open tab: Upgrade Strategy, hidden, has results and tables of its own.
+        const tab = document.querySelector('main > div:not([hidden])') ?? document;
+        return [
+          ...tab.querySelectorAll('section[aria-label="Results"] [role="group"]'),
+          ...tab.querySelectorAll('svg[role="img"][aria-label^="Echo distribution"]'),
+          ...tab.querySelectorAll('table tr, table th, select[aria-label="Add a Weight Table"]'),
         ].map((element) => {
           // In page coordinates: clicking a row may scroll it into view.
           const { x, y, width, height } = element.getBoundingClientRect();
           return [x + scrollX, y + scrollY, width, height].map(Math.round).join(',');
-        }),
-      );
+        });
+      });
     const before = await layout();
 
     await rows.nth(1).getByRole('cell').nth(3).click();
@@ -118,7 +118,10 @@ test.describe('Echo Evaluation', () => {
 
     await page.reload();
 
-    await expect(page.getByText('Tune Stage 1/5 (+5)')).toBeVisible();
+    // Upgrade Strategy, hidden, has Tune Stages too: it remembers the table Echo Evaluation picked for it.
+    await expect(
+      page.getByRole('region', { name: 'Your Echo' }).getByText('Tune Stage 1/5 (+5)'),
+    ).toBeVisible();
     await expect(page.getByRole('list', { name: 'Tune slots' })).toContainText('8.1%');
     await expect(page.getByRole('heading', { name: 'Jinhsi' })).toBeVisible();
     await expect(
