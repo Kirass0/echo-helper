@@ -1,4 +1,12 @@
-import { useEffect, useRef, useState, type FocusEvent, type KeyboardEvent } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type FocusEvent,
+  type KeyboardEvent,
+} from 'react';
 import type { SubstatType } from '../core/gameData';
 import { SUBSTAT_DISPLAY_ORDER, SUBSTAT_NAMES } from '../evaluation/substats';
 import styles from './StageEditor.module.css';
@@ -13,12 +21,34 @@ export interface SubstatPickerProps {
 /**
  * A Substat Count rule's Substats: a button reading the picks ("pick Substats" while there are none) that opens a
  * popover of checkboxes. The popover closes on a click outside it, when focus leaves it, or on Escape, which gives
- * focus back to the button (spec §15).
+ * focus back to the button (spec §15). A click anywhere on a row toggles its Substat; a click elsewhere inside the
+ * popover keeps it open. The button may move as the picks change its text, but the popover stays where it opened.
  */
 export function SubstatPicker({ picked, onChange, describedBy }: SubstatPickerProps) {
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLSpanElement>(null);
   const openerRef = useRef<HTMLButtonElement>(null);
+  /** Where the popover opened, in its positioned ancestor's coordinates, so it can stay there. */
+  const openedAt = useRef<{ left: number; top: number } | null>(null);
+  const [popoverPlace, setPopoverPlace] = useState<CSSProperties | undefined>(undefined);
+
+  useLayoutEffect(() => {
+    const wrapper = wrapperRef.current;
+    if (!open || !wrapper) {
+      openedAt.current = null;
+      setPopoverPlace(undefined);
+      return;
+    }
+    openedAt.current ??= {
+      left: wrapper.offsetLeft,
+      top: wrapper.offsetTop + wrapper.offsetHeight,
+    };
+    const { left, top } = openedAt.current;
+    setPopoverPlace({
+      left: left - wrapper.offsetLeft,
+      top: `calc(${top - wrapper.offsetTop}px + 4px)`,
+    });
+  }, [open, picked]);
 
   useEffect(() => {
     if (!open) return;
@@ -60,7 +90,14 @@ export function SubstatPicker({ picked, onChange, describedBy }: SubstatPickerPr
         {summary || 'pick Substats'}
       </button>
       {open && (
-        <span role="group" aria-label="Substats" className={styles.popover}>
+        <span
+          role="group"
+          aria-label="Substats"
+          className={styles.popover}
+          style={popoverPlace}
+          // Focusable so a click on a row's text or the popover's padding keeps focus inside it.
+          tabIndex={-1}
+        >
           {SUBSTAT_DISPLAY_ORDER.map((type) => (
             <label key={type} className={styles.option}>
               <input

@@ -387,6 +387,26 @@ describe('a rule', () => {
     expect(within(stage(1)).getByRole('button', { name: 'Crit Rate' })).toHaveFocus();
   });
 
+  it('toggles a Substat by a click anywhere on its row and stays open on a click inside the popover', async () => {
+    const user = await openWithTable();
+    await user.click(within(stage(1)).getByRole('button', { name: '+ add a rule' }));
+    await user.click(within(stage(1)).getByRole('button', { name: 'pick Substats' }));
+    const popover = screen.getByRole('group', { name: 'Substats' });
+    const critRate = within(popover).getByRole('checkbox', { name: 'Crit Rate' });
+
+    // The row's text, not its box.
+    const row = critRate.closest('label');
+    if (!row) throw new Error('A Substat checkbox sits in its row label.');
+    await user.click(row);
+    expect(screen.getByRole('group', { name: 'Substats' })).toBeInTheDocument();
+    expect(critRate).toBeChecked();
+    await user.click(row);
+    expect(critRate).not.toBeChecked();
+
+    await user.click(popover);
+    expect(screen.getByRole('group', { name: 'Substats' })).toBeInTheDocument();
+  });
+
   it('is removed by ×, focus going to the rule before it, or to "+ add a rule"; an emptied box goes', async () => {
     const user = await openWithTable();
     await addCountRule(user, 2, ['Crit Rate']);

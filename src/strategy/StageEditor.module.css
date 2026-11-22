@@ -181,6 +181,10 @@
   border-radius: var(--radius-s);
 }
 
+.popover:focus {
+  outline: none;
+}
+
 .option {
   display: flex;
   gap: 7px;

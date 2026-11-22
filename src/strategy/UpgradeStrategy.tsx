@@ -164,9 +164,11 @@ export function UpgradeStrategy({
         </button>
       </div>
       {!table ? (
-        <p className={styles.prompt}>
-          Pick a Substat Weight Table above to build an Upgrade Strategy.
-        </p>
+        <div className={surfaces.panel}>
+          <p className={styles.prompt}>
+            Pick a Substat Weight Table above to build an Upgrade Strategy.
+          </p>
+        </div>
       ) : comparing ? (
         <>
           <div className={compare.columns}>
