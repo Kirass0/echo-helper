@@ -107,20 +107,30 @@ export function WeightTableList({
               <th scope="col">
                 <Term tooltip={TERM_TOOLTIPS['Substat Weight Table']}>Weight Table</Term>
               </th>
-              <th scope="col">
-                <Term tooltip={TERM_TOOLTIPS['Target Score']}>Target Score</Term>
-              </th>
-              <th scope="col">
-                <Term tooltip={TERM_TOOLTIPS['ER Target Score']}>ER Target Score</Term>
+              <th scope="col" className={styles.figureHeader}>
+                <Term tooltip={TERM_TOOLTIPS['Target Score']}>
+                  <TwoLines first="Target" second="Score" />
+                </Term>
               </th>
               <th scope="col" className={styles.figureHeader}>
-                <Term tooltip={TERM_TOOLTIPS['Echo Score']}>Echo Score</Term>
+                <Term tooltip={TERM_TOOLTIPS['ER Target Score']}>
+                  <TwoLines first="ER Target" second="Score" />
+                </Term>
               </th>
               <th scope="col" className={styles.figureHeader}>
-                <Term tooltip={TERM_TOOLTIPS['Target Chance']}>Target Chance</Term>
+                <Term tooltip={TERM_TOOLTIPS['Echo Score']}>
+                  <TwoLines first="Echo" second="Score" />
+                </Term>
               </th>
               <th scope="col" className={styles.figureHeader}>
-                <Term tooltip={TERM_TOOLTIPS['ER Target Chance']}>ER Target Chance</Term>
+                <Term tooltip={TERM_TOOLTIPS['Target Chance']}>
+                  <TwoLines first="Target" second="Chance" />
+                </Term>
+              </th>
+              <th scope="col" className={styles.figureHeader}>
+                <Term tooltip={TERM_TOOLTIPS['ER Target Chance']}>
+                  <TwoLines first="ER Target" second="Chance" />
+                </Term>
               </th>
               <th scope="col">
                 <span className={styles.hidden}>Weights</span>
@@ -173,6 +183,13 @@ export function WeightTableList({
     </section>
   );
 }
+
+/** A column header on two even lines, as the prototype has them; it reads as one phrase. */
+const TwoLines = ({ first, second }: { first: string; second: string }) => (
+  <>
+    <span className={styles.line}>{first}</span> <span className={styles.line}>{second}</span>
+  </>
+);
 
 // Clicking a row's controls never changes focus; clicking anywhere else in the row does.
 const isControl = (target: EventTarget) =>
@@ -275,6 +292,7 @@ function Row({
         <IconButton
           label={`Weights of ${name}`}
           icon={<SlidersIcon />}
+          className={styles.iconButton}
           data-weights=""
           onClick={onOpenWeights}
         />
@@ -284,6 +302,7 @@ function Row({
           label={`Remove ${name}`}
           icon={<CrossIcon />}
           danger
+          className={styles.iconButton}
           data-remove=""
           onClick={onRemove}
         />

@@ -162,7 +162,10 @@ export function YourEcho({ substats, onChange }: YourEchoProps) {
     if (slot === tuneStage) {
       return (
         <button type="button" className={styles.add} data-focus={ADD} onClick={() => open(slot)}>
-          <span aria-hidden="true">+ </span>Add the Substat revealed at +{level}
+          <span className={styles.level} aria-hidden="true">
+            +{level}
+          </span>
+          <span className={styles.name}>Add the Substat revealed at +{level}</span>
         </button>
       );
     }

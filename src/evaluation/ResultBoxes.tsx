@@ -19,7 +19,8 @@ const NOTHING_YET: BoxContent = { reason: '' };
 
 /**
  * The eight result boxes for the table in focus, in three fixed rows. None ever disappears or changes size: a box
- * without a number shows "—" and why. Before the first result arrives, each box shows only "—".
+ * without a number shows "—" and why. Before the first result arrives, each box shows only "—". Each box is as tall
+ * as the tallest content it can show at the current width, and no taller (ticket 26).
  */
 export function ResultBoxes({ result }: { result: EchoEvaluationResult | null }) {
   const fullyTuned = result?.fullyTuned ?? false;
@@ -57,19 +58,33 @@ export function ResultBoxes({ result }: { result: EchoEvaluationResult | null })
 
   return (
     <div className={styles.boxes}>
-      <Box wide label={fullyTuned ? 'Target Score' : 'Target Chance'} content={target()} />
+      <Box
+        wide
+        label={fullyTuned ? 'Target Score' : 'Target Chance'}
+        content={target()}
+        sizes={{ labels: ['Target Chance', 'Target Score'], reasons: [SET_TARGET] }}
+      />
       <Box
         wide
         er
         label={fullyTuned ? 'ER Target Score' : 'ER Target Chance'}
         content={erTarget()}
+        sizes={{
+          labels: ['ER Target Chance', 'ER Target Score'],
+          reasons: [SET_ER_TARGET, NO_ENERGY_REGEN],
+        }}
       />
       <Box label="Echo Score" content={score((r) => r.echoScore)} />
       <Box
         label="Top Percent"
         content={result ? { value: formatTopPercent(result.topPercent) } : NOTHING_YET}
       />
-      <Box er label="ER Top Percent" content={erTopPercent()} />
+      <Box
+        er
+        label="ER Top Percent"
+        content={erTopPercent()}
+        sizes={{ labels: ['ER Top Percent'], reasons: [NO_ENERGY_REGEN] }}
+      />
       <Box label="Median Echo Score" content={score((r) => r.median)} />
       <Box label="Average Echo Score" content={score((r) => r.average)} />
       <Box label="Best Echo Score" content={score((r) => r.best)} />
@@ -77,38 +92,56 @@ export function ResultBoxes({ result }: { result: EchoEvaluationResult | null })
   );
 }
 
+/**
+ * A box. `sizes` names every label and reason it can show besides a one-line value; hidden copies of each, stacked
+ * under what it shows, give the box the height of the tallest, so it never resizes as its content changes. A box with
+ * no `sizes` only ever shows its label and a one-line value.
+ */
 function Box({
   label,
   content,
   wide,
   er,
+  sizes,
 }: {
   label: string;
   content: BoxContent;
   wide?: boolean;
   er?: boolean;
+  sizes?: { labels: readonly string[]; reasons: readonly string[] };
 }) {
   const labelId = useId();
   const classes = [styles.box, wide && styles.wide, er && styles.er].filter(Boolean).join(' ');
   return (
-    <div role="group" aria-labelledby={labelId} className={classes}>
-      <span id={labelId} className={styles.label}>
-        {label in TERM_TOOLTIPS ? (
-          <Term tooltip={TERM_TOOLTIPS[label as keyof typeof TERM_TOOLTIPS]}>{label}</Term>
-        ) : (
-          label
-        )}
-      </span>
-      {'value' in content ? (
-        <span className={[styles.value, content.tone && styles[content.tone]].join(' ')}>
-          {content.value}
-        </span>
-      ) : (
-        <>
-          <span className={`${styles.value} ${styles.none}`}>—</span>
-          <span className={styles.reason}>{content.reason}</span>
-        </>
+    <div className={classes}>
+      {sizes?.labels.flatMap((sizeLabel) =>
+        sizes.reasons.map((reason) => (
+          <span key={`${sizeLabel}|${reason}`} className={styles.sizer} aria-hidden="true">
+            <span className={styles.label}>{sizeLabel}</span>
+            <span className={`${styles.value} ${styles.none}`}>—</span>
+            <span className={styles.reason}>{reason}</span>
+          </span>
+        )),
       )}
+      <div role="group" aria-labelledby={labelId} className={styles.shown}>
+        <span id={labelId} className={styles.label}>
+          {label in TERM_TOOLTIPS ? (
+            <Term tooltip={TERM_TOOLTIPS[label as keyof typeof TERM_TOOLTIPS]}>{label}</Term>
+          ) : (
+            label
+          )}
+        </span>
+        {'value' in content ? (
+          <span className={[styles.value, content.tone && styles[content.tone]].join(' ')}>
+            {content.value}
+          </span>
+        ) : (
+          <>
+            <span className={`${styles.value} ${styles.none}`}>—</span>
+            <span className={styles.reason}>{content.reason}</span>
+          </>
+        )}
+      </div>
     </div>
   );
 }

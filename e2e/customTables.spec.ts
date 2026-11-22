@@ -83,17 +83,17 @@ test.describe('Substat Weight Tables list', () => {
     // The main column is 1220px wide.
     expect((await page.locator('main').boundingBox())?.width).toBe(1220);
 
-    // The name's text, plus room for the native arrow, fits inside the picker.
-    const room = await picker.evaluate((select: HTMLSelectElement, text) => {
-      const style = getComputedStyle(select);
-      const context = document.createElement('canvas').getContext('2d');
-      if (!context) throw new Error('No canvas');
-      context.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
-      const inner =
-        select.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
-      return inner - context.measureText(text).width;
-    }, name);
-    expect(room).toBeGreaterThanOrEqual(24);
+    // The picker is as wide as its name needs: freed from its cap and from shrinking, it would be no wider.
+    const squeezedBy = await picker.evaluate((select: HTMLSelectElement) => {
+      const width = select.getBoundingClientRect().width;
+      select.style.maxWidth = 'none';
+      select.style.flex = 'none';
+      const free = select.getBoundingClientRect().width;
+      select.style.maxWidth = '';
+      select.style.flex = '';
+      return free - width;
+    });
+    expect(squeezedBy).toBeLessThanOrEqual(0.5);
 
     // The tag sits whole inside the cell.
     const tagBox = await tag.boundingBox();

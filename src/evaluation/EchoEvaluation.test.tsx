@@ -42,6 +42,8 @@ describe('Your Echo', () => {
     expect(within(first as HTMLElement).getByRole('button')).toHaveAccessibleName(
       'Add the Substat revealed at +5',
     );
+    // Every slot carries its level on the left, the next empty one included.
+    expect(first).toHaveTextContent(/^\+5Add the Substat revealed at \+5$/);
     expect(later.map((slot) => slot.textContent)).toEqual([
       '+10not tuned yet',
       '+15not tuned yet',

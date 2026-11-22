@@ -131,4 +131,93 @@ test.describe('Echo Evaluation', () => {
       page.getByRole('textbox', { name: 'ER Target Score for Jinhsi', exact: true }),
     ).toHaveValue('5');
   });
+
+  test('keeps each result box one size whatever it shows, at every width', async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name === 'phone', 'The phone layout comes with ticket 21.');
+    await page.goto('#evaluation');
+    const addSubstat = async (type: string) => {
+      await page.getByRole('button', { name: /^Add the Substat revealed at/ }).click();
+      await page.getByRole('button', { name: type, exact: true }).click();
+      // Focus is on the first value.
+      await page.keyboard.press('Enter');
+    };
+    await addSubstat('Crit Rate');
+    await page.getByRole('combobox', { name: 'Add a Weight Table' }).selectOption('Mornye');
+    const boxes = page.getByRole('region', { name: 'Results' }).getByRole('group');
+    await expect(boxes.first()).toContainText('Set a Target Score below');
+
+    /**
+     * At each width: each box's height, marked if anything in it reaches past its edges, and for each row the
+     * smallest space left under a box's content.
+     */
+    const WIDTHS = [1280, 1000, 830];
+    async function measure() {
+      const sizes: string[] = [];
+      const spaceLeft: number[] = [];
+      for (const width of WIDTHS) {
+        await page.setViewportSize({ width, height: 900 });
+        const measured = await boxes.evaluateAll((groups) =>
+          groups.map((group) => {
+            const box = group.getBoundingClientRect();
+            const inner = [...group.querySelectorAll('*')].map((child) =>
+              child.getBoundingClientRect(),
+            );
+            const overflows = inner.some(
+              (rect) => rect.bottom > box.bottom + 0.5 || rect.right > box.right + 0.5,
+            );
+            const contentBottom = Math.max(...inner.map((rect) => rect.bottom));
+            return {
+              top: box.top,
+              height: box.height,
+              overflows,
+              left: box.bottom - contentBottom,
+            };
+          }),
+        );
+        sizes.push(
+          ...measured.map(
+            ({ height, overflows }) => `${Math.round(height)}${overflows ? ' overflows' : ''}`,
+          ),
+        );
+        const rows = [...new Set(measured.map(({ top }) => Math.round(top)))];
+        spaceLeft.push(
+          ...rows.map((top) =>
+            Math.min(
+              ...measured.filter((box) => Math.round(box.top) === top).map(({ left }) => left),
+            ),
+          ),
+        );
+      }
+      return { sizes, spaceLeft };
+    }
+
+    // Reasons in all three boxes that can give one.
+    const first = await measure();
+    expect(first.sizes.filter((size) => size.endsWith('overflows'))).toEqual([]);
+
+    // Numbers instead.
+    await page.getByRole('textbox', { name: 'Target Score for Mornye', exact: true }).fill('20');
+    await page.getByRole('textbox', { name: 'ER Target Score for Mornye', exact: true }).fill('5');
+    await addSubstat('Energy Regen');
+    await expect(boxes.nth(1)).toContainText('%');
+    await expect(boxes.nth(4)).toContainText('Top');
+    const numbers = await measure();
+    expect(numbers.sizes).toEqual(first.sizes);
+
+    // 5/5: verdicts, under the other labels.
+    await addSubstat('Crit Damage');
+    await addSubstat('ATK%');
+    await addSubstat('Flat ATK');
+    await expect(boxes.first()).toContainText(/Reached|Not reached/);
+    const verdicts = await measure();
+    expect(verdicts.sizes).toEqual(first.sizes);
+
+    // No taller than needed: in each row, some content the boxes can show fills a box to its bottom edge.
+    const tightest = first.spaceLeft.map((left, i) =>
+      Math.min(left, numbers.spaceLeft[i] ?? Infinity, verdicts.spaceLeft[i] ?? Infinity),
+    );
+    expect(tightest.filter((left) => left > 1)).toEqual([]);
+  });
 });
