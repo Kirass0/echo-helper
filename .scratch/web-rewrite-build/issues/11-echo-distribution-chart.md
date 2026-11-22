@@ -8,11 +8,11 @@
 
 **Status:** done
 
-- [ ] Own SVG component on `d3-scale` and `d3-shape` only
-- [ ] Shown whenever at least one table is listed, including at 5/5, where each table is a single band
-- [ ] Horizontal axis "Final Echo Score" from the lowest Worst to the highest Best Echo Score across all listed tables, widened to include every listed table's Target Score and ER Target Score (empty targets add nothing); vertical axis "Chance" per band; 60 equal bands with the same edges for every table
-- [ ] Focused table: accent line with 18% fill; other tables: grey lines; focused Target Score as a dashed vertical line and ER Target Score as a dotted teal line, with no labels on the lines
-- [ ] A fixed single-line legend above the chart names the focused table (truncated, full name in a tooltip), "Other tables", "Target Score" and "ER Target Score"
-- [ ] Switching focus never moves or rescales the axis; editing a target may
-- [ ] `role="img"` with a one-sentence generated label, e.g. "Echo distribution for Cantarella: final Echo Score from 8.2 to 31.5, Target Score 20 at 34% chance."
-- [ ] Component test for the axis range across several tables and the generated label
+- [x] Own SVG component on `d3-scale` and `d3-shape` only
+- [x] Shown whenever at least one table is listed, including at 5/5, where each table is a single band
+- [x] Horizontal axis "Final Echo Score" from the lowest Worst to the highest Best Echo Score across all listed tables, widened to include every listed table's Target Score and ER Target Score (empty targets add nothing); vertical axis "Chance" per band; 60 equal bands with the same edges for every table
+- [x] Focused table: accent line with 18% fill; other tables: grey lines; focused Target Score as a dashed vertical line and ER Target Score as a dotted teal line, with no labels on the lines
+- [x] A fixed single-line legend above the chart names the focused table (truncated, full name in a tooltip), "Other tables", "Target Score" and "ER Target Score"
+- [x] Switching focus never moves or rescales the axis; editing a target may
+- [x] `role="img"` with a one-sentence generated label, e.g. "Echo distribution for Cantarella: final Echo Score from 8.2 to 31.5, Target Score 20 at 34% chance."
+- [x] Component test for the axis range across several tables and the generated label

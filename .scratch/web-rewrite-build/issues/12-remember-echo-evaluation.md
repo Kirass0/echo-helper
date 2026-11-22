@@ -8,9 +8,9 @@
 
 **Status:** done
 
-- [ ] The Echo Evaluation entry uses the stored-entry mechanism from ticket 02 and holds the Substats in slot order, the listed tables in order (by name), the table in focus, and Target Score / ER Target Score per table name, including targets for unlisted tables and for built-ins that have left the catalogue
-- [ ] Written whenever that part changes; other tabs take on changes through the `storage` event
-- [ ] Salvage: a slot with an unknown type or a value outside its set is emptied; bad targets are cleared; a missing or bad focus falls back to the first listed table
-- [ ] A listed table that no longer exists (a built-in gone with a deploy) disappears silently: its row is removed, focus moves to the next row or the row above, and with no rows left the first-open prompt shows
-- [ ] The player is told nothing about salvage
-- [ ] Vitest covers salvage and the vanished-table rule; a Playwright test reloads and finds the same state
+- [x] The Echo Evaluation entry uses the stored-entry mechanism from ticket 02 and holds the Substats in slot order, the listed tables in order (by name), the table in focus, and Target Score / ER Target Score per table name, including targets for unlisted tables and for built-ins that have left the catalogue
+- [x] Written whenever that part changes; other tabs take on changes through the `storage` event
+- [x] Salvage: a slot with an unknown type or a value outside its set is emptied; bad targets are cleared; a missing or bad focus falls back to the first listed table
+- [x] A listed table that no longer exists (a built-in gone with a deploy) disappears silently: its row is removed, focus moves to the next row or the row above, and with no rows left the first-open prompt shows
+- [x] The player is told nothing about salvage
+- [x] Vitest covers salvage and the vanished-table rule; a Playwright test reloads and finds the same state
