@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { blankDraft, checkDraft, copyDraft, defaultCopyName, defaultNewName } from './tableDraft';
+import {
+  blankDraft,
+  checkDraft,
+  copyDraft,
+  defaultCopyName,
+  defaultNewName,
+  editDraft,
+} from './tableDraft';
 
 describe('default names', () => {
   it('names a copy "X (copy)", then "X (copy 2)" and so on, ignoring case', () => {
@@ -55,7 +62,7 @@ describe('a draft', () => {
 
   it('rejects a weight that is not a number of 0 or more, at that weight', () => {
     const draft = blankDraft(ALL);
-    for (const text of ['-1', 'abc', 'Infinity', '1,5']) {
+    for (const text of ['-1', 'abc', 'Infinity', '1,5', '1' + '0'.repeat(400)]) {
       const result = checkDraft(
         { ...draft, weights: { ...draft.weights, Hp_Flat: text } },
         ALL,
@@ -64,6 +71,16 @@ describe('a draft', () => {
       expect(result.table).toBeNull();
       expect(result.weightErrors).toEqual({ Hp_Flat: 'Enter a number of 0 or more.' });
     }
+  });
+
+  it('writes tiny and huge weights as plain decimals that save back to the same numbers', () => {
+    const weights = { Critical_Rate: 1e-7, Atk_Flat: 1e21, Hp_Flat: 1.5e300, Skill: 5e-324 };
+    const draft = editDraft({ name: 'My table', weights });
+    expect(draft.weights.Critical_Rate).toBe('0.0000001');
+    expect(draft.weights.Atk_Flat).toBe('1000000000000000000000');
+    const saved = checkDraft(draft, ALL, 'My table');
+    expect(saved.weightErrors).toEqual({});
+    expect(saved.table?.weights).toMatchObject(weights);
   });
 
   it('trims the name and rejects an empty one', () => {

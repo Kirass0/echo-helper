@@ -236,6 +236,15 @@ describe('a row’s target error', () => {
     await user.clear(erTargetBox('Crit Rate only'));
     expect(errorLines(0)).toHaveLength(0);
   });
+
+  it('rejects a target too large to be a finite number', async () => {
+    const user = open();
+    await listTables(user, 'Crit Rate only');
+    await user.click(targetBox('Crit Rate only'));
+    await user.paste('1' + '0'.repeat(400));
+    expect(targetBox('Crit Rate only')).toBeInvalid();
+    expect(errorLines(0)).toHaveLength(1);
+  });
 });
 
 describe('Weight Table rows by keyboard', () => {

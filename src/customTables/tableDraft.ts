@@ -1,6 +1,10 @@
 import { MAX_TABLE_NAME_LENGTH, sameName, type WeightTableData } from '../catalogue/catalogue';
 import { SUBSTAT_TYPES, type SubstatType } from '../core/gameData';
-import { INVALID_NUMBER_MESSAGE, parseNonNegativeNumber } from '../ui/nonNegativeNumber';
+import {
+  formatNonNegativeNumber,
+  INVALID_NUMBER_MESSAGE,
+  parseNonNegativeNumber,
+} from '../ui/nonNegativeNumber';
 
 /** A Custom Substat Weight Table being made or edited: what is typed in its name and 13 weight fields. */
 export interface TableDraft {
@@ -43,7 +47,7 @@ export const defaultNewName = (takenNames: readonly string[]) =>
 
 const draftWeights = (table: WeightTableData) =>
   Object.fromEntries(
-    SUBSTAT_TYPES.map((type) => [type, String(table.weights[type] ?? 0)]),
+    SUBSTAT_TYPES.map((type) => [type, formatNonNegativeNumber(table.weights[type] ?? 0)]),
   ) as Record<SubstatType, string>;
 
 /** A draft of a table as it is, for editing it. */

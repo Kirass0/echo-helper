@@ -668,7 +668,7 @@ From [How far accessibility and keyboard use go](issues/20-accessibility-and-key
 
 **Charts.**
 
-- The distribution chart has `role="img"` and a one-sentence generated label, e.g. "Echo distribution for Cantarella: final Echo Score from 8.2 to 31.5, Target Score 20 at 34% chance."
+- The distribution chart has `role="img"` and a one-sentence generated label, e.g. "Echo distribution for Cantarella: final Echo Score from 8.2 to 31.5, Target Score 20 at 34% chance." The range is the focused table's own, Worst to Best Echo Score, not the shared axis; at 5/5 it is the one final Echo Score, "final Echo Score 18.0" (ticket 26).
 - The "where Echoes end" bar and the paired chart are `aria-hidden`; their numbers are also on screen as text ([§8](#8-upgrade-strategy)).
 - There is no data table.
 

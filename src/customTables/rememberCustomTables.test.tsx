@@ -109,6 +109,47 @@ describe('remembering Custom Weight Tables', () => {
     expect(screen.queryByRole('region', { name: 'Notices' })).not.toBeInTheDocument();
   });
 
+  it.each([
+    ['viewing it', () => Promise.resolve()],
+    [
+      'asking to delete it',
+      (user: ReturnType<typeof userEvent.setup>) =>
+        user.click(dialog().getByRole('button', { name: 'Delete' })),
+    ],
+    [
+      'editing it',
+      async (user: ReturnType<typeof userEvent.setup>) => {
+        await user.click(dialog().getByRole('button', { name: 'Edit' }));
+        await user.type(dialog().getByRole('textbox', { name: 'Crit Rate' }), '9');
+      },
+    ],
+  ])(
+    'closes the dialog silently when its table is deleted in another tab while %s',
+    async (_, step) => {
+      const { user } = open();
+      await makeTable(user, 'Mine');
+      await user.selectOptions(addPicker(), 'Atk only');
+      await user.click(button('Weights of Mine'));
+      await step(user);
+
+      const newValue = stored([]);
+      act(() => {
+        localStorage.setItem(CUSTOM_TABLES_KEY, newValue);
+        window.dispatchEvent(new StorageEvent('storage', { key: CUSTOM_TABLES_KEY, newValue }));
+      });
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(savedTables()).toEqual([]);
+      expect(button('Weights of Atk only')).toHaveFocus();
+
+      // The dialog opens again on the next press.
+      await user.click(button('Weights of Atk only'));
+      expect(dialog().getByRole('heading')).toHaveTextContent('Atk only');
+      await user.keyboard('{Escape}');
+      await user.selectOptions(addPicker(), 'New Custom Weight Table…');
+      expect(dialog().getByRole('heading')).toHaveTextContent('New Custom Weight Table');
+    },
+  );
+
   describe('a name taken by a new built-in', () => {
     const custom = { name: 'Atk only', weights: { Critical_Rate: 3 } };
 

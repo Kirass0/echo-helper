@@ -1,4 +1,4 @@
-import { SUBSTAT_TYPES, type SubstatType } from '../core/gameData';
+import { isSubstatType, type SubstatType } from '../core/gameData';
 import catalogueFile from './builtInWeightTables.json';
 
 /** The longest name a Substat Weight Table may have. */
@@ -11,7 +11,6 @@ export interface WeightTableData {
 }
 
 const TABLE_PROPERTIES = new Set(['name', 'weights']);
-const KNOWN_TYPES = new Set<string>(SUBSTAT_TYPES);
 
 /** A plain object (not null, not an array): for reading untrusted JSON. */
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -20,6 +19,42 @@ export const isRecord = (value: unknown): value is Record<string, unknown> =>
 /** A weight a table may have: a finite number of 0 or more. */
 export const isWeight = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value) && value >= 0;
+
+/** What can be wrong with a table's name read from untrusted data. */
+export type NameProblem = 'missing' | 'empty' | 'tooLong';
+
+/** The problem with a table's name, or null: it must be text, not blank, and at most 40 characters. */
+export function nameProblem(name: unknown): NameProblem | null {
+  if (typeof name !== 'string') return 'missing';
+  if (name.trim() === '') return 'empty';
+  if (name.length > MAX_TABLE_NAME_LENGTH) return 'tooLong';
+  return null;
+}
+
+/** A problem with one entry of a table's weights read from untrusted data. */
+export interface WeightProblem {
+  readonly type: string;
+  readonly problem: 'unknownType' | 'notAWeight';
+}
+
+/**
+ * A table's weights read from untrusted data: those that are fine, and a problem for each entry that isn't (an unknown
+ * Substat type, or a weight that isn't a finite number of 0 or more). Null when the weights aren't an object.
+ */
+export function checkWeights(weights: unknown): {
+  readonly weights: Partial<Record<SubstatType, number>>;
+  readonly problems: readonly WeightProblem[];
+} | null {
+  if (!isRecord(weights)) return null;
+  const read: Partial<Record<SubstatType, number>> = {};
+  const problems: WeightProblem[] = [];
+  for (const [type, weight] of Object.entries(weights)) {
+    if (!isSubstatType(type)) problems.push({ type, problem: 'unknownType' });
+    else if (!isWeight(weight)) problems.push({ type, problem: 'notAWeight' });
+    else read[type] = weight;
+  }
+  return { weights: read, problems };
+}
 
 /** Table names are the same when they differ only in case. */
 export const sameName = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
@@ -44,11 +79,12 @@ export function catalogueProblems(catalogue: unknown): string[] {
     const { name, weights } = table;
     const label = typeof name === 'string' && name.trim() !== '' ? `'${name}'` : position;
 
-    if (typeof name !== 'string') problems.push(`${position} has no name.`);
-    else if (name.trim() === '') problems.push(`${position} has an empty name.`);
-    else if (name.length > MAX_TABLE_NAME_LENGTH)
+    const badName = nameProblem(name);
+    if (badName === 'missing') problems.push(`${position} has no name.`);
+    else if (badName === 'empty') problems.push(`${position} has an empty name.`);
+    else if (badName === 'tooLong')
       problems.push(`${label} has a name longer than ${MAX_TABLE_NAME_LENGTH} characters.`);
-    else if (namesSeen.has(name.toLowerCase()))
+    else if (typeof name === 'string' && namesSeen.has(name.toLowerCase()))
       problems.push(`${label} has the same name as another table, ignoring case.`);
     if (typeof name === 'string') namesSeen.add(name.toLowerCase());
 
@@ -57,15 +93,17 @@ export function catalogueProblems(catalogue: unknown): string[] {
         problems.push(`${label} has an unknown property '${property}'.`);
     }
 
-    if (!isRecord(weights)) {
+    const checked = checkWeights(weights);
+    if (!checked) {
       problems.push(`${label} has no weights.`);
       return;
     }
-    for (const [type, weight] of Object.entries(weights)) {
-      if (!KNOWN_TYPES.has(type)) problems.push(`${label} has an unknown Substat type '${type}'.`);
-      else if (!isWeight(weight))
-        problems.push(`${label} has a ${type} weight that is not a number of 0 or more.`);
-    }
+    for (const { type, problem } of checked.problems)
+      problems.push(
+        problem === 'unknownType'
+          ? `${label} has an unknown Substat type '${type}'.`
+          : `${label} has a ${type} weight that is not a number of 0 or more.`,
+      );
   });
   return problems;
 }

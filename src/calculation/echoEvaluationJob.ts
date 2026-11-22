@@ -21,20 +21,29 @@ export interface EchoEvaluationJobs {
   run(input: EchoEvaluationInput): EchoEvaluationResult;
   /** Forgets what is kept for tables other than these, the ones listed now. */
   keepOnly(tableNames: readonly string[]): void;
-  /** How many whole-table distributions and finishing tables have been built so far. */
-  readonly built: { readonly distributions: number; readonly finishingTables: number };
+  /** How many whole-table distributions, finishing tables and shifted finishing tables have been built so far. */
+  readonly built: {
+    readonly distributions: number;
+    readonly finishingTables: number;
+    readonly shiftedTables: number;
+  };
 }
 
 /**
  * What is kept for one listed Weight Table: the whole-table distribution, which depends only on the weights, and the
  * latest finishing table at Echo Score 0, which depends only on the weights and the Echo's Substat type set. Values
- * only shift it, so a target edit or a changed value of an existing Substat is a lookup.
+ * only shift it, so a changed value of an existing Substat needs no new finishing table. The table shifted to the
+ * current Echo Score is kept too, so a target edit is a lookup in it.
  */
 interface KeptTables {
   readonly weightsKey: string;
   readonly table: SubstatWeightTable;
   readonly distribution: WholeTableDistribution;
-  finishing: { readonly typesKey: string; readonly atZero: SortedFinishingEchoScores } | null;
+  finishing: {
+    readonly typesKey: string;
+    readonly atZero: SortedFinishingEchoScores;
+    shifted: { readonly by: number; readonly table: SortedFinishingEchoScores } | null;
+  } | null;
 }
 
 const weightsKeyOf = (table: WeightTableData) =>
@@ -42,7 +51,7 @@ const weightsKeyOf = (table: WeightTableData) =>
 
 export function createEchoEvaluationJobs(): EchoEvaluationJobs {
   const kept = new Map<string, KeptTables>();
-  const built = { distributions: 0, finishingTables: 0 };
+  const built = { distributions: 0, finishingTables: 0, shiftedTables: 0 };
 
   function keptFor(data: WeightTableData): KeptTables {
     const weightsKey = weightsKeyOf(data);
@@ -62,9 +71,21 @@ export function createEchoEvaluationJobs(): EchoEvaluationJobs {
     const typesKey = types.join(',');
     if (tables.finishing?.typesKey !== typesKey) {
       built.finishingTables++;
-      tables.finishing = { typesKey, atZero: finishingEchoScoresFor(types, 0, tables.table) };
+      tables.finishing = {
+        typesKey,
+        atZero: finishingEchoScoresFor(types, 0, tables.table),
+        shifted: null,
+      };
     }
-    return shiftedFinishingEchoScores(tables.finishing.atZero, echoScore(echo, tables.table));
+    const by = echoScore(echo, tables.table);
+    if (tables.finishing.shifted?.by !== by) {
+      built.shiftedTables++;
+      tables.finishing.shifted = {
+        by,
+        table: shiftedFinishingEchoScores(tables.finishing.atZero, by),
+      };
+    }
+    return tables.finishing.shifted.table;
   }
 
   return {

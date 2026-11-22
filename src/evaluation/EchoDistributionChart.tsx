@@ -60,7 +60,7 @@ export function EchoDistributionChart({ tables, focused }: EchoDistributionChart
         className={styles.svg}
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
         role="img"
-        aria-label={labelOf(focused, focusedTable, bands)}
+        aria-label={labelOf(focused, focusedTable)}
       >
         {bands && <Plot bands={bands} focused={focused} focusedTable={focusedTable} />}
         <text
@@ -140,7 +140,7 @@ function Plot({
           </g>
         ))}
       </g>
-      <g data-axis="x">
+      <g data-axis="x" data-from={bands.from} data-to={bands.to}>
         {x.ticks(6).map((score) => (
           <text
             key={score}
@@ -211,14 +211,16 @@ function Legend({ focused }: { focused: string }) {
  * The one-sentence label (spec §15), e.g. "Echo distribution for Cantarella: final Echo Score from 8.2 to 31.5,
  * Target Score 20 at 34% chance."
  */
-function labelOf(
-  focused: string,
-  table: ChartedListedTable | null,
-  bands: ReturnType<typeof distributionBands> | null,
-): string {
+function labelOf(focused: string, table: ChartedListedTable | null): string {
   let label = `Echo distribution for ${focused}`;
-  if (bands) label += `: final Echo Score from ${bands.from.toFixed(1)} to ${bands.to.toFixed(1)}`;
   const result = table?.result;
+  // The focused table's own range, Worst to Best, not the axis shared with the other tables; one score at 5/5.
+  const worst = result?.distribution[0]?.threshold;
+  if (result && worst !== undefined)
+    label +=
+      worst === result.best
+        ? `: final Echo Score ${worst.toFixed(1)}`
+        : `: final Echo Score from ${worst.toFixed(1)} to ${result.best.toFixed(1)}`;
   if (table?.targetScore != null && result) {
     const target = `Target Score ${String(+table.targetScore.toFixed(2))}`;
     if (result.fullyTuned && result.reachesTarget !== null)

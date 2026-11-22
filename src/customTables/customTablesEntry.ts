@@ -1,12 +1,11 @@
 // The Custom Weight Tables entry (spec §12): every saved Custom table, and how a stored copy is salvaged.
 import {
+  checkWeights,
   isRecord,
-  isWeight,
-  MAX_TABLE_NAME_LENGTH,
+  nameProblem,
   sameName,
   type WeightTableData,
 } from '../catalogue/catalogue';
-import { SUBSTAT_TYPES, type SubstatType } from '../core/gameData';
 import type { EntryDefinition } from '../storage/storedEntry';
 import { defaultCustomName } from './tableDraft';
 
@@ -27,21 +26,13 @@ export interface SalvagedTables {
   readonly renamed: readonly RenamedTable[];
 }
 
-const KNOWN_TYPES = new Set<string>(SUBSTAT_TYPES);
-
-/** The table, or null when it has a bad weight, an empty name or a name over 40 characters. */
+/** The table, or null when it has a bad weight, an empty name or a name over 40 characters once trimmed. */
 function readTable(stored: unknown): WeightTableData | null {
-  if (!isRecord(stored) || typeof stored.name !== 'string' || !isRecord(stored.weights))
-    return null;
+  if (!isRecord(stored) || typeof stored.name !== 'string') return null;
   const name = stored.name.trim();
-  if (name === '' || name.length > MAX_TABLE_NAME_LENGTH) return null;
-  const weights: Partial<Record<SubstatType, number>> = {};
-  for (const [type, weight] of Object.entries(stored.weights)) {
-    if (!KNOWN_TYPES.has(type)) return null;
-    if (!isWeight(weight)) return null;
-    weights[type as SubstatType] = weight;
-  }
-  return { name, weights };
+  const checked = checkWeights(stored.weights);
+  if (nameProblem(name) !== null || !checked || checked.problems.length > 0) return null;
+  return { name, weights: checked.weights };
 }
 
 /**

@@ -98,14 +98,26 @@ const atk = { name: 'Atk', weights: { Atk_Percent: 1, Critical_Rate: 1 } };
 const critRateAt = (value: number) => ({ type: 'Critical_Rate', value }) as const;
 
 describe('the tables kept per listed Weight Table', () => {
-  it('makes a target edit or a changed value of an existing Substat a lookup', () => {
+  it('makes a target edit a lookup in the table shifted to the current Echo Score', () => {
     const jobs = createEchoEvaluationJobs();
     jobs.run(input({ substats: [critRateAt(6.3)] }));
-    expect(jobs.built).toEqual({ distributions: 1, finishingTables: 1 });
+    expect(jobs.built).toEqual({ distributions: 1, finishingTables: 1, shiftedTables: 1 });
 
+    for (const [targetScore, erTargetScore] of [
+      [7, null],
+      [7, 3],
+      [8, 3],
+      [null, null],
+    ] as const)
+      jobs.run(input({ substats: [critRateAt(6.3)], targetScore, erTargetScore }));
+    expect(jobs.built).toEqual({ distributions: 1, finishingTables: 1, shiftedTables: 1 });
+  });
+
+  it('makes a changed value of an existing Substat a shift of the kept table', () => {
+    const jobs = createEchoEvaluationJobs();
     jobs.run(input({ substats: [critRateAt(6.3)], targetScore: 7 }));
     const changed = jobs.run(input({ substats: [critRateAt(7.5)], targetScore: 7 }));
-    expect(jobs.built).toEqual({ distributions: 1, finishingTables: 1 });
+    expect(jobs.built).toEqual({ distributions: 1, finishingTables: 1, shiftedTables: 2 });
     // The kept table, shifted by the new value: Crit Rate 7.5 scores 6, and nothing more can come.
     expect(changed.echoScore).toBe(6);
     expect(changed.best).toBe(6);
@@ -122,7 +134,7 @@ describe('the tables kept per listed Weight Table', () => {
   it('reuses the whole-table distribution for a fresh Echo', () => {
     const jobs = createEchoEvaluationJobs();
     const fresh = jobs.run(input({ targetScore: 6 }));
-    expect(jobs.built).toEqual({ distributions: 1, finishingTables: 0 });
+    expect(jobs.built).toEqual({ distributions: 1, finishingTables: 0, shiftedTables: 0 });
     // 5/13 of fully tuned Echoes have Crit Rate, and 5333 of its 9999 tier weight is 7.5 or more.
     expect(fresh.targetChance).toBeCloseTo((5 / 13) * (5333 / 9999), 12);
   });
@@ -134,7 +146,7 @@ describe('the tables kept per listed Weight Table', () => {
       jobs.run(input({ substats, targetScore }));
       jobs.run(input({ substats, targetScore, table: atk }));
     }
-    expect(jobs.built).toEqual({ distributions: 2, finishingTables: 2 });
+    expect(jobs.built).toEqual({ distributions: 2, finishingTables: 2, shiftedTables: 2 });
   });
 
   it('rebuilds when a table’s weights change under the same name', () => {
@@ -143,7 +155,7 @@ describe('the tables kept per listed Weight Table', () => {
     jobs.run(
       input({ substats: [critRateAt(6.3)], table: { ...critRate, weights: { Critical_Rate: 3 } } }),
     );
-    expect(jobs.built).toEqual({ distributions: 2, finishingTables: 2 });
+    expect(jobs.built).toEqual({ distributions: 2, finishingTables: 2, shiftedTables: 2 });
   });
 
   it('forgets the tables that are no longer listed', () => {
@@ -153,6 +165,6 @@ describe('the tables kept per listed Weight Table', () => {
     jobs.keepOnly(['Atk']);
     jobs.run(input({ substats: [critRateAt(6.3)], table: atk }));
     jobs.run(input({ substats: [critRateAt(6.3)] }));
-    expect(jobs.built).toEqual({ distributions: 3, finishingTables: 3 });
+    expect(jobs.built).toEqual({ distributions: 3, finishingTables: 3, shiftedTables: 3 });
   });
 });

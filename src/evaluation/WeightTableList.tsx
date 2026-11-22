@@ -156,6 +156,7 @@ export function WeightTableList({
       <select
         ref={addRef}
         className={styles.add}
+        data-add=""
         aria-label="Add a Weight Table"
         value=""
         onChange={(event) => {
@@ -271,7 +272,12 @@ function Row({
         />
       </td>
       <td className={styles.icon}>
-        <IconButton label={`Weights of ${name}`} icon={<SlidersIcon />} onClick={onOpenWeights} />
+        <IconButton
+          label={`Weights of ${name}`}
+          icon={<SlidersIcon />}
+          data-weights=""
+          onClick={onOpenWeights}
+        />
       </td>
       <td className={styles.icon}>
         <IconButton

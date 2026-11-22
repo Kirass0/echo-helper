@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { BUILT_IN_TABLES, findTable, type WeightTableData } from '../catalogue/catalogue';
 import type { Calculator } from '../calculation/newestInputWins';
 import type {
@@ -48,6 +48,27 @@ export function EchoEvaluation({
   const [{ substats, listed, focused, targets }, update] = useRememberedEchoEvaluation(exists);
   const targetsOf = (name: string) => targets[name] ?? NO_TARGETS;
   const [dialog, setDialog] = useState<WeightsDialogStart | null>(null);
+  const layoutRef = useRef<HTMLDivElement>(null);
+  // The index of the row whose sliders opened the dialog, null for the add picker; undefined while it is closed.
+  const openedFromRow = useRef<number | null | undefined>(undefined);
+  function openDialog(start: WeightsDialogStart, row: number | null) {
+    openedFromRow.current = row;
+    setDialog(start);
+  }
+
+  // The dialog gives focus back to its opener. When that is gone with its row (the table deleted, here or in another
+  // tab), focus goes to the sliders of the row taking its place, or of the row above if it was last, else to the add
+  // picker: as a row's × does (spec §15).
+  useLayoutEffect(() => {
+    const row = openedFromRow.current;
+    if (dialog !== null || row === undefined) return;
+    openedFromRow.current = undefined;
+    if (document.activeElement !== null && document.activeElement !== document.body) return;
+    const layout = layoutRef.current;
+    const sliders = layout?.querySelectorAll<HTMLElement>('[data-weights]');
+    const next = row === null ? undefined : (sliders?.[row] ?? sliders?.[row - 1]);
+    (next ?? layout?.querySelector<HTMLElement>('[data-add]'))?.focus();
+  }, [dialog]);
   const isCustom = (name: string) => customTables.some((table) => table.name === name);
 
   const input = useMemo((): EchoEvaluationListInput | null => {
@@ -105,7 +126,7 @@ export function EchoEvaluation({
   }
 
   return (
-    <div className={styles.layout}>
+    <div ref={layoutRef} className={styles.layout}>
       <div className={`${surfaces.panel} ${styles.echo}`}>
         <YourEcho substats={substats} onChange={(changed) => update({ substats: changed })} />
       </div>
@@ -161,8 +182,8 @@ export function EchoEvaluation({
             onTargetsChange={(name, texts) =>
               update((state) => ({ targets: { ...state.targets, [name]: texts } }))
             }
-            onOpenWeights={(name) => setDialog({ kind: 'view', name })}
-            onNewTable={() => setDialog({ kind: 'new' })}
+            onOpenWeights={(name) => openDialog({ kind: 'view', name }, listed.indexOf(name))}
+            onNewTable={() => openDialog({ kind: 'new' }, null)}
           />
         </div>
       </div>

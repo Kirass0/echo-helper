@@ -86,6 +86,16 @@ export function WeightsDialog({
     };
   }, [opener]);
 
+  // The table shown, or the one a draft edits, can vanish: a Custom table deleted in another tab (spec §12). The dialog
+  // then closes silently, as on Close, discarding a draft's unsaved edits.
+  const vanished =
+    screen.kind === 'draft'
+      ? screen.editing !== null && !findTable(customTables, screen.editing)
+      : !findTable(allTables, screen.name);
+  useEffect(() => {
+    if (vanished) onClose();
+  }, [vanished, onClose]);
+
   const headingId = useId();
   const pressedOutside = useRef(false);
   const isCustom = (name: string) => customTables.some((table) => table.name === name);
@@ -115,9 +125,10 @@ export function WeightsDialog({
 
   let title: string;
   let body: ReactNode;
+  if (vanished) return null;
   if (screen.kind === 'draft') {
     const checked = checkDraft(screen.draft, allNames, screen.editing);
-    title = screen.editing ?? 'New Custom Weight Table';
+    title = screen.editing === null ? 'New Custom Weight Table' : `Edit ${screen.editing}`;
     body = (
       <DraftEditor
         draft={screen.draft}
@@ -136,7 +147,7 @@ export function WeightsDialog({
     );
   } else {
     const table = findTable(allTables, screen.name);
-    if (!table) return null;
+    if (!table) return null; // vanished
     title = table.name;
     const custom = isCustom(table.name);
     body =
@@ -208,7 +219,8 @@ export function WeightsDialog({
       );
   }
 
-  const tagged = screen.kind !== 'draft' ? isCustom(screen.name) : screen.editing !== null;
+  // Drafts carry no tag: "Edit X" and "New Custom Weight Table" (ticket 07's prototype).
+  const tagged = screen.kind !== 'draft' && isCustom(screen.name);
   return (
     // The content is the whole <dialog>, so a click lands on the <dialog> itself only on the dimmed area outside. Both
     // press and release must be outside, so a drag that starts in a field and ends outside closes nothing.

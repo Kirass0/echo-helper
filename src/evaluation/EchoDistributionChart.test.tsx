@@ -57,15 +57,45 @@ const carlotta = listed('Carlotta', [
 ]);
 
 const chart = () => screen.getByRole('img');
+/** The x axis's range, from its first to its last Echo Score. */
+const xRange = () => {
+  const axis = chart().querySelector('[data-axis="x"]');
+  return [axis?.getAttribute('data-from'), axis?.getAttribute('data-to')].map(Number);
+};
 const xTicks = () =>
   Array.from(chart().querySelectorAll('[data-axis="x"] text'), (tick) => tick.textContent);
 
 describe('the Echo distribution chart', () => {
   it('spans every listed table and names the focused one’s Target Chance', () => {
     render(<EchoDistributionChart tables={[cantarella, carlotta]} focused="Cantarella" />);
+    expect(xRange()).toEqual([8.2, 31.5]);
     expect(chart()).toHaveAccessibleName(
-      'Echo distribution for Cantarella: final Echo Score from 8.2 to 31.5, Target Score 20 at 34% chance.',
+      'Echo distribution for Cantarella: final Echo Score from 8.2 to 22.5, Target Score 20 at 34% chance.',
     );
+  });
+
+  it('gives the focused table’s own range, from its Worst to its Best Echo Score, not the axis’s', () => {
+    const { rerender } = render(
+      <EchoDistributionChart tables={[cantarella, carlotta]} focused="Cantarella" />,
+    );
+    const label = chart().getAttribute('aria-label');
+    rerender(
+      <EchoDistributionChart
+        tables={[cantarella, { ...carlotta, targetScore: 50 }]}
+        focused="Cantarella"
+      />,
+    );
+    expect(chart()).toHaveAttribute('aria-label', label);
+  });
+
+  it('names only the focused table while its result is on the way', () => {
+    render(
+      <EchoDistributionChart
+        tables={[{ ...cantarella, result: null }, carlotta]}
+        focused="Cantarella"
+      />,
+    );
+    expect(chart()).toHaveAccessibleName('Echo distribution for Cantarella.');
   });
 
   it('widens the axis to every listed table’s targets, not just the focused one’s', () => {
@@ -77,9 +107,7 @@ describe('the Echo distribution chart', () => {
         focused="Cantarella"
       />,
     );
-    expect(chart()).toHaveAccessibleName(
-      'Echo distribution for Cantarella: final Echo Score from 4.3 to 35.0, Target Score 20 at 34% chance.',
-    );
+    expect(xRange()).toEqual([4.25, 35]);
   });
 
   it('widens the axis to a listed table’s targets before its result arrives', () => {
@@ -90,9 +118,7 @@ describe('the Echo distribution chart', () => {
       result: null,
     };
     render(<EchoDistributionChart tables={[cantarella, waiting]} focused="Cantarella" />);
-    expect(chart()).toHaveAccessibleName(
-      'Echo distribution for Cantarella: final Echo Score from 2.5 to 40.0, Target Score 20 at 34% chance.',
-    );
+    expect(xRange()).toEqual([2.5, 40]);
   });
 
   it('never moves the axis when the focus switches', () => {
@@ -104,7 +130,7 @@ describe('the Echo distribution chart', () => {
     rerender(<EchoDistributionChart tables={[cantarella, carlotta]} focused="Carlotta" />);
     expect(xTicks()).toEqual(ticks);
     expect(chart()).toHaveAccessibleName(
-      'Echo distribution for Carlotta: final Echo Score from 8.2 to 31.5.',
+      'Echo distribution for Carlotta: final Echo Score from 10.0 to 31.5.',
     );
   });
 
@@ -116,7 +142,7 @@ describe('the Echo distribution chart', () => {
     });
     render(<EchoDistributionChart tables={[done, carlotta]} focused="Done" />);
     expect(chart()).toHaveAccessibleName(
-      'Echo distribution for Done: final Echo Score from 10.0 to 31.5, Target Score 20 not reached.',
+      'Echo distribution for Done: final Echo Score 18.0, Target Score 20 not reached.',
     );
   });
 

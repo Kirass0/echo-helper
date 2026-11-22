@@ -342,11 +342,13 @@ describe('Echo distribution', () => {
       ),
     );
 
+    // Another table's target widens the shared axis, but the label keeps the focused table's own range.
     await user.type(screen.getByRole('textbox', { name: 'Target Score for Atk only' }), '10');
     await waitFor(() =>
-      expect(chart()).toHaveAccessibleName(
-        'Echo distribution for Crit Rate only: final Echo Score from 0.0 to 10.0.',
-      ),
+      expect(chart()?.querySelector('[data-axis="x"]')).toHaveAttribute('data-to', '10'),
+    );
+    expect(chart()).toHaveAccessibleName(
+      'Echo distribution for Crit Rate only: final Echo Score from 0.0 to 8.4.',
     );
   });
 });

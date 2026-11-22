@@ -75,18 +75,23 @@ describe('shiftedFinishingEchoScores', () => {
 });
 
 describe('the whole-table distribution', () => {
+  // Not bit-identical: the whole-table distribution sums each outcome's contributions with Energy Regen last
+  // (`TYPES_ER_LAST`, as C#'s EchoValueDistribution), while a finishing table sums them in `SUBSTAT_TYPES` order (as
+  // C#'s finishing table). Both orders come from the C# source and stay (spec §3 bit-exact parity), so Echo Scores can
+  // differ by about 1e-15, well within the 1e-9 tolerance results are compared at.
+  const TOLERANCE = 1e-12;
+  const expectNear = (actual: number | undefined, expected: number | undefined) =>
+    expect(Math.abs(actual! - expected!)).toBeLessThanOrEqual(TOLERANCE);
+
   it('is the finishing table of a fresh Echo', () => {
     const fresh = echoScoreDistribution(table).freshEchoFinishing;
     const built = finishingEchoScoresFor([], 0, table);
     for (const score of [0, 1, 2.5, 5, 7.5, 10]) {
-      expect(fresh.chanceAtOrAbove(score)).toBeCloseTo(built.chanceAtOrAbove(score), 12);
-      expect(fresh.chanceWithErAtOrAbove(score)).toBeCloseTo(
-        built.chanceWithErAtOrAbove(score),
-        12,
-      );
+      expectNear(fresh.chanceAtOrAbove(score), built.chanceAtOrAbove(score));
+      expectNear(fresh.chanceWithErAtOrAbove(score), built.chanceWithErAtOrAbove(score));
     }
-    expect(fresh.scores[0]).toBeCloseTo(built.scores[0]!, 12);
-    expect(fresh.scores.at(-1)).toBeCloseTo(built.scores.at(-1)!, 12);
+    expectNear(fresh.scores[0], built.scores[0]);
+    expectNear(fresh.scores.at(-1), built.scores.at(-1));
   });
 });
 

@@ -1,7 +1,7 @@
 // The Echo Evaluation entry (spec §12): what the tab holds, and how a stored copy is salvaged.
 import type { SubstatEntry } from '../calculation/protocol';
 import { isRecord } from '../catalogue/catalogue';
-import { MAX_TUNE_STAGE, possibleRolls, SUBSTAT_TYPES, type SubstatType } from '../core/gameData';
+import { isSubstatType, MAX_TUNE_STAGE, possibleRolls } from '../core/gameData';
 import type { EntryDefinition } from '../storage/storedEntry';
 import { parseNonNegativeNumber } from '../ui/nonNegativeNumber';
 import type { TargetTexts } from './WeightTableList';
@@ -30,11 +30,10 @@ function salvageSubstats(stored: unknown): SubstatEntry[] {
   for (const slot of asArray(stored)) {
     if (!isRecord(slot)) continue;
     const { type, value } = slot;
-    if (!SUBSTAT_TYPES.includes(type as SubstatType)) continue;
-    const known = type as SubstatType;
-    if (!possibleRolls(known).some((roll) => roll.value === value)) continue;
-    if (substats.some((substat) => substat.type === known)) continue;
-    substats.push({ type: known, value: value as number });
+    if (!isSubstatType(type)) continue;
+    if (!possibleRolls(type).some((roll) => roll.value === value)) continue;
+    if (substats.some((substat) => substat.type === type)) continue;
+    substats.push({ type, value: value as number });
   }
   return substats.slice(0, MAX_TUNE_STAGE);
 }

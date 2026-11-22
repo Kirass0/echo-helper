@@ -22,6 +22,11 @@ export const SUBSTAT_TYPES = [
 
 export type SubstatType = (typeof SUBSTAT_TYPES)[number];
 
+const SUBSTAT_TYPE_SET: ReadonlySet<unknown> = new Set(SUBSTAT_TYPES);
+
+/** A Substat type's name, as in SUBSTAT_TYPES: for reading untrusted data. */
+export const isSubstatType = (value: unknown): value is SubstatType => SUBSTAT_TYPE_SET.has(value);
+
 export const MAX_TUNE_STAGE = 5;
 
 const TIER_WEIGHTS: readonly number[] = [680, 777, 2039, 2428, 1748, 1457, 582, 291];

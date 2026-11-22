@@ -224,6 +224,27 @@ describe('the weights dialog', () => {
   });
 });
 
+describe('the dialog’s title', () => {
+  it('reads "Edit X" with no Custom tag on Edit, "New Custom Weight Table" on Duplicate and New', async () => {
+    const user = open();
+    await duplicateCritRate(user, '12');
+    const title = () => inDialog().getByRole('heading');
+    expect(title()).toHaveTextContent(/^Crit Rate only \(copy\)Custom$/);
+
+    await user.click(inDialog().getByRole('button', { name: 'Edit' }));
+    expect(title()).toHaveTextContent(/^Edit Crit Rate only \(copy\)$/);
+    await user.click(inDialog().getByRole('button', { name: 'Cancel' }));
+
+    await user.click(inDialog().getByRole('button', { name: 'Duplicate' }));
+    expect(title()).toHaveTextContent(/^New Custom Weight Table$/);
+    await user.click(inDialog().getByRole('button', { name: 'Cancel' }));
+    await user.keyboard('{Escape}');
+
+    await user.selectOptions(addPicker(), 'New Custom Weight Table…');
+    expect(title()).toHaveTextContent(/^New Custom Weight Table$/);
+  });
+});
+
 describe('the weights view', () => {
   it('lists the 13 Substats in one column, heaviest first, ties in the usual order', async () => {
     const user = open([MIXED]);
@@ -475,6 +496,50 @@ describe('renaming and deleting a Custom table', () => {
     await user.click(inDialog().getByRole('button', { name: 'Save' }));
     await user.keyboard('{Escape}');
     expect(targetBox('Crit Rate only (copy)')).toHaveValue('');
+  });
+
+  it('moves focus after a delete to the sliders of the row taking its place, or the row above', async () => {
+    const user = open();
+    await duplicateCritRate(user, '12');
+    await user.keyboard('{Escape}');
+    await user.selectOptions(addPicker(), 'Atk only');
+    await user.click(button('Weights of Crit Rate only'));
+    await user.click(inDialog().getByRole('button', { name: 'Duplicate' }));
+    await user.click(inDialog().getByRole('button', { name: 'Save' }));
+    await user.keyboard('{Escape}');
+    // Crit Rate only · Crit Rate only (copy) · Atk only · Crit Rate only (copy 2)
+
+    await user.click(button('Weights of Crit Rate only (copy)'));
+    await user.click(inDialog().getByRole('button', { name: 'Delete' }));
+    await user.click(inDialog().getByRole('button', { name: 'Delete' }));
+    expect(button('Weights of Atk only')).toHaveFocus();
+
+    await user.click(button('Weights of Crit Rate only (copy 2)'));
+    await user.click(inDialog().getByRole('button', { name: 'Delete' }));
+    await user.click(inDialog().getByRole('button', { name: 'Delete' }));
+    expect(button('Weights of Atk only')).toHaveFocus();
+  });
+
+  it('moves focus after deleting the only row to the add picker', async () => {
+    const user = open();
+    await duplicateCritRate(user, '12');
+    await user.keyboard('{Escape}');
+    await user.click(button('Remove Crit Rate only'));
+
+    await user.click(button('Weights of Crit Rate only (copy)'));
+    await user.click(inDialog().getByRole('button', { name: 'Delete' }));
+    await user.click(inDialog().getByRole('button', { name: 'Delete' }));
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    expect(addPicker()).toHaveFocus();
+  });
+
+  it('gives focus back to the add picker after deleting a table it made', async () => {
+    const user = open();
+    await user.selectOptions(addPicker(), 'New Custom Weight Table…');
+    await user.click(inDialog().getByRole('button', { name: 'Save' }));
+    await user.click(inDialog().getByRole('button', { name: 'Delete' }));
+    await user.click(inDialog().getByRole('button', { name: 'Delete' }));
+    expect(addPicker()).toHaveFocus();
   });
 
   it('closes on Escape while asking, deleting nothing, and gives focus back to its opener', async () => {

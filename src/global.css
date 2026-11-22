@@ -40,6 +40,8 @@
   --succ: #f0b84a;
   --pa: #8f9cff;
   --pb: #6b7487;
+  /* The dimmed page behind a modal dialog. */
+  --backdrop: rgb(0 0 0 / 55%);
 }
 
 :root[data-theme='light'] {
@@ -69,6 +71,7 @@
   --succ: #d99a22;
   --pa: #3346c8;
   --pb: #9aa3b5;
+  --backdrop: rgb(0 0 0 / 55%);
 }
 
 @media (max-width: 600px) {

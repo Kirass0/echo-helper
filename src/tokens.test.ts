@@ -51,6 +51,10 @@ describe('theme tokens', () => {
     });
   });
 
+  it.each(['light', 'dark'] as const)('declares the dialog backdrop in %s', (theme) => {
+    expect(tokens(theme)['--backdrop']).toBe('rgb(0 0 0 / 55%)');
+  });
+
   it.each(['light', 'dark'] as const)(
     'gives fields a border of at least 3:1 against panels and page in %s',
     (theme) => {
