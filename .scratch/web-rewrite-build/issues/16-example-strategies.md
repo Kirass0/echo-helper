@@ -2,6 +2,8 @@
 
 **Parent:** [Spec: Echo Helper web app](../../web-rewrite/spec.md) (§6 "First visit", §8 "Example strategies")
 
+**Look:** match the "Start from an example" picker in the header of variant D of the [ticket 11 prototype](../../web-rewrite/prototypes/11-visual-direction/index.html) (`?variant=D&strat=single#upgrade-strategy`, `upgradeStrategy()`).
+
 **What to build:** A player who doesn't know where to start loads one of four example strategies from "Start from an example". A first-time visitor finds "Crit first" already in place. Thresholds written as "Top x%" are worked out for the selected Weight Table when the example loads.
 
 **Blocked by:** 15 (Upgrade Strategy: one strategy, rules and results)

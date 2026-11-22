@@ -12,9 +12,9 @@ Assembled on 2026-11-21. Decisions taken with the owner while assembling are mar
 - Prototypes (throwaway; their numbers are approximations, not the Core):
   - [`prototypes/07-echo-evaluation/PROTOTYPE-echo-evaluation.html`](prototypes/07-echo-evaluation/PROTOTYPE-echo-evaluation.html) (variant D): Echo Evaluation behaviour.
   - [`prototypes/08-upgrade-strategy/index.html`](prototypes/08-upgrade-strategy/index.html) (variant D): Upgrade Strategy behaviour and the example strategies' definitions.
-  - [`prototypes/11-visual-direction/index.html`](prototypes/11-visual-direction/index.html) (variant D, "Chosen"): desktop look, palettes and tokens.
-  - [`prototypes/16-phone-layout/index.html`](prototypes/16-phone-layout/index.html), seen through [`frame.html`](prototypes/16-phone-layout/frame.html) (B, plus C for strategy results and About): phone layout.
-  - Where a prototype and this spec disagree, this spec wins.
+  - [`prototypes/11-visual-direction/index.html`](prototypes/11-visual-direction/index.html) (variant D, "Chosen"): **the desktop design.** Its bottom bar and URL (`?variant=D&theme=&echo=&strat=`, `#tab`) switch screen states.
+  - [`prototypes/16-phone-layout/index.html`](prototypes/16-phone-layout/index.html), seen through [`frame.html`](prototypes/16-phone-layout/frame.html) (B, plus C for strategy results and About): **the phone design.**
+  - **The design prototypes (11, 16) are the design for everything this spec doesn't state:** layout, order, sizes, button placement and component colours. Match them, and open the prototype before building or reviewing a screen. Where a prototype and this spec disagree, this spec wins.
 - Weight method: [`docs/substat-weights.md`](../../docs/substat-weights.md).
 - Source project (read-only reference): `%USERPROFILE%\source\repos\EchoHelperClaude`, commit `53ce242` or later.
 
@@ -131,9 +131,13 @@ From [How users add and edit their own Value Tables](issues/05-custom-value-tabl
 **The weights dialog.**
 
 - One dialog, opened by the sliders button wherever a table is picked: each Echo Evaluation row or card, and beside the Upgrade Strategy picker **(assembly)**.
+- A table's weights are one column: each Substat with its weight and a bar scaled to the table's largest weight, heaviest first, ties in the usual Substat order. A Substat weighted 0 is muted and has no bar (ticket 24).
 - A Built-in table shows its weights read-only with "Built-in tables can't be changed. Duplicate it to make your own." and Duplicate.
 - A Custom table offers Edit, Duplicate and Delete.
+- Buttons are right-aligned with the main action on the far right: Delete · Edit · Duplicate · Close (Close filled with the accent); Cancel · Save in a draft; Cancel · Delete (red) when asked to delete. There is no ✕ (ticket 24).
 - Edit opens a draft with Save and Cancel. Calculations only see saved tables. A draft with a rejected field can't be saved, and each problem is shown at its field. Escape with unsaved edits acts as Cancel, with no prompt.
+- A draft is one column: the name, then one row per Substat with its input on the right. Edit and Duplicate keep the order the weights showed when pressed, and it doesn't change while typing; "New Custom Weight Table…" uses the usual Substat order. After Save the weights sort again (ticket 24).
+- A click on the dimmed area outside the dialog does exactly what Escape does (ticket 24).
 - Duplicate and "New Custom Weight Table…" both open a draft of the new table. Cancel creates nothing.
 
 **Where a newly saved table goes (assembly).**
@@ -154,7 +158,7 @@ From [How users add and edit their own Value Tables](issues/05-custom-value-tabl
 **Pickers.**
 
 - Every table picker is one list in two labelled groups: "Custom" first, then "Built-in", each alphabetical. The Custom group is hidden while empty.
-- Outside a picker, a Custom table's name carries a small "Custom" tag.
+- Outside a picker, a Custom table's name carries a small "Custom" tag: the accent pill (`--acc-soft` background, `--acc` text, weight 600, fully rounded; ticket 24).
 
 ## 6. App shell
 
@@ -193,7 +197,7 @@ From [How Echo Evaluation looks and behaves](issues/07-echo-evaluation-ux.md) an
 
 **Layout (desktop, above 820px).**
 
-- Left column: Your Echo.
+- Left column: Your Echo, a fixed 330px on desktop (ticket 24).
 - Right column, top to bottom: results for the table in focus, the distribution chart, and the "Substat Weight Tables" list.
 
 ### Your Echo
@@ -223,7 +227,7 @@ From [How Echo Evaluation looks and behaves](issues/07-echo-evaluation-ux.md) an
 - **At 5/5:**
   - The first row becomes Target Score / ER Target Score, showing "Reached" or "Not reached". "No Energy Regen" still applies to the ER box.
   - Median, Average and Best show the final Echo Score.
-- **No table listed** (first open, or after the last is removed): the results area shows only the first-open prompt from ticket 17 (bold line plus small line).
+- **No table listed** (first open, or after the last is removed): the results area shows only the first-open prompt from ticket 17 (bold line plus small line), centred in a dashed box (ticket 24).
 
 ### Distribution chart ("Echo distribution")
 
@@ -243,7 +247,7 @@ From [How Echo Evaluation looks and behaves](issues/07-echo-evaluation-ux.md) an
 
 - **The only place tables are picked on this tab.** It is an aligned table with one header row.
 - **Columns:**
-  - Weight Table: the row's own picker, plus the Custom tag.
+  - Weight Table: the row's own picker, plus the Custom tag. Its header carries the Substat Weight Table tooltip; the list's "Substat Weight Tables" heading is plain text (ticket 24).
   - Target Score, ER Target Score: inputs.
   - Echo Score, Target Chance, ER Target Chance: at 5/5 the chance columns read Reached / Not reached.
   - Sliders ("Weights of X") and × ("Remove X").
@@ -259,7 +263,7 @@ From [How Echo Evaluation looks and behaves](issues/07-echo-evaluation-ux.md) an
 - **Targets.**
   - Each table keeps its own Target Score and ER Target Score, remembered per table name even while unlisted.
   - A table with nothing remembered starts with empty targets (no pre-fill).
-  - A target box holding something other than a number of 0 or more shows a field error and counts as empty **(assembly)**.
+  - A target box holding something other than a number of 0 or more gets a red border and counts as empty **(assembly)**. The row shows one error line, "Enter a number of 0 or more.", under its two target boxes, once even when both are invalid; it may run across the result columns. Each row keeps that line free, so an error appearing moves nothing (ticket 24).
 - **Add picker** below the list: the same two groups minus tables already listed, then "New Custom Weight Table…". It reads "Choose a Weight Table…" while the list is empty and "Add another Weight Table…" after.
 - **No limit** on the number of listed tables.
 - Removing the focused row moves focus to the next row, or to the row above if it was last.
@@ -664,7 +668,7 @@ From [How far accessibility and keyboard use go](issues/20-accessibility-and-key
 
 **Charts.**
 
-- The distribution chart has `role="img"` and a one-sentence generated label, e.g. "Echo distribution for Cantarella: final Echo Score from 8.2 to 31.5, Target Score 20 at 34% chance."
+- The distribution chart has `role="img"` and a one-sentence generated label, e.g. "Echo distribution for Cantarella: final Echo Score from 8.2 to 31.5, Target Score 20 at 34% chance." The range is the focused table's own, Worst to Best Echo Score, not the shared axis; at 5/5 it is the one final Echo Score, "final Echo Score 18.0" (ticket 26).
 - The "where Echoes end" bar and the paired chart are `aria-hidden`; their numbers are also on screen as text ([§8](#8-upgrade-strategy)).
 - There is no data table.
 

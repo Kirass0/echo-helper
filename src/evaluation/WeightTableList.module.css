@@ -1,0 +1,194 @@
+.list {
+  min-width: 0;
+}
+
+.heading {
+  font-size: 1.15em;
+  line-height: 1.25;
+  margin: 0 0 10px;
+}
+
+/* Fixed column widths, so nothing moves or resizes when focus switches, a table is swapped or a target edited. */
+.table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  margin-bottom: 10px;
+}
+
+.nameColumn {
+  width: auto;
+}
+
+.targetColumn {
+  width: calc(4.4em + 12px);
+}
+
+/* No wider than the headers need: "Echo Score" on one line; "Not reached", the widest chance, plus padding. */
+.scoreColumn {
+  width: 5.4em;
+}
+
+.chanceColumn {
+  width: 6.7em;
+}
+
+.iconColumn {
+  width: 26px;
+}
+
+/* Headers as the prototype's: right-aligned over their figures, each on two even lines, with a line under them. */
+.table th {
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.84em;
+  line-height: 1.25;
+  color: var(--mute);
+  padding: 6px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: bottom;
+}
+
+.table .figureHeader {
+  text-align: right;
+}
+
+.line {
+  display: block;
+}
+
+/* A line under each row, as the prototype's; rows sit about 52px apart, plus the line kept for a target error. */
+.table td {
+  padding: 6px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+.table tbody tr {
+  cursor: pointer;
+}
+
+/* The focus ring goes around the whole row. */
+.table tbody tr:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: -2px;
+}
+
+.focused {
+  background: var(--acc-soft);
+}
+
+/* An inset shadow rather than a border, so the focused row is exactly as wide as the others. */
+.focused td:first-child {
+  box-shadow: inset 3px 0 0 var(--acc);
+}
+
+/*
+ * A row's picker is as wide as the table it shows, never past the cell. A select is as wide as its longest option in
+ * browsers without `field-sizing: content`, so a hidden copy of the name, with the picker's padding, border and room
+ * for its arrow, takes the room, and the picker lies over it.
+ */
+.pickerFit {
+  --picker-arrow: 20px;
+  position: relative;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.pickerSizer {
+  display: block;
+  overflow: hidden;
+  visibility: hidden;
+  white-space: pre;
+  line-height: normal;
+  padding: 3px calc(6px + var(--picker-arrow)) 3px 6px;
+  border: 1px solid transparent;
+}
+
+.picker {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  padding: 3px 6px;
+  text-overflow: ellipsis;
+}
+
+/* The figures' text level with the text in the target boxes. */
+.figure {
+  padding-top: 9px !important;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.good {
+  color: var(--good);
+}
+
+.bad {
+  color: var(--bad);
+}
+
+.icon {
+  padding: 8px 0 0 !important;
+  text-align: center;
+}
+
+/* The sliders and × side by side, as close as the prototype's. */
+.iconButton {
+  min-width: 26px;
+  min-height: 26px;
+}
+
+.hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Each row keeps one line free under its target boxes for the row's error, so an error appearing moves nothing. */
+.table .targetCell {
+  position: relative;
+  /* The error's line, 1.2 × 0.8em, and 2px under it. */
+  padding-bottom: calc(2px + 0.96em);
+}
+
+.number {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 3px 7px;
+  text-align: right;
+}
+
+.number[aria-invalid='true'] {
+  border-color: var(--bad);
+}
+
+/* The row's one error line, under the Target Score box and running on across the next columns. */
+.error {
+  position: absolute;
+  left: 6px;
+  bottom: 2px;
+  font-size: 0.8em;
+  line-height: 1.2;
+  white-space: nowrap;
+  color: var(--bad);
+}
+
+.add {
+  padding: 4px 8px;
+  max-width: 100%;
+}
+
+/* The picker takes the room left beside a Custom table's tag. */
+.nameCell {
+  display: flex;
+  align-items: center;
+}

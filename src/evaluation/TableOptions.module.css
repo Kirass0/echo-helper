@@ -1,0 +1,15 @@
+/* The ticket 11 prototype's accent pill. */
+.tag {
+  display: inline-block;
+  flex: none;
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 99px;
+  background: var(--acc-soft);
+  font-size: 0.72em;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--acc);
+  vertical-align: middle;
+  white-space: nowrap;
+}

@@ -1,0 +1,150 @@
+.yourEcho {
+  min-width: 0;
+}
+
+.heading {
+  font-size: 1.15em;
+  line-height: 1.25;
+  margin: 0 0 10px;
+}
+
+.stage {
+  color: var(--mute);
+  font-size: 0.82em;
+  font-weight: 400;
+}
+
+.slots {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.slot {
+  min-height: 46px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+  display: flex;
+  align-items: stretch;
+}
+
+.slot.open {
+  border-style: dashed;
+  color: var(--mute);
+}
+
+.slot.next {
+  border-color: var(--acc);
+  color: var(--acc);
+}
+
+.slot.picking {
+  display: block;
+  border-color: var(--acc);
+  padding: 10px;
+}
+
+.level {
+  color: var(--mute);
+  font-size: 0.86em;
+  width: 2.6em;
+  flex: none;
+}
+
+.filled,
+.later {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px 4px 10px;
+  min-width: 0;
+}
+
+.name {
+  flex: 1;
+  line-height: 1.25;
+  min-width: 0;
+}
+
+.value {
+  font-weight: 700;
+}
+
+.icons {
+  display: flex;
+  flex: none;
+}
+
+.add {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  padding: 4px 6px 4px 10px;
+  border: 0;
+  border-radius: var(--radius-s);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.add:hover {
+  background: var(--acc-soft);
+}
+
+.typeGrid,
+.valueGrid {
+  display: grid;
+  gap: 5px;
+}
+
+.typeGrid {
+  grid-template-columns: 1fr 1fr;
+}
+
+.valueGrid {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.choice {
+  text-align: left;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: var(--radius-s);
+  padding: 5px 8px;
+  cursor: pointer;
+  font-size: 0.9em;
+  line-height: 1.25;
+}
+
+.choice:hover {
+  border-color: var(--acc);
+}
+
+.choice[aria-current='true'] {
+  border-color: var(--acc);
+  background: var(--acc-soft);
+}
+
+.pickerActions {
+  display: flex;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.link {
+  border: 0;
+  background: transparent;
+  color: var(--acc);
+  padding: 2px 0;
+  min-height: 24px;
+  cursor: pointer;
+}
+
+.link:hover {
+  text-decoration: underline;
+}

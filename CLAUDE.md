@@ -11,3 +11,7 @@ The five default triage labels plus `done` for completed tasks, recorded as a `S
 ### Domain docs
 
 Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+### UI review
+
+Changing or reviewing what the app shows (`*.tsx`, `*.module.css`): compare it with its design prototype, if one exists, as `docs/agents/ui-review.md` says.

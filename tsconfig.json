@@ -8,6 +8,7 @@
     "strict": true,
     "noEmit": true,
     "isolatedModules": true,
+    "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
@@ -16,5 +17,5 @@
     "skipLibCheck": true,
     "types": ["node", "vite/client"]
   },
-  "include": ["src", "e2e", "*.config.ts", "eslint.config.js"]
+  "include": ["src", "e2e", "scripts", "*.config.ts", "eslint.config.js"]
 }

@@ -1,0 +1,132 @@
+/* The Echo distribution chart (spec §7, §13): accent area for the table in focus, grey lines for the others. */
+.chart {
+  min-width: 0;
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin-bottom: 6px;
+  min-width: 0;
+}
+
+.heading {
+  flex: none;
+  font-size: 1em;
+  margin: 0;
+}
+
+/* One line whatever the names, so switching focus moves nothing. */
+.legend {
+  display: flex;
+  gap: 14px;
+  min-width: 0;
+  margin: 0 0 0 auto;
+  padding: 0;
+  list-style: none;
+  font-size: 0.84em;
+  color: var(--mute);
+  white-space: nowrap;
+}
+
+.legend li {
+  flex: none;
+}
+
+.legend .focusedEntry {
+  flex: 0 1 auto;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.key {
+  display: inline-block;
+  flex: none;
+  width: 18px;
+  height: 0;
+  margin-right: 5px;
+  vertical-align: middle;
+  border-top: 3px solid;
+}
+
+.focusKey {
+  border-color: var(--acc);
+}
+
+.otherKey {
+  border-color: var(--other);
+}
+
+.targetKey {
+  border-top: 2px dashed var(--ink);
+}
+
+.erTargetKey {
+  border-top: 2px dotted var(--er);
+}
+
+.svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.tick,
+.axisTitle {
+  fill: var(--mute);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.axisTitle {
+  font-size: 12px;
+}
+
+.grid {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.baseline {
+  stroke: var(--mute);
+  stroke-width: 1;
+}
+
+.other {
+  fill: none;
+  stroke: var(--other);
+  stroke-width: 1.5;
+}
+
+.fill {
+  fill: var(--acc);
+  opacity: 0.18;
+}
+
+.focus {
+  fill: none;
+  stroke: var(--acc);
+  stroke-width: 2.2;
+  stroke-linejoin: round;
+}
+
+.target {
+  stroke: var(--ink);
+  stroke-width: 1.5;
+  stroke-dasharray: 6 4;
+}
+
+.erTarget {
+  stroke: var(--er);
+  stroke-width: 2;
+  stroke-dasharray: 1.5 4;
+  stroke-linecap: round;
+}

@@ -6,12 +6,12 @@
 
 **Blocked by:** 08 (Score an Echo against one built-in table)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A term with a tooltip has a dotted underline on the term itself (no ⓘ) and is a `<button>` styled as text, linked by `aria-describedby`
-- [ ] It opens on hover, keyboard focus or tap, stays open while the pointer is over it, and closes on a tap elsewhere or Escape (which doesn't move focus)
-- [ ] Width at most 290px, or `calc(100vw - 20px)` on narrower screens; it sits below the term, or above if there's no room
-- [ ] Plain text with no links, worded verbatim from ticket 17's Answer
-- [ ] Echo Evaluation terms: Substat Weight Table, Echo Score, Target Score, ER Target Score, Target Chance, ER Target Chance, Top Percent, ER Top Percent
-- [ ] Icon buttons (sliders, pencil, ×, sun/moon) show their tooltip on hover and on focus
-- [ ] Component tests for open/close on focus, hover, tap and Escape
+- [x] A term with a tooltip has a dotted underline on the term itself (no ⓘ) and is a `<button>` styled as text, linked by `aria-describedby`
+- [x] It opens on hover, keyboard focus or tap, stays open while the pointer is over it, and closes on a tap elsewhere or Escape (which doesn't move focus)
+- [x] Width at most 290px, or `calc(100vw - 20px)` on narrower screens; it sits below the term, or above if there's no room
+- [x] Plain text with no links, worded verbatim from ticket 17's Answer
+- [x] Echo Evaluation terms: Substat Weight Table, Echo Score, Target Score, ER Target Score, Target Chance, ER Target Chance, Top Percent, ER Top Percent
+- [x] Icon buttons (sliders, pencil, ×, sun/moon) show their tooltip on hover and on focus
+- [x] Component tests for open/close on focus, hover, tap and Escape

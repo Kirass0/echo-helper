@@ -2,6 +2,8 @@
 
 **Parent:** [Spec: Echo Helper web app](../../web-rewrite/spec.md) (§8 "Header", "No Weight Table", "One strategy", §10, §15 "Rules")
 
+**Look:** match variant D of the [ticket 11 prototype](../../web-rewrite/prototypes/11-visual-direction/index.html) (`?variant=D&strat=single#upgrade-strategy` and `&strat=unfinished`): `upgradeStrategy()`, `stagesEditor()`, `ruleRow()` and `resultsPanel()`, both themes. Behaviour: variant D of the [ticket 08 prototype](../../web-rewrite/prototypes/08-upgrade-strategy/index.html).
+
 **What to build:** A player picks a Substat Weight Table on the Upgrade Strategy tab, writes rules for each Tune Stage, and sees live the Discard Rate at each stage and the results panel: Success Rate, where Echoes end, average cost per Successful Echo and the Successful Echoes' Echo Scores. The pass runs in the worker.
 
 **Blocked by:** 04 (Core plain port: Upgrade Strategy pass), 09 (Term and icon tooltips), 13 (Custom Weight Tables)
