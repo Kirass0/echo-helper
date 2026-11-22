@@ -55,6 +55,18 @@ async function listTables(user: User, ...names: string[]) {
 }
 
 describe('Substat Weight Tables list', () => {
+  it('carries the Substat Weight Table tooltip on the Weight Table header, not the heading', async () => {
+    const user = open();
+    const heading = screen.getByRole('heading', { name: 'Substat Weight Tables' });
+    expect(within(heading).queryByRole('button')).not.toBeInTheDocument();
+
+    await listTables(user, 'Crit Rate only');
+    const header = within(listTable()).getAllByRole('columnheader')[0] as HTMLElement;
+    expect(
+      within(header).getByRole('button', { name: 'Weight Table' }),
+    ).toHaveAccessibleDescription('Determines how much each Substat is worth.');
+  });
+
   it('is one aligned table with a header row', async () => {
     const user = open();
     await listTables(user, 'Crit Rate only');
@@ -193,6 +205,36 @@ describe('Substat Weight Tables list', () => {
     const cells = within(row(0)).getAllByRole('cell');
     expect(await within(cells[4] as HTMLElement).findByText('Reached')).toBeInTheDocument();
     expect(await within(cells[5] as HTMLElement).findByText('Not reached')).toBeInTheDocument();
+  });
+});
+
+describe('a row’s target error', () => {
+  const errorLines = (index: number) =>
+    within(row(index)).queryAllByText('Enter a number of 0 or more.');
+
+  it('shows one line under the two target boxes, even when both are invalid', async () => {
+    const user = open();
+    await listTables(user, 'Crit Rate only', 'Atk only');
+    expect(errorLines(0)).toHaveLength(0);
+
+    await user.type(erTargetBox('Crit Rate only'), 'x');
+    expect(errorLines(0)).toHaveLength(1);
+    expect(erTargetBox('Crit Rate only')).toBeInvalid();
+    expect(erTargetBox('Crit Rate only')).toHaveAccessibleDescription(
+      'Enter a number of 0 or more.',
+    );
+    expect(targetBox('Crit Rate only')).toBeValid();
+    expect(targetBox('Crit Rate only')).not.toHaveAccessibleDescription();
+
+    await user.type(targetBox('Crit Rate only'), '-1');
+    expect(errorLines(0)).toHaveLength(1);
+    expect(targetBox('Crit Rate only')).toBeInvalid();
+    expect(targetBox('Crit Rate only')).toHaveAccessibleDescription('Enter a number of 0 or more.');
+    expect(errorLines(1)).toHaveLength(0);
+
+    await user.clear(targetBox('Crit Rate only'));
+    await user.clear(erTargetBox('Crit Rate only'));
+    expect(errorLines(0)).toHaveLength(0);
   });
 });
 

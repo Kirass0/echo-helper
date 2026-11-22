@@ -289,9 +289,8 @@ describe('Term tooltips', () => {
 
   it('explains the Substat Weight Table, the targets and every result in the words of ticket 17', async () => {
     const user = open();
-    describedTerm('Substat Weight Tables', 'Determines how much each Substat is worth.');
-
     await chooseTable(user, 'Crit Rate only');
+    describedTerm('Weight Table', 'Determines how much each Substat is worth.');
     describedTerm('Target Score', 'The Echo Score you aim for in a fully tuned Echo.');
     describedTerm(
       'ER Target Score',

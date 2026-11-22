@@ -21,11 +21,16 @@
 }
 
 .targetColumn {
-  width: 7.2em;
+  width: calc(4.4em + 12px);
 }
 
-.figureColumn {
-  width: 6.4em;
+/* No wider than the headers need: "Echo Score" on one line; "Not reached", the widest chance, plus padding. */
+.scoreColumn {
+  width: 5.4em;
+}
+
+.chanceColumn {
+  width: 6.7em;
 }
 
 .iconColumn {
@@ -111,14 +116,18 @@
   white-space: nowrap;
 }
 
-.target {
-  display: flex;
-  flex-direction: column;
+/* Each row keeps one line free under its target boxes for the row's error, so an error appearing moves nothing. */
+.table .targetCell {
+  position: relative;
+  /* The 8px cell padding plus the error's line: 1.3 × 0.8em. */
+  padding-bottom: calc(8px + 1.04em);
 }
 
 .number {
+  display: block;
   width: 100%;
   min-width: 0;
+  box-sizing: border-box;
   padding: 3px 7px;
   text-align: right;
 }
@@ -127,11 +136,14 @@
   border-color: var(--bad);
 }
 
-/* Two lines reserved, so an error appearing moves nothing in the narrow column. */
+/* The row's one error line, under the Target Score box and running on across the next columns. */
 .error {
-  min-height: 2.6em;
+  position: absolute;
+  left: 6px;
+  bottom: 4px;
   font-size: 0.8em;
   line-height: 1.3;
+  white-space: nowrap;
   color: var(--bad);
 }
 

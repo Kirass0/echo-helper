@@ -13,11 +13,54 @@ const TABLES: readonly WeightTableData[] = [
 
 type User = ReturnType<typeof userEvent.setup>;
 
-function open() {
+function open(tables: readonly WeightTableData[] = TABLES) {
   const user = userEvent.setup();
-  render(<EchoEvaluationTab calculator={inProcessCalculator()} builtInTables={TABLES} />);
+  render(<EchoEvaluationTab calculator={inProcessCalculator()} builtInTables={tables} />);
   return user;
 }
+
+// Ties (ATK% and Liberation at 2) and zeros (Crit Rate, Flat HP) to sort.
+const MIXED: WeightTableData = {
+  name: 'Mixed',
+  weights: { Critical_Rate: 0, Liberation: 2, Atk_Percent: 2, Energy_Regen: 4, Hp_Flat: 0 },
+};
+/** MIXED's Substats heaviest first, ties in the usual order. */
+const MIXED_ORDER = [
+  'Energy Regen',
+  'ATK%',
+  'Resonance Liberation DMG Bonus',
+  'Crit Rate',
+  'Crit Damage',
+  'Flat ATK',
+  'HP%',
+  'Flat HP',
+  'DEF%',
+  'Flat DEF',
+  'Basic Attack DMG Bonus',
+  'Heavy Attack DMG Bonus',
+  'Resonance Skill DMG Bonus',
+];
+const ALL_ZEROS: WeightTableData = { name: 'All zeros', weights: {} };
+
+/** The weights view's Substats, top to bottom. */
+const viewedSubstats = () =>
+  inDialog()
+    .getAllByRole('term')
+    .map((term) => term.textContent);
+/** The weights view's row of a Substat. */
+const viewRow = (substat: string) =>
+  inDialog()
+    .getAllByRole('term')
+    .find((term) => term.textContent === substat)?.parentElement as HTMLElement;
+/** The width of a row's bar, or null when it has none. */
+const barWidth = (substat: string) =>
+  viewRow(substat).querySelector<HTMLElement>('[data-bar] > *')?.style.width ?? null;
+/** The weight fields' labels, top to bottom. */
+const editorSubstats = () =>
+  inDialog()
+    .getAllByRole<HTMLInputElement>('textbox')
+    .slice(1)
+    .map((field) => field.labels?.[0]?.textContent);
 
 const button = (name: string | RegExp) => screen.getByRole('button', { name });
 const dialog = () => screen.getByRole('dialog');
@@ -31,6 +74,13 @@ const echoScoreCell = (index: number) => within(row(index)).getAllByRole('cell')
 const focusedRowIndex = () => rows().findIndex((r) => r.getAttribute('aria-current') === 'true');
 const resultsHeading = () =>
   within(screen.getByRole('region', { name: 'Results' })).getByRole('heading');
+/** The dialog's buttons in order, by their accessible names. */
+const dialogButtons = () =>
+  inDialog()
+    .getAllByRole('button')
+    .map((b) => b.getAttribute('aria-label') ?? b.textContent);
+/** A click on the dimmed area outside the dialog: it lands on the <dialog> element itself. */
+const clickOutside = (user: User) => user.click(dialog());
 const nameField = () => inDialog().getByRole('textbox', { name: 'Name' });
 const weightField = (substat: string) => inDialog().getByRole('textbox', { name: substat });
 const targetBox = (name: string) =>
@@ -74,11 +124,7 @@ describe('the weights dialog', () => {
     expect(weights).toHaveLength(13);
     expect(weights[0]).toHaveTextContent('6');
     expect(weights[1]).toHaveTextContent('0');
-    expect(
-      inDialog()
-        .getAllByRole('button')
-        .map((b) => b.textContent || b.getAttribute('aria-label')),
-    ).toEqual(['Duplicate', 'Close']);
+    expect(dialogButtons()).toEqual(['Duplicate', 'Close']);
   });
 
   it('closes on Escape and gives focus back to its opener', async () => {
@@ -173,12 +219,155 @@ describe('the weights dialog', () => {
   it('offers Edit, Duplicate and Delete on a Custom table', async () => {
     const user = open();
     await duplicateCritRate(user, '12');
-    expect(
-      inDialog()
-        .getAllByRole('button')
-        .map((b) => b.textContent || b.getAttribute('aria-label')),
-    ).toEqual(['Edit', 'Duplicate', 'Delete', 'Close']);
+    expect(dialogButtons()).toEqual(['Delete', 'Edit', 'Duplicate', 'Close']);
     expect(inDialog().queryByText(/Built-in tables can't be changed/)).not.toBeInTheDocument();
+  });
+});
+
+describe('the weights view', () => {
+  it('lists the 13 Substats in one column, heaviest first, ties in the usual order', async () => {
+    const user = open([MIXED]);
+    await user.selectOptions(addPicker(), 'Mixed');
+    await user.click(button('Weights of Mixed'));
+    expect(viewedSubstats()).toEqual(MIXED_ORDER);
+  });
+
+  it('scales each bar to the heaviest weight, and mutes a zero with no bar', async () => {
+    const user = open([MIXED]);
+    await user.selectOptions(addPicker(), 'Mixed');
+    await user.click(button('Weights of Mixed'));
+    expect(barWidth('Energy Regen')).toBe('100%');
+    expect(barWidth('ATK%')).toBe('50%');
+    expect(barWidth('Crit Rate')).toBeNull();
+    expect(viewRow('Crit Rate')).toHaveAttribute('data-zero');
+    expect(viewRow('ATK%')).not.toHaveAttribute('data-zero');
+  });
+
+  it('shows no bars for a table that is all zeros', async () => {
+    const user = open([ALL_ZEROS]);
+    await user.selectOptions(addPicker(), 'All zeros');
+    await user.click(button('Weights of All zeros'));
+    expect(dialog().querySelectorAll('[data-bar]')).toHaveLength(0);
+    expect(inDialog().getAllByRole('term')).toHaveLength(13);
+  });
+});
+
+describe('the editor’s order', () => {
+  it('keeps the view’s order on Duplicate and Edit, also while typing, and sorts again after Save', async () => {
+    const user = open([MIXED]);
+    await user.selectOptions(addPicker(), 'Mixed');
+    await user.click(button('Weights of Mixed'));
+    await user.click(inDialog().getByRole('button', { name: 'Duplicate' }));
+    expect(editorSubstats()).toEqual(MIXED_ORDER);
+
+    await user.clear(weightField('Energy Regen'));
+    await user.type(weightField('Crit Damage'), '9');
+    expect(editorSubstats()).toEqual(MIXED_ORDER);
+    await user.click(inDialog().getByRole('button', { name: 'Save' }));
+    const saved = [
+      'Crit Damage',
+      'ATK%',
+      'Resonance Liberation DMG Bonus',
+      'Crit Rate',
+      'Flat ATK',
+      'HP%',
+      'Flat HP',
+      'DEF%',
+      'Flat DEF',
+      'Energy Regen',
+      'Basic Attack DMG Bonus',
+      'Heavy Attack DMG Bonus',
+      'Resonance Skill DMG Bonus',
+    ];
+    expect(viewedSubstats()).toEqual(saved);
+
+    // Edit opens in the order now shown.
+    await user.click(inDialog().getByRole('button', { name: 'Edit' }));
+    expect(editorSubstats()).toEqual(saved);
+  });
+
+  it('offers a new blank table in the usual Substat order', async () => {
+    const user = open([MIXED]);
+    await user.selectOptions(addPicker(), 'New Custom Weight Table…');
+    expect(editorSubstats()).toEqual([
+      'Crit Rate',
+      'Crit Damage',
+      'ATK%',
+      'Flat ATK',
+      'HP%',
+      'Flat HP',
+      'DEF%',
+      'Flat DEF',
+      'Energy Regen',
+      'Basic Attack DMG Bonus',
+      'Heavy Attack DMG Bonus',
+      'Resonance Skill DMG Bonus',
+      'Resonance Liberation DMG Bonus',
+    ]);
+  });
+});
+
+describe('closing the dialog', () => {
+  it('has no ✕ on any screen, and puts the main action on the far right', async () => {
+    const user = open();
+    await duplicateCritRate(user, '12');
+    expect(dialogButtons()).toEqual(['Delete', 'Edit', 'Duplicate', 'Close']);
+    expect(inDialog().getByRole('button', { name: 'Close' })).toHaveTextContent('Close');
+
+    await user.click(inDialog().getByRole('button', { name: 'Edit' }));
+    expect(dialogButtons()).toEqual(['Cancel', 'Save']);
+    await user.click(inDialog().getByRole('button', { name: 'Cancel' }));
+
+    await user.click(inDialog().getByRole('button', { name: 'Delete' }));
+    expect(dialogButtons()).toEqual(['Cancel', 'Delete']);
+  });
+
+  it('closes on a click outside while viewing, giving focus back to its opener', async () => {
+    const user = open();
+    await user.selectOptions(addPicker(), 'Crit Rate only');
+    await user.click(button('Weights of Crit Rate only'));
+    // A click inside leaves it open.
+    await user.click(inDialog().getByRole('heading'));
+    expect(dialog()).toBeInTheDocument();
+
+    await clickOutside(user);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(button('Weights of Crit Rate only')).toHaveFocus();
+  });
+
+  it('closes on a click outside while asking to delete, deleting nothing', async () => {
+    const user = open();
+    await duplicateCritRate(user, '12');
+    await user.keyboard('{Escape}');
+    await user.click(button('Weights of Crit Rate only (copy)'));
+    await user.click(inDialog().getByRole('button', { name: 'Delete' }));
+
+    await clickOutside(user);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(button('Weights of Crit Rate only (copy)')).toHaveFocus();
+    expect(rows()).toHaveLength(2);
+  });
+
+  it('treats a click outside with unsaved edits as Cancel, with no prompt', async () => {
+    const user = open();
+    await duplicateCritRate(user, '12');
+    await user.click(inDialog().getByRole('button', { name: 'Edit' }));
+    await user.type(weightField('Crit Rate'), '5');
+
+    await clickOutside(user);
+    expect(inDialog().queryAllByRole('textbox')).toHaveLength(0);
+    expect(inDialog().getAllByRole('definition')[0]).toHaveTextContent('12');
+  });
+
+  it('closes on a click outside a draft with no edits, as Escape does', async () => {
+    const user = open();
+    await user.selectOptions(addPicker(), 'Crit Rate only');
+    await user.click(button('Weights of Crit Rate only'));
+    await user.click(inDialog().getByRole('button', { name: 'Duplicate' }));
+
+    await clickOutside(user);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(rows()).toHaveLength(1);
   });
 });
 

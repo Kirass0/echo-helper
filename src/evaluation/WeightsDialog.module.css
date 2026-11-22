@@ -1,16 +1,16 @@
-/* A centred modal dialog on desktop (spec §13): the panel surface, no shadow. */
+/*
+ * A centred modal dialog on desktop (spec §13): the panel surface, no shadow. The <dialog> is only a frame; its content
+ * carries the border, surface and scrolling, so a click lands on the <dialog> itself only on the dimmed area outside.
+ */
 .dialog {
   position: fixed;
   inset: 0;
   margin: auto;
-  width: min(560px, calc(100vw - 24px));
-  max-height: calc(100vh - 24px);
-  overflow: auto;
-  box-sizing: border-box;
-  padding: var(--pad);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--panel);
+  width: min(460px, calc(100vw - 24px));
+  overflow: visible;
+  padding: 0;
+  border: 0;
+  background: none;
   color: var(--ink);
 }
 
@@ -18,17 +18,20 @@
   background: rgb(0 0 0 / 55%);
 }
 
-.close {
-  position: absolute;
-  top: 12px;
-  right: 12px;
+.content {
+  max-height: calc(100vh - 24px);
+  overflow: auto;
+  padding: var(--pad);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
 }
 
 .title {
   display: flex;
   align-items: center;
   min-width: 0;
-  margin: 0 40px 12px 0;
+  margin: 0 0 12px;
   font-size: 1.15em;
   line-height: 1.25;
 }
@@ -44,28 +47,54 @@
   color: var(--mute);
 }
 
+/* One column, as the ticket 11 prototype's `.wt`: name, weight, then a bar scaled to the heaviest weight. */
 .weights {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px 24px;
-  margin: 0 0 16px;
+  gap: 6px;
+  margin: 12px 0 16px;
+  font-size: 0.92em;
 }
 
 .weightRow {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 3px 0;
-  border-bottom: 1px solid var(--line);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
 }
 
 .weightRow dt {
-  color: var(--mute);
+  min-width: 0;
 }
 
 .weightValue {
+  display: grid;
+  grid-template-columns: 3.2em 90px;
+  align-items: center;
+  gap: 10px;
   margin: 0;
+}
+
+.weightNumber {
+  text-align: right;
   font-variant-numeric: tabular-nums;
+}
+
+.bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: var(--panel2);
+}
+
+.barFill {
+  display: block;
+  height: 100%;
+  background: var(--acc);
+}
+
+/* A Substat weighted 0: muted, with no bar. */
+.zero {
+  color: var(--mute);
 }
 
 .form {
@@ -74,8 +103,6 @@
 
 .weightFields {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0 24px;
 }
 
 .field {
@@ -127,9 +154,11 @@
   text-align: left;
 }
 
+/* Right-aligned, the main action on the far right. */
 .actions {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 8px;
   margin-top: 8px;
 }
@@ -160,4 +189,12 @@
 .danger:hover {
   border-color: var(--bad);
   color: var(--bad);
+}
+
+/* Delete once asked: red, filled like the main action. */
+.dangerPrimary,
+.dangerPrimary:hover {
+  border-color: var(--bad);
+  background: var(--bad);
+  color: var(--panel);
 }

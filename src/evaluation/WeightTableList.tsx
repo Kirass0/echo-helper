@@ -88,7 +88,7 @@ export function WeightTableList({
   return (
     <section className={styles.list} aria-labelledby="weight-tables-heading">
       <h2 id="weight-tables-heading" className={styles.heading}>
-        <Term tooltip={TERM_TOOLTIPS['Substat Weight Table']}>Substat Weight Tables</Term>
+        Substat Weight Tables
       </h2>
       {rows.length > 0 && (
         <table ref={tableRef} className={styles.table}>
@@ -96,15 +96,17 @@ export function WeightTableList({
             <col className={styles.nameColumn} />
             <col className={styles.targetColumn} />
             <col className={styles.targetColumn} />
-            <col className={styles.figureColumn} />
-            <col className={styles.figureColumn} />
-            <col className={styles.figureColumn} />
+            <col className={styles.scoreColumn} />
+            <col className={styles.chanceColumn} />
+            <col className={styles.chanceColumn} />
             <col className={styles.iconColumn} />
             <col className={styles.iconColumn} />
           </colgroup>
           <thead>
             <tr>
-              <th scope="col">Weight Table</th>
+              <th scope="col">
+                <Term tooltip={TERM_TOOLTIPS['Substat Weight Table']}>Weight Table</Term>
+              </th>
               <th scope="col">
                 <Term tooltip={TERM_TOOLTIPS['Target Score']}>Target Score</Term>
               </th>
@@ -197,6 +199,9 @@ function Row({
   onOpenWeights(): void;
 }) {
   const { name, result } = row;
+  const errorId = useId();
+  const targetInvalid = parseNonNegativeNumber(row.targetText).invalid;
+  const erTargetInvalid = parseNonNegativeNumber(row.erTargetText).invalid;
 
   function handleClick(event: MouseEvent) {
     if (!isControl(event.target)) onFocus();
@@ -232,17 +237,25 @@ function Row({
           {isCustom && <CustomTag />}
         </div>
       </td>
-      <td>
+      <td className={styles.targetCell}>
         <TargetInput
           label={`Target Score for ${name}`}
           text={row.targetText}
+          invalid={targetInvalid}
+          errorId={errorId}
           onChange={(targetText) => onTargetsChange({ targetText, erTargetText: row.erTargetText })}
         />
+        {/* One error line for both boxes, in a line every row keeps free; it may run across the next columns. */}
+        <span id={errorId} className={styles.error}>
+          {targetInvalid || erTargetInvalid ? INVALID_NUMBER_MESSAGE : ''}
+        </span>
       </td>
-      <td>
+      <td className={styles.targetCell}>
         <TargetInput
           label={`ER Target Score for ${name}`}
           text={row.erTargetText}
+          invalid={erTargetInvalid}
+          errorId={errorId}
           onChange={(erTargetText) => onTargetsChange({ targetText: row.targetText, erTargetText })}
         />
       </td>
@@ -297,33 +310,31 @@ function Chance({
   return value === null ? NONE : formatChance(value);
 }
 
+/** A target box; when invalid it is described by the row's one error line, `errorId`. */
 function TargetInput({
   label,
   text,
+  invalid,
+  errorId,
   onChange,
 }: {
   label: string;
   text: string;
+  invalid: boolean;
+  errorId: string;
   onChange(text: string): void;
 }) {
-  const errorId = useId();
-  const { invalid } = parseNonNegativeNumber(text);
   return (
-    <div className={styles.target}>
-      <input
-        type="text"
-        inputMode="decimal"
-        autoComplete="off"
-        className={styles.number}
-        aria-label={label}
-        aria-invalid={invalid || undefined}
-        aria-describedby={invalid ? errorId : undefined}
-        value={text}
-        onChange={(event) => onChange(event.target.value)}
-      />
-      <span id={errorId} className={styles.error}>
-        {invalid ? INVALID_NUMBER_MESSAGE : ''}
-      </span>
-    </div>
+    <input
+      type="text"
+      inputMode="decimal"
+      autoComplete="off"
+      className={styles.number}
+      aria-label={label}
+      aria-invalid={invalid || undefined}
+      aria-describedby={invalid ? errorId : undefined}
+      value={text}
+      onChange={(event) => onChange(event.target.value)}
+    />
   );
 }

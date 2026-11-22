@@ -3,7 +3,8 @@ import { expect, test } from '@playwright/test';
 test.describe('Tooltips', () => {
   test('a term opens its tooltip below itself, within 290px and the viewport', async ({ page }) => {
     await page.goto('#evaluation');
-    const term = page.getByRole('button', { name: 'Substat Weight Tables' });
+    await page.getByRole('combobox', { name: 'Add a Weight Table' }).selectOption('Mornye');
+    const term = page.getByRole('button', { name: 'Weight Table', exact: true });
     await term.focus();
     const tooltip = page.getByRole('tooltip');
     await expect(tooltip).toHaveText('Determines how much each Substat is worth.');

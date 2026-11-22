@@ -13,6 +13,8 @@ test.describe('Custom Weight Tables', () => {
 
     await page.getByRole('button', { name: 'Weights of Mornye' }).click();
     const dialog = page.getByRole('dialog');
+    // Opening puts focus on the first real control.
+    await expect(dialog.getByRole('button', { name: 'Duplicate' })).toBeFocused();
     await expect(
       dialog.getByText("Built-in tables can't be changed. Duplicate it to make your own."),
     ).toBeVisible();
@@ -54,5 +56,76 @@ test.describe('Custom Weight Tables', () => {
     await page.reload();
     await expect(page.getByRole('button', { name: 'Weights of Mornye (copy)' })).toBeVisible();
     await expect(rows.nth(2).getByRole('cell').nth(3)).toHaveText('5.40');
+  });
+});
+
+test.describe('Substat Weight Tables list', () => {
+  test('shows a long Custom table name in full beside its tag at full desktop width', async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name === 'phone', 'Full desktop width only.');
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const name = 'Changli (my rotation)';
+    await page.goto('#evaluation');
+    await page.getByRole('combobox', { name: 'Add a Weight Table' }).selectOption({
+      label: 'New Custom Weight Table…',
+    });
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('textbox', { name: 'Name' }).fill(name);
+    await dialog.getByRole('button', { name: 'Save' }).click();
+    await dialog.getByRole('button', { name: 'Close' }).click();
+    await expect(dialog).toBeHidden();
+
+    const picker = page.getByRole('combobox', { name: `Swap ${name} for another Weight Table` });
+    const cell = page.getByRole('table').getByRole('row').nth(1).getByRole('cell').first();
+    const tag = cell.getByText('Custom', { exact: true });
+    await expect(tag).toBeVisible();
+    // The main column is 1220px wide.
+    expect((await page.locator('main').boundingBox())?.width).toBe(1220);
+
+    // The name's text, plus room for the native arrow, fits inside the picker.
+    const room = await picker.evaluate((select: HTMLSelectElement, text) => {
+      const style = getComputedStyle(select);
+      const context = document.createElement('canvas').getContext('2d');
+      if (!context) throw new Error('No canvas');
+      context.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+      const inner =
+        select.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+      return inner - context.measureText(text).width;
+    }, name);
+    expect(room).toBeGreaterThanOrEqual(24);
+
+    // The tag sits whole inside the cell.
+    const tagBox = await tag.boundingBox();
+    const cellBox = await cell.boundingBox();
+    if (!tagBox || !cellBox) throw new Error('Nothing to measure');
+    expect(tagBox.x + tagBox.width).toBeLessThanOrEqual(cellBox.x + cellBox.width);
+  });
+});
+
+test.describe('the weights dialog', () => {
+  test('closes on Escape or a click on the dimmed area, but not on its own edge', async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name === 'phone', 'The phone layout comes with ticket 21.');
+    await page.goto('#evaluation');
+    await page.getByRole('combobox', { name: 'Add a Weight Table' }).selectOption('Mornye');
+    await page.getByRole('button', { name: 'Weights of Mornye' }).click();
+    const dialog = page.getByRole('dialog');
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Weights of Mornye' })).toBeFocused();
+
+    await page.getByRole('button', { name: 'Weights of Mornye' }).click();
+    const box = await dialog.boundingBox();
+    if (!box) throw new Error('Nothing to measure');
+
+    // The dialog's border, at its very edge, is inside it.
+    await page.mouse.click(box.x + 1, box.y + box.height / 2);
+    await expect(dialog).toBeVisible();
+
+    await page.mouse.click(Math.max(2, box.x - 6), box.y + box.height / 2);
+    await expect(dialog).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Weights of Mornye' })).toBeFocused();
   });
 });

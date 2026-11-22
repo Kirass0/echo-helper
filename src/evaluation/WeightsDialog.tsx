@@ -1,8 +1,6 @@
 import { type ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { findTable, MAX_TABLE_NAME_LENGTH, type WeightTableData } from '../catalogue/catalogue';
 import type { SubstatType } from '../core/gameData';
-import { IconButton } from '../ui/IconButton';
-import { CrossIcon } from '../ui/icons';
 import {
   blankDraft,
   checkDraft,
@@ -39,6 +37,8 @@ type Screen =
       readonly editing: string | null;
       /** The table Cancel goes back to, or null to close. */
       readonly back: string | null;
+      /** The weights' order, fixed as the draft opens so rows don't move while typing. */
+      readonly order: readonly SubstatType[];
     }
   | { readonly kind: 'confirmDelete'; readonly name: string };
 
@@ -47,8 +47,8 @@ const sameDraft = (a: TableDraft, b: TableDraft) =>
 
 /**
  * The one weights dialog (spec §5): a table's weights read-only, and the draft editor for Custom tables. A native modal
- * `<dialog>`; Escape closes it and gives focus back to its opener (also while asking to delete, deleting nothing), or
- * acts as Cancel while a draft has unsaved edits.
+ * `<dialog>`; Escape, or a click outside it, closes it and gives focus back to its opener (also while asking to delete,
+ * deleting nothing), or acts as Cancel while a draft has unsaved edits.
  */
 export function WeightsDialog({
   start,
@@ -63,24 +63,43 @@ export function WeightsDialog({
   const [screen, setScreen] = useState<Screen>(() => {
     if (start.kind === 'view') return start;
     const draft = blankDraft(allNames);
-    return { kind: 'draft', draft, opened: draft, editing: null, back: null };
+    return {
+      kind: 'draft',
+      draft,
+      opened: draft,
+      editing: null,
+      back: null,
+      order: SUBSTAT_DISPLAY_ORDER,
+    };
   });
 
   // Focus goes back to the opener on closing, so note it before anything in the dialog takes focus.
   const [opener] = useState(() => document.activeElement);
   const dialogRef = useRef<HTMLDialogElement>(null);
   useLayoutEffect(() => {
-    dialogRef.current?.showModal();
+    const dialog = dialogRef.current;
+    dialog?.showModal();
     return () => {
+      // Closed first: while the modal is open, the page behind it is inert and can't take focus.
+      dialog?.close();
       if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
     };
   }, [opener]);
 
   const headingId = useId();
+  const pressedOutside = useRef(false);
   const isCustom = (name: string) => customTables.some((table) => table.name === name);
 
-  function openDraft(draft: TableDraft, editing: string | null, back: string | null) {
-    setScreen({ kind: 'draft', draft, opened: draft, editing, back });
+  /** Opens a draft from the `viewed` table, which Cancel goes back to, its weights in the order the view showed them. */
+  function openDraft(draft: TableDraft, editing: string | null, viewed: WeightTableData) {
+    setScreen({
+      kind: 'draft',
+      draft,
+      opened: draft,
+      editing,
+      back: viewed.name,
+      order: heaviestFirst(viewed.weights),
+    });
   }
 
   function cancelDraft(back: string | null) {
@@ -102,6 +121,7 @@ export function WeightsDialog({
     body = (
       <DraftEditor
         draft={screen.draft}
+        order={screen.order}
         nameError={checked.nameError}
         weightErrors={checked.weightErrors}
         canSave={checked.table !== null}
@@ -128,17 +148,17 @@ export function WeightsDialog({
           <div className={styles.actions}>
             <button
               type="button"
-              className={`${styles.button} ${styles.danger}`}
-              onClick={() => onDelete(table.name)}
-            >
-              Delete
-            </button>
-            <button
-              type="button"
               className={styles.button}
               onClick={() => setScreen({ kind: 'view', name: table.name })}
             >
               Cancel
+            </button>
+            <button
+              type="button"
+              className={`${styles.button} ${styles.dangerPrimary}`}
+              onClick={() => onDelete(table.name)}
+            >
+              Delete
             </button>
           </div>
         </>
@@ -149,40 +169,40 @@ export function WeightsDialog({
               Built-in tables can&apos;t be changed. Duplicate it to make your own.
             </p>
           )}
-          <dl className={styles.weights}>
-            {SUBSTAT_DISPLAY_ORDER.map((type) => (
-              <div key={type} className={styles.weightRow}>
-                <dt>{SUBSTAT_NAMES[type]}</dt>
-                <dd className={styles.weightValue}>{table.weights[type] ?? 0}</dd>
-              </div>
-            ))}
-          </dl>
+          <WeightsView weights={table.weights} />
           <div className={styles.actions}>
             {custom && (
-              <button
-                type="button"
-                className={styles.button}
-                onClick={() => openDraft(editDraft(table), table.name, table.name)}
-              >
-                Edit
-              </button>
+              <>
+                <button
+                  type="button"
+                  className={`${styles.button} ${styles.danger}`}
+                  onClick={() => setScreen({ kind: 'confirmDelete', name: table.name })}
+                >
+                  Delete
+                </button>
+                <button
+                  type="button"
+                  className={styles.button}
+                  onClick={() => openDraft(editDraft(table), table.name, table)}
+                >
+                  Edit
+                </button>
+              </>
             )}
             <button
               type="button"
               className={styles.button}
-              onClick={() => openDraft(copyDraft(table, allNames), null, table.name)}
+              onClick={() => openDraft(copyDraft(table, allNames), null, table)}
             >
               Duplicate
             </button>
-            {custom && (
-              <button
-                type="button"
-                className={`${styles.button} ${styles.danger}`}
-                onClick={() => setScreen({ kind: 'confirmDelete', name: table.name })}
-              >
-                Delete
-              </button>
-            )}
+            <button
+              type="button"
+              className={`${styles.button} ${styles.primary}`}
+              onClick={onClose}
+            >
+              Close
+            </button>
           </div>
         </>
       );
@@ -190,6 +210,8 @@ export function WeightsDialog({
 
   const tagged = screen.kind !== 'draft' ? isCustom(screen.name) : screen.editing !== null;
   return (
+    // The content is the whole <dialog>, so a click lands on the <dialog> itself only on the dimmed area outside. Both
+    // press and release must be outside, so a drag that starts in a field and ends outside closes nothing.
     <dialog
       ref={dialogRef}
       className={styles.dialog}
@@ -198,20 +220,69 @@ export function WeightsDialog({
         event.preventDefault();
         escape();
       }}
+      onPointerDown={(event) => {
+        pressedOutside.current = event.target === event.currentTarget;
+      }}
+      onClick={(event) => {
+        if (pressedOutside.current && event.target === event.currentTarget) escape();
+        pressedOutside.current = false;
+      }}
     >
-      <h2 id={headingId} className={styles.title}>
-        <span className={styles.titleText}>{title}</span>
-        {tagged && <CustomTag />}
-      </h2>
-      {body}
-      {/* Last in the tab order, so opening the dialog focuses its first real control; it sits top right. */}
-      <IconButton className={styles.close} label="Close" icon={<CrossIcon />} onClick={onClose} />
+      <div className={styles.content}>
+        <h2 id={headingId} className={styles.title}>
+          <span className={styles.titleText}>{title}</span>
+          {tagged && <CustomTag />}
+        </h2>
+        {body}
+      </div>
     </dialog>
+  );
+}
+
+const weightOf = (weights: WeightTableData['weights'], type: SubstatType) => weights[type] ?? 0;
+
+/** Substat types heaviest first, ties in the usual order. */
+function heaviestFirst(weights: WeightTableData['weights']): readonly SubstatType[] {
+  return [...SUBSTAT_DISPLAY_ORDER].sort((a, b) => weightOf(weights, b) - weightOf(weights, a));
+}
+
+/** A table's weights read-only: one column, heaviest first, each with a bar scaled to the heaviest; zeros muted, barless. */
+function WeightsView({ weights }: { weights: WeightTableData['weights'] }) {
+  const heaviest = Math.max(...SUBSTAT_DISPLAY_ORDER.map((type) => weightOf(weights, type)));
+  return (
+    <dl className={styles.weights}>
+      {heaviestFirst(weights).map((type) => {
+        const weight = weightOf(weights, type);
+        return (
+          <div
+            key={type}
+            className={weight ? styles.weightRow : `${styles.weightRow} ${styles.zero}`}
+            data-zero={weight ? undefined : ''}
+          >
+            <dt>{SUBSTAT_NAMES[type]}</dt>
+            <dd className={styles.weightValue}>
+              <span className={styles.weightNumber}>{weight}</span>
+              {weight > 0 ? (
+                <span className={styles.bar} aria-hidden="true" data-bar="">
+                  <span
+                    className={styles.barFill}
+                    style={{ width: `${(weight / heaviest) * 100}%` }}
+                  />
+                </span>
+              ) : (
+                <span />
+              )}
+            </dd>
+          </div>
+        );
+      })}
+    </dl>
   );
 }
 
 function DraftEditor({
   draft,
+  order,
   nameError,
   weightErrors,
   canSave,
@@ -220,6 +291,7 @@ function DraftEditor({
   onCancel,
 }: {
   draft: TableDraft;
+  order: readonly SubstatType[];
   nameError: string | null;
   weightErrors: Readonly<Partial<Record<SubstatType, string>>>;
   canSave: boolean;
@@ -260,7 +332,7 @@ function DraftEditor({
         )}
       </Field>
       <div className={styles.weightFields}>
-        {SUBSTAT_DISPLAY_ORDER.map((type) => (
+        {order.map((type) => (
           <Field key={type} label={SUBSTAT_NAMES[type]} error={weightErrors[type] ?? null}>
             {(props) => (
               <input
@@ -279,11 +351,11 @@ function DraftEditor({
         ))}
       </div>
       <div className={styles.actions}>
-        <button type="submit" className={`${styles.button} ${styles.primary}`} disabled={!canSave}>
-          Save
-        </button>
         <button type="button" className={styles.button} onClick={onCancel}>
           Cancel
+        </button>
+        <button type="submit" className={`${styles.button} ${styles.primary}`} disabled={!canSave}>
+          Save
         </button>
       </div>
     </form>
