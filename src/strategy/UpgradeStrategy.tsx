@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { Calculator } from '../calculation/newestInputWins';
 import type { StrategyName } from '../calculation/protocol';
 import { BUILT_IN_TABLES, findTable, type WeightTableData } from '../catalogue/catalogue';
@@ -11,12 +11,14 @@ import { CalculatingSlot, CalculationStatus } from '../ui/CalculationStatus';
 import { FittedSelect } from '../ui/FittedSelect';
 import { IconButton } from '../ui/IconButton';
 import { SlidersIcon } from '../ui/icons';
+import { scrollToTop } from '../ui/reducedMotion';
 import surfaces from '../ui/surfaces.module.css';
 import { Term } from '../ui/Term';
+import { usePhoneLayout } from '../ui/usePhoneLayout';
 import compare from './Compare.module.css';
 import { CompareBlock } from './CompareBlock';
 import { ExamplePicker } from './ExamplePicker';
-import { ResultsPanel } from './ResultsPanel';
+import { ResultsBar, ResultsPanel } from './ResultsPanel';
 import { stageName, StageEditor } from './StageEditor';
 import { emptyStrategy, finishedStrategy, type StrategyDraft } from './strategyDraft';
 import { StrategySummary } from './StrategySummary';
@@ -78,6 +80,8 @@ export function UpgradeStrategy({
   );
   const table = tableName === null ? undefined : findTable(allTables, tableName);
   const [dialog, setDialog] = useState<WeightsDialogStart | null>(null);
+  const phone = usePhoneLayout();
+  const resultsRef = useRef<HTMLElement>(null);
   // The strategies open as remembered; with nothing remembered, A is "Crit first" (spec §6).
   const a = useStrategy(calculator, 'A', table, true, () => remembered.a);
   // Strategy B exists only while comparing; it is calculated after A (spec §11).
@@ -85,6 +89,8 @@ export function UpgradeStrategy({
   const b = useStrategy(calculator, 'B', table, comparing, () => remembered.b ?? emptyStrategy());
   // Which strategies show in Edit while comparing; the others show their Done summary.
   const [editing, setEditing] = useState(() => openingModes(remembered));
+  // On a phone, the one strategy shown while comparing (spec §14).
+  const [shown, setShown] = useState<StrategyName>('B');
 
   // Every change to either strategy, or to compare mode, is remembered. What another tab saves remounts the tab.
   const heldA = a.draft;
@@ -98,6 +104,7 @@ export function UpgradeStrategy({
   function startComparing() {
     b.reset(emptyStrategy());
     setEditing({ A: a.unfinishedStage !== null, B: true });
+    setShown('B');
     setComparing(true);
   }
 
@@ -106,6 +113,17 @@ export function UpgradeStrategy({
     setComparing(false);
     b.reset(emptyStrategy());
   }
+
+  /** The phone's "Results" link: the full results panel comes into view and takes focus. */
+  function showResults() {
+    const panel = resultsRef.current;
+    if (!panel) return;
+    scrollToTop(panel);
+    panel.focus({ preventScroll: true });
+  }
+
+  // On a phone, one strategy's results follow it in a sticky bar; there is none while comparing (spec §14).
+  const barShown = phone && !!table && !comparing && a.result !== null;
 
   const edits = { customTables, onCustomTablesChange, tableEvents };
 
@@ -121,7 +139,7 @@ export function UpgradeStrategy({
   }
 
   return (
-    <div className={styles.layout}>
+    <div className={`${styles.layout} ${barShown ? styles.withBar : ''}`}>
       <div className={styles.head}>
         <span className={styles.field}>
           <Term tooltip={TERM_TOOLTIPS['Substat Weight Table']}>Substat Weight Table</Term>
@@ -171,8 +189,22 @@ export function UpgradeStrategy({
         </div>
       ) : comparing ? (
         <>
+          {phone && (
+            <div className={compare.switch} role="group" aria-label="Strategy shown">
+              {(['A', 'B'] as const).map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  aria-pressed={shown === name}
+                  onClick={() => setShown(name)}
+                >
+                  Strategy {name}
+                </button>
+              ))}
+            </div>
+          )}
           <div className={compare.columns}>
-            {(['A', 'B'] as const).map((name) => (
+            {(phone ? [shown] : (['A', 'B'] as const)).map((name) => (
               <StrategyPanel
                 key={name}
                 name={name}
@@ -182,7 +214,7 @@ export function UpgradeStrategy({
               />
             ))}
           </div>
-          <CompareBlock a={a.result} b={b.result} stale={faded(a) || faded(b)} />
+          <CompareBlock a={a.result} b={b.result} stale={faded(a) || faded(b)} stacked={phone} />
         </>
       ) : (
         <div className={styles.columns}>
@@ -196,12 +228,21 @@ export function UpgradeStrategy({
             />
           </div>
           <ResultsPanel
+            ref={resultsRef}
             result={a.result}
             stale={faded(a)}
             unfinishedStage={a.unfinishedStage}
             state={a.state}
           />
         </div>
+      )}
+      {barShown && a.result && (
+        <ResultsBar
+          result={a.result}
+          stale={faded(a)}
+          state={a.state}
+          onShowResults={showResults}
+        />
       )}
       {dialog && (
         <WeightsDialog

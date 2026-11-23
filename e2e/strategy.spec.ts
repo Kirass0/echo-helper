@@ -1,8 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('Upgrade Strategy', () => {
-  test('builds a one-rule strategy and sees its Success Rate', async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name === 'phone', 'The phone layout comes with ticket 22.');
+  test('builds a one-rule strategy and sees its Success Rate', async ({ page, isMobile }) => {
     await page.goto('#strategy');
     await expect(
       page.getByText('Pick a Substat Weight Table above to build an Upgrade Strategy.'),
@@ -18,7 +17,11 @@ test.describe('Upgrade Strategy', () => {
     await firstStage.getByRole('button', { name: '+ add a rule' }).click();
     await expect(firstStage.getByRole('combobox', { name: 'Kind of rule' })).toBeFocused();
     await firstStage.getByRole('button', { name: 'pick Substats' }).click();
-    await page.getByRole('group', { name: 'Substats' }).getByLabel('Crit Rate').check();
+    // A popover on desktop, a bottom sheet on a phone.
+    await page
+      .getByRole(isMobile ? 'dialog' : 'group', { name: 'Substats' })
+      .getByLabel('Crit Rate')
+      .check();
     await page.keyboard.press('Escape');
 
     // The first Substat is Crit Rate 1 time in 13, whatever the table.
@@ -28,8 +31,7 @@ test.describe('Upgrade Strategy', () => {
     await expect(results.getByRole('row', { name: /^Echoes started/ })).toContainText('13.00');
   });
 
-  test('compares an example in Strategy B with Strategy A', async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name === 'phone', 'The phone layout comes with ticket 22.');
+  test('compares an example in Strategy B with Strategy A', async ({ page, isMobile }) => {
     await page.goto('#strategy');
     await page.getByRole('combobox', { name: 'Substat Weight Table' }).selectOption('Mornye');
     await page.getByRole('button', { name: 'Compare with another strategy' }).click();
@@ -38,16 +40,17 @@ test.describe('Upgrade Strategy', () => {
       .getByRole('combobox', { name: 'Start from an example' })
       .selectOption('Double crit, or one great crit roll');
 
-    // "Crit first" against "Double crit…": every row of the table has a pill with a relative change.
+    // "Crit first" against "Double crit…": every row has a pill with a relative change. On a phone the rows are stacked.
     const comparison = page.getByRole('region', { name: 'B compared with A' });
     await expect(
-      comparison.getByRole('row', { name: /^Echoes started per Successful Echo/ }),
+      comparison
+        .getByRole(isMobile ? 'listitem' : 'row')
+        .filter({ hasText: /^Echoes started per Successful Echo/ }),
     ).toContainText(/[+−]\d+\.\d% (better|worse)$/);
     await expect(comparison.getByText(/^[+−]\d+\.\d%$/)).toHaveCount(6);
   });
 
-  test('loads an example with its Top x% thresholds worked out', async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name === 'phone', 'The phone layout comes with ticket 22.');
+  test('loads an example with its Top x% thresholds worked out', async ({ page }) => {
     await page.goto('#strategy');
     await page.getByRole('combobox', { name: 'Substat Weight Table' }).selectOption('Mornye');
     await page

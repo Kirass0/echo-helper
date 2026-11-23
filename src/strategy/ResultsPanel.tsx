@@ -1,3 +1,4 @@
+import type { Ref } from 'react';
 import type { UpgradeStrategyResult } from '../calculation/protocol';
 import {
   formatEchoesStarted,
@@ -21,6 +22,8 @@ export interface ResultsPanelProps {
   unfinishedStage: number | null;
   /** Whether the results have been calculating for a while, or couldn't be calculated (spec §11). */
   state?: CalculationState;
+  /** The panel, for the phone's "Results" link to move focus to. */
+  ref?: Ref<HTMLElement>;
 }
 
 /** The results panel beside the stages (spec §8): Success Rate, where Echoes end, cost and Echo Scores. */
@@ -29,9 +32,15 @@ export function ResultsPanel({
   stale,
   unfinishedStage,
   state = 'done',
+  ref,
 }: ResultsPanelProps) {
   return (
-    <section className={`${surfaces.panel} ${styles.panel}`} aria-label="Results">
+    <section
+      ref={ref}
+      className={`${surfaces.panel} ${styles.panel}`}
+      aria-label="Results"
+      tabIndex={-1}
+    >
       {/*
        * Laid over the panel's top right, beside the Success Rate, so it appearing moves nothing; before the first
        * results, in the empty panel itself.
@@ -52,7 +61,7 @@ export function ResultsPanel({
           <p className={styles.label}>
             <Term tooltip={STRATEGY_TOOLTIPS['Success Rate']}>Success Rate</Term>
           </p>
-          <WhereEchoesEnd result={result} />
+          <WhereEchoesEnd result={result} withLegend />
           <SuccessfulEchoes result={result} />
         </div>
       )}
@@ -106,12 +115,50 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
+export interface ResultsBarProps {
+  result: UpgradeStrategyResult;
+  /** Whether the results are from before the last change, and so fade. */
+  stale: boolean;
+  state: CalculationState;
+  /** Called by the "Results" link, to bring the full results panel into view. */
+  onShowResults(): void;
+}
+
+/**
+ * The phone's sticky bar at the bottom of the screen (spec §14): the Success Rate, the "where Echoes end" bar and a
+ * "Results" link to the full panel below the stages. It fades with "Calculating…" like the panel.
+ */
+export function ResultsBar({ result, stale, state, onShowResults }: ResultsBarProps) {
+  return (
+    <aside className={styles.resultsBar} aria-label="Results summary">
+      <div className={`${styles.barFigures} ${fadedWhen(stale) ?? ''}`}>
+        <p className={styles.barRate}>
+          <b>{formatRate(result.successRate)}</b> <span className={styles.mute}>Success Rate</span>
+        </p>
+        <WhereEchoesEnd result={result} withLegend={false} />
+      </div>
+      {state === 'calculating' && (
+        <CalculationStatus state="calculating" className={styles.barCalculating} />
+      )}
+      <button type="button" className={styles.toResults} onClick={onShowResults}>
+        Results
+      </button>
+    </aside>
+  );
+}
+
 /**
  * The "where Echoes end" bar: a segment per Tune Stage that discards, in its stage colour, then gold for Successful,
- * with 2px gaps and a legend entry per segment. It has no label and is hidden from screen readers: its numbers are on
- * screen as text.
+ * with 2px gaps and, with `withLegend`, a legend entry per segment. It has no label and is hidden from screen readers: its
+ * numbers are on screen as text.
  */
-function WhereEchoesEnd({ result }: { result: UpgradeStrategyResult }) {
+function WhereEchoesEnd({
+  result,
+  withLegend,
+}: {
+  result: UpgradeStrategyResult;
+  withLegend: boolean;
+}) {
   const segments = [
     ...result.discards
       .filter(({ discardRate }) => discardRate > 0)
@@ -135,20 +182,22 @@ function WhereEchoesEnd({ result }: { result: UpgradeStrategyResult }) {
       : []),
   ];
   return (
-    <div aria-hidden="true">
+    <div aria-hidden="true" className={styles.whereEchoesEnd}>
       <div className={styles.bar}>
         {segments.map(({ key, share, colour, title }) => (
           <span key={key} title={title} style={{ flexGrow: share, background: colour }} />
         ))}
       </div>
-      <div className={styles.legend}>
-        {segments.map(({ key, colour, legend }) => (
-          <span key={key}>
-            <i style={{ background: colour }} />
-            {legend}
-          </span>
-        ))}
-      </div>
+      {withLegend && (
+        <div className={styles.legend}>
+          {segments.map(({ key, colour, legend }) => (
+            <span key={key}>
+              <i style={{ background: colour }} />
+              {legend}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
