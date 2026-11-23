@@ -5,9 +5,11 @@ import { BUILT_IN_TABLES, findTable, type WeightTableData } from '../catalogue/c
 import { deleteCustomTable, saveCustomTable } from '../customTables/customTableEdits';
 import type { TableEvents } from '../customTables/tableEvents';
 import { NEW_TABLE, TableOptions } from '../evaluation/TableOptions';
+import { formatRate } from '../evaluation/format';
 import { TERM_TOOLTIPS } from '../evaluation/termTooltips';
 import { WeightsDialog, type WeightsDialogStart } from '../evaluation/WeightsDialog';
-import { CalculatingSlot, CalculationStatus } from '../ui/CalculationStatus';
+import { CALCULATION_FAILED, CalculatingSlot, CalculationStatus } from '../ui/CalculationStatus';
+import { LiveRegion, type Announcement } from '../ui/LiveRegion';
 import { FittedSelect } from '../ui/FittedSelect';
 import { IconButton } from '../ui/IconButton';
 import { SlidersIcon } from '../ui/icons';
@@ -18,8 +20,8 @@ import { usePhoneLayout } from '../ui/usePhoneLayout';
 import compare from './Compare.module.css';
 import { CompareBlock } from './CompareBlock';
 import { ExamplePicker } from './ExamplePicker';
-import { ResultsBar, ResultsPanel } from './ResultsPanel';
-import { stageName, StageEditor } from './StageEditor';
+import { ResultsBar, ResultsPanel, unfinishedMessage } from './ResultsPanel';
+import { StageEditor } from './StageEditor';
 import { emptyStrategy, finishedStrategy, type StrategyDraft } from './strategyDraft';
 import { StrategySummary } from './StrategySummary';
 import styles from './UpgradeStrategy.module.css';
@@ -138,8 +140,12 @@ export function UpgradeStrategy({
     setDialog(null);
   }
 
+  const shownStrategies = comparing ? { A: a, B: b } : { A: a };
+  const announcement = table ? announce(shownStrategies) : null;
+
   return (
     <div className={`${styles.layout} ${barShown ? styles.withBar : ''}`}>
+      <LiveRegion announcement={announcement} />
       <div className={styles.head}>
         <span className={styles.field}>
           <Term tooltip={TERM_TOOLTIPS['Substat Weight Table']}>Substat Weight Table</Term>
@@ -258,6 +264,29 @@ export function UpgradeStrategy({
   );
 }
 
+/**
+ * What the live region says (spec §15): a strategy's failure or unfinished-rule message, named while comparing, as soon
+ * as it shows; else, once every strategy's results settle, the Success Rate, or A's and B's while comparing. The phone's
+ * sticky bar repeats the Success Rate unspoken.
+ */
+function announce(strategies: Partial<Record<StrategyName, HeldStrategy>>): Announcement | null {
+  const held = Object.entries(strategies) as [StrategyName, HeldStrategy][];
+  const named = (name: StrategyName, text: string) =>
+    held.length > 1 ? `Strategy ${name}: ${text}` : text;
+  for (const [name, { state, unfinishedStage }] of held) {
+    if (state === 'failed') return { message: named(name, CALCULATION_FAILED) };
+    if (unfinishedStage !== null)
+      return { message: named(name, unfinishedMessage(unfinishedStage)) };
+  }
+  if (!held.every(([, { settled }]) => settled)) return null;
+  const rates = held.map(([name, { result }]) =>
+    held.length > 1
+      ? `${name} ${formatRate(result?.successRate ?? 0)}`
+      : formatRate(result?.successRate ?? 0),
+  );
+  return { line: `Success Rate: ${rates.join(', ')}` };
+}
+
 /** Whether a strategy's results fade: they are from before its last change, calculating, or couldn't be calculated. */
 const faded = ({ waiting, state }: HeldStrategy) => waiting || state !== 'done';
 
@@ -301,10 +330,7 @@ function StrategyPanel({
       </div>
       {strategy.state === 'failed' && <CalculationStatus state="failed" />}
       {unfinished !== null && (
-        <p className={compare.staleMessage}>
-          Results are from before your last change. Finish the highlighted rule at{' '}
-          {stageName(unfinished)} to update them.
-        </p>
+        <p className={compare.staleMessage}>{unfinishedMessage(unfinished)}</p>
       )}
       {editing || unfinished !== null ? (
         <StageEditor

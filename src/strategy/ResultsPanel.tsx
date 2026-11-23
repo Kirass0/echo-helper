@@ -26,6 +26,10 @@ export interface ResultsPanelProps {
   ref?: Ref<HTMLElement>;
 }
 
+/** What the results say while a rule is unfinished, naming the first Tune Stage holding one. */
+export const unfinishedMessage = (stage: number) =>
+  `Results are from before your last change. Finish the highlighted rule at ${stageName(stage)} to update them.`;
+
 /** The results panel beside the stages (spec §8): Success Rate, where Echoes end, cost and Echo Scores. */
 export function ResultsPanel({
   result,
@@ -50,10 +54,7 @@ export function ResultsPanel({
       </span>
       {state === 'failed' && <CalculationStatus state="failed" />}
       {unfinishedStage !== null && (
-        <p className={styles.staleMessage}>
-          Results are from before your last change. Finish the highlighted rule at{' '}
-          {stageName(unfinishedStage)} to update them.
-        </p>
+        <p className={styles.staleMessage}>{unfinishedMessage(unfinishedStage)}</p>
       )}
       {result && (
         <div className={fadedWhen(stale)}>

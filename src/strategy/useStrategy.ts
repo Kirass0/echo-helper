@@ -26,6 +26,8 @@ export interface HeldStrategy {
    * results then stay, faded.
    */
   readonly state: CalculationState;
+  /** Whether the results are those of the strategy as it is now: nothing pending, unfinished or given up. */
+  readonly settled: boolean;
   /** A loaded example's Top x% thresholds still being worked out. */
   readonly calculating: readonly PendingThreshold[];
   /** Replaces the strategy with an example, working out its Top x% thresholds for the table. */
@@ -81,6 +83,12 @@ export function useStrategy(
     unfinishedStage,
     waiting: pending.example !== null || unfinishedStage !== null,
     state,
+    settled:
+      calculated.result !== null &&
+      input !== null &&
+      !calculated.pending &&
+      !pending.calculating &&
+      state === 'done',
     calculating: pending.example?.thresholds ?? [],
     loadExample(example) {
       const loaded = loadExample(example);
