@@ -9,7 +9,7 @@ import type { WeightTableData } from '../catalogue/catalogue';
 import type { CalculationState } from '../ui/CalculationStatus';
 import { useLongPending } from '../ui/useLongPending';
 import { fillThresholds, loadExample, type LoadedExample, type PendingThreshold } from './examples';
-import { finishedStrategy, type StrategyDraft } from './strategyDraft';
+import { emptyStrategy, finishedStrategy, type StrategyDraft } from './strategyDraft';
 
 /** One strategy as held on Upgrade Strategy: Strategy A (the only one unless comparing) or Strategy B. */
 export type HeldStrategy = HeldStrategyBase &
@@ -44,6 +44,8 @@ interface HeldStrategyBase {
   loadExample(name: string): void;
   /** Replaces the strategy with this one and forgets its results and any pending thresholds. */
   reset(draft: StrategyDraft): void;
+  /** Removes every rule at every Tune Stage, and any pending thresholds; the empty strategy is calculated as any edit. */
+  clear(): void;
 }
 
 /**
@@ -84,12 +86,14 @@ export function useStrategy(
         : 'done';
 
   const { result } = calculated;
+  /** A change made by the player, calculated as any edit. */
+  const edit = (next: StrategyDraft) => {
+    pending.forgetFailure();
+    setDraft(next);
+  };
   return {
     draft,
-    setDraft(next) {
-      pending.forgetFailure();
-      setDraft(next);
-    },
+    setDraft: edit,
     unfinishedStage,
     waiting: pending.example !== null || unfinishedStage !== null,
     state,
@@ -110,6 +114,10 @@ export function useStrategy(
       setDraft(next);
       pending.load(null);
       calculated.clear();
+    },
+    clear() {
+      edit(emptyStrategy());
+      pending.load(null);
     },
   };
 }

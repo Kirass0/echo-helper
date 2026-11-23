@@ -7,14 +7,36 @@
   margin-bottom: var(--gap);
 }
 
+/* The heading and its buttons, which wrap together onto a second row, right-aligned, when the row is too narrow. */
 .heading {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   gap: 10px;
   margin: 0 0 12px;
-  font-size: 1.1em;
   line-height: 1.25;
+}
+
+/* The heading's type, on its buttons too, as when they sat in it. Not set on `.heading`: Clear all rules' dialog
+   renders inside `.actions` and keeps the dialog's own type. */
+.title,
+.actions > button {
+  font-size: 1.1em;
+  font-weight: 700;
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
 }
 
 .button {

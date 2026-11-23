@@ -112,17 +112,3 @@
 .wide .error {
   text-align: left;
 }
-
-/* Delete and its confirmation, on `ui/dialog`'s buttons; this file loads after it, so these win. */
-.danger:hover {
-  border-color: var(--bad);
-  color: var(--bad);
-}
-
-/* Delete once asked: red, filled like the main action. */
-.dangerPrimary,
-.dangerPrimary:hover {
-  border-color: var(--bad);
-  background: var(--bad);
-  color: var(--panel);
-}

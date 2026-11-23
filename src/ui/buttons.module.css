@@ -1,0 +1,33 @@
+/* A plain button, as the Upgrade Strategy tab's. */
+.button {
+  padding: 5px 12px;
+  border: 1px solid var(--field-line);
+  border-radius: var(--radius-s);
+  background: var(--panel);
+  cursor: pointer;
+}
+
+.button:hover:not(:disabled) {
+  border-color: var(--acc);
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* A destructive button, as the weight settings' Delete: a plain button whose border and text turn red on hover and
+   keyboard focus. The doubled class outweighs the plain button styles it is used with, whatever order they load in. */
+.danger.danger:hover:not(:disabled),
+.danger.danger:focus-visible {
+  border-color: var(--bad);
+  color: var(--bad);
+}
+
+/* A destructive action once asked: red, filled like the main action. */
+.dangerPrimary.dangerPrimary,
+.dangerPrimary.dangerPrimary:hover {
+  border-color: var(--bad);
+  background: var(--bad);
+  color: var(--panel);
+}

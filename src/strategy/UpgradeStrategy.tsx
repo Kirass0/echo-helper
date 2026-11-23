@@ -18,6 +18,7 @@ import surfaces from '../ui/surfaces.module.css';
 import { Term } from '../ui/Term';
 import { usePhoneLayout } from '../ui/usePhoneLayout';
 import compare from './Compare.module.css';
+import { ClearRules } from './ClearRules';
 import { CompareBlock } from './CompareBlock';
 import { ExamplePicker } from './ExamplePicker';
 import { ResultsBar } from './ResultsBar';
@@ -86,6 +87,7 @@ export function UpgradeStrategy({
   const [dialog, setDialog] = useState<WeightsDialogStart | null>(null);
   const phone = usePhoneLayout();
   const resultsRef = useRef<HTMLElement>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
   // The strategies open as remembered; with nothing remembered, A is "Crit first" (spec §6).
   const a = useStrategy(calculator, 'A', table, true, () => remembered.a);
   // Strategy B exists only while comparing; it is calculated after A (spec §11).
@@ -226,7 +228,14 @@ export function UpgradeStrategy({
         </>
       ) : (
         <div className={styles.columns}>
-          <div className={surfaces.panel}>
+          <div className={surfaces.panel} ref={editorRef}>
+            <div className={styles.clearRow}>
+              <ClearRules
+                draft={a.draft}
+                onClear={a.clear}
+                focusAfter={() => firstAddRule(editorRef.current)}
+              />
+            </div>
             <StageEditor
               draft={a.draft}
               discardRates={discardRates(a)}
@@ -292,6 +301,10 @@ function announce(strategies: Partial<Record<StrategyName, HeldStrategy>>): Anno
 /** Whether a strategy's results fade: they are from before its last change, calculating, or couldn't be calculated. */
 const faded = ({ waiting, state }: HeldStrategy) => waiting || state !== 'done';
 
+/** Tune Stage 1/5's "+ add a rule", once a strategy is cleared. */
+const firstAddRule = (editor: HTMLElement | null) =>
+  editor?.querySelector<HTMLElement>('[data-add-rule]');
+
 const discardRates = ({ result }: HeldStrategy) =>
   result?.discards.map(({ discardRate }) => discardRate) ?? null;
 
@@ -312,21 +325,35 @@ function StrategyPanel({
   onEditingChange(editing: boolean): void;
 }) {
   const headingId = useId();
+  const panelRef = useRef<HTMLElement>(null);
+  const editRef = useRef<HTMLButtonElement>(null);
   const unfinished = strategy.unfinishedStage;
   return (
-    <section className={surfaces.panel} aria-labelledby={headingId}>
-      <h2 className={compare.heading}>
-        <span id={headingId}>Strategy {name}</span>
-        <CalculatingSlot state={strategy.state} />
-        <button
-          type="button"
-          className={`${compare.button} ${editing ? compare.primary : ''}`}
-          disabled={editing && unfinished !== null}
-          onClick={() => onEditingChange(!editing)}
-        >
-          {editing ? 'Done' : 'Edit'}
-        </button>
-      </h2>
+    <section className={surfaces.panel} aria-labelledby={headingId} ref={panelRef}>
+      {/* The buttons sit beside the heading, not in it, as Clear all rules holds its dialog. */}
+      <div className={compare.heading}>
+        <h2 className={compare.title}>
+          <span id={headingId}>Strategy {name}</span>
+          <CalculatingSlot state={strategy.state} />
+        </h2>
+        <span className={compare.actions}>
+          <ClearRules
+            draft={strategy.draft}
+            name={name}
+            onClear={strategy.clear}
+            focusAfter={() => (editing ? firstAddRule(panelRef.current) : editRef.current)}
+          />
+          <button
+            type="button"
+            ref={editRef}
+            className={`${compare.button} ${editing ? compare.primary : ''}`}
+            disabled={editing && unfinished !== null}
+            onClick={() => onEditingChange(!editing)}
+          >
+            {editing ? 'Done' : 'Edit'}
+          </button>
+        </span>
+      </div>
       <div className={compare.examples}>
         <ExamplePicker draft={strategy.draft} onLoad={strategy.loadExample} />
       </div>

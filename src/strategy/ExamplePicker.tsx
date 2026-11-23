@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { FittedSelect } from '../ui/FittedSelect';
 import { EXAMPLE_NAMES } from './examples';
-import type { StrategyDraft } from './strategyDraft';
+import { hasRules, type StrategyDraft } from './strategyDraft';
 import styles from './UpgradeStrategy.module.css';
 
 export interface ExamplePickerProps {
@@ -11,8 +11,6 @@ export interface ExamplePickerProps {
   disabled?: boolean;
   onLoad(name: string): void;
 }
-
-const hasRules = (draft: StrategyDraft) => draft.stages.some((boxes) => boxes.length > 0);
 
 /**
  * "Start from an example" (spec §8, "Example strategies"). Replacing a strategy holding at least one rule first asks

@@ -651,6 +651,64 @@ describe('the example strategies', () => {
   });
 });
 
+const clearMessage = (strategy: string) =>
+  `Clear all rules from ${strategy}? This can't be undone.`;
+const clearButton = () =>
+  screen.getByRole('button', { name: 'Clear all rules from your strategy' });
+
+/** Answers Clear to the question Clear all rules asks about this strategy. */
+async function confirmClear(user: User, strategy: string) {
+  const dialog = screen.getByRole('dialog', { name: clearMessage(strategy) });
+  await user.click(within(dialog).getByRole('button', { name: 'Clear' }));
+}
+
+describe('clearing the strategy', () => {
+  it('is offered only once a table is picked, and is disabled while there are no rules', async () => {
+    const user = open();
+    // "Crit first" has rules, but with no table there is no strategy to clear.
+    expect(screen.queryByRole('button', { name: /^Clear all rules/ })).toBeNull();
+    await user.selectOptions(picker(), 'Crit Rate only');
+    expect(clearButton()).toBeEnabled();
+    expect(clearButton()).toHaveTextContent(/^Clear all rules$/);
+    await replaceWith(user, 'Keep every Echo');
+    expect(clearButton()).toBeDisabled();
+  });
+
+  it('asks first, and Cancel keeps every rule and returns focus', async () => {
+    const user = await openWithTable();
+    await addCountRule(user, 2, ['Crit Rate']);
+    await user.click(clearButton());
+    const dialog = screen.getByRole('dialog', { name: clearMessage('your strategy') });
+    expect(
+      within(dialog)
+        .getAllByRole('button')
+        .map((b) => b.textContent),
+    ).toEqual(['Cancel', 'Clear']);
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(within(stage(2)).getByRole('button', { name: 'Crit Rate' })).toBeInTheDocument();
+    expect(document.activeElement).toBe(clearButton());
+  });
+
+  it('removes the rules at every Tune Stage, keeps the table, and focuses 1/5’s "+ add a rule"', async () => {
+    const user = await openWithTable();
+    await addCountRule(user, 1, ['Crit Rate']);
+    await addCountRule(user, 4, ['Crit Damage']);
+    await within(results()).findByText('1.9%');
+
+    await user.click(clearButton());
+    await confirmClear(user, 'your strategy');
+    for (const n of [1, 2, 3, 4, 5])
+      expect(within(stage(n)).queryByRole('combobox', { name: 'Kind of rule' })).toBeNull();
+    expect(await within(results()).findByText('100.0%')).toBeInTheDocument();
+    expect(picker()).toHaveDisplayValue('Crit Rate only');
+    expect(clearButton()).toBeDisabled();
+    expect(document.activeElement).toBe(
+      within(stage(1)).getByRole('button', { name: '+ add a rule' }),
+    );
+  });
+});
+
 const strategyPanel = (name: 'A' | 'B') => screen.getByRole('region', { name: `Strategy ${name}` });
 const panelStage = (name: 'A' | 'B', n: number) =>
   within(strategyPanel(name)).getByRole('region', { name: `Tune Stage ${n}/5 (+${n * 5})` });
@@ -827,6 +885,70 @@ describe('comparing two strategies', () => {
       within(panelStage(name, 5)).getByRole('textbox', { name: 'Echo Score' });
     await waitFor(() => expect(field('A')).toHaveValue('7.4'));
     await waitFor(() => expect(field('B')).toHaveValue('6.5'));
+  });
+
+  it('clears one strategy without touching the other, naming it in the question', async () => {
+    const user = await openWithTable();
+    await addCountRule(user, 1, ['Crit Rate']);
+    await startComparing(user);
+    const clearB = within(strategyPanel('B')).getByRole('button', {
+      name: 'Clear all rules from Strategy B',
+    });
+    expect(clearB).toBeDisabled();
+    await addCountRuleToB(user, 2, ['Crit Damage']);
+
+    await user.click(clearB);
+    await confirmClear(user, 'Strategy B');
+    expect(within(panelStage('B', 2)).queryByRole('combobox', { name: 'Kind of rule' })).toBeNull();
+    expect(document.activeElement).toBe(
+      within(panelStage('B', 1)).getByRole('button', { name: '+ add a rule' }),
+    );
+    expect(strategyPanel('A')).toHaveTextContent('at least 1 of Crit Rate');
+    // B now keeps every Echo: 1 started per Successful Echo, against A's 13.
+    await waitFor(() =>
+      expect(comparisonRow('Echoes started')).toHaveTextContent(
+        /^Echoes started per Successful Echo13\.001\.00/,
+      ),
+    );
+  });
+
+  it('asks before clearing a compared strategy, and Cancel keeps it and returns focus', async () => {
+    const user = await openWithTable();
+    await addCountRule(user, 1, ['Crit Rate']);
+    await startComparing(user);
+    const clearA = within(strategyPanel('A')).getByRole('button', {
+      name: 'Clear all rules from Strategy A',
+    });
+    await user.click(clearA);
+    const dialog = screen.getByRole('dialog', { name: clearMessage('Strategy A') });
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(strategyPanel('A')).toHaveTextContent('at least 1 of Crit Rate');
+    expect(document.activeElement).toBe(clearA);
+  });
+
+  it('clears a strategy shown as Done and keeps it Done, with focus on its Edit button', async () => {
+    const user = await openWithTable();
+    await addCountRule(user, 1, ['Crit Rate']);
+    await startComparing(user);
+    const clearA = within(strategyPanel('A')).getByRole('button', {
+      name: 'Clear all rules from Strategy A',
+    });
+    expect(clearA).toHaveTextContent(/^Clear all rules$/);
+
+    await user.click(clearA);
+    await confirmClear(user, 'Strategy A');
+    expect(within(strategyPanel('A')).queryByRole('region', { name: /Tune Stage/ })).toBeNull();
+    expect(
+      within(strategyPanel('A'))
+        .getAllByRole('listitem')
+        .every((line) => line.textContent?.includes('every Echo keeps tuning')),
+    ).toBe(true);
+    expect(document.activeElement).toBe(
+      within(strategyPanel('A')).getByRole('button', { name: 'Edit' }),
+    );
+    expect(clearA).toBeDisabled();
+    await waitFor(() => expect(strategyPanel('A')).toHaveTextContent(/Success Rate 100\.0%$/));
   });
 
   it('calculates one job per strategy, A before B', async () => {

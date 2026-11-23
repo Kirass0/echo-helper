@@ -62,6 +62,20 @@ describe('remembering Echo Evaluation', () => {
     expect(screen.getByRole('textbox', { name: 'ER Target Score for Atk only' })).toHaveValue('5');
   });
 
+  it('opens a cleared Echo empty', async () => {
+    const first = open();
+    const { user } = first;
+    await user.click(screen.getByRole('button', { name: 'Add the Substat revealed at +5' }));
+    await user.click(screen.getByRole('button', { name: 'Crit Rate' }));
+    await user.click(screen.getByRole('button', { name: '8.1%' }));
+    await user.click(screen.getByRole('button', { name: 'Clear Your Echo' }));
+    first.unmount();
+
+    open();
+    expect(screen.getByText('Tune Stage 0/5 (+0)')).toBeInTheDocument();
+    expect(slotTexts()[0]).toBe('+5Add the Substat revealed at +5');
+  });
+
   it('remembers the targets of a removed table, and brings them back when it is listed again', async () => {
     const first = open();
     const { user } = first;

@@ -151,6 +151,43 @@ describe('Your Echo', () => {
     expect(screen.getByText('Tune Stage 5/5 (+25)')).toBeInTheDocument();
     expect(document.activeElement).toBe(button('Change the Substat at +25'));
   });
+
+  it('clears every Substat at once, keeping the table and its targets, and focuses the +5 Add button', async () => {
+    const user = open();
+    expect(button('Clear Your Echo')).toBeDisabled();
+    expect(button('Clear Your Echo')).toHaveTextContent(/^Clear$/);
+
+    await addSubstat(user, 'Crit Rate', '8.1%');
+    await addSubstat(user, 'HP%', '8.6%');
+    await chooseTable(user, 'Crit Rate only');
+    const target = screen.getByRole('textbox', { name: 'Target Score for Crit Rate only' });
+    await user.type(target, '6');
+
+    await user.click(button('Clear Your Echo'));
+    expect(screen.getByText('Tune Stage 0/5 (+0)')).toBeInTheDocument();
+    expect(slot(0)).toHaveTextContent(/^\+5Add the Substat revealed at \+5$/);
+    expect(slot(1)).toHaveTextContent('+10not tuned yet');
+    expect(button('Clear Your Echo')).toBeDisabled();
+    expect(document.activeElement).toBe(button('Add the Substat revealed at +5'));
+    expect(screen.getByRole('heading', { name: 'Crit Rate only' })).toBeInTheDocument();
+    expect(target).toHaveValue('6');
+  });
+
+  it('closes an open picker as it clears, and stays disabled with no Substats while picking', async () => {
+    const user = open();
+    await user.click(button('Add the Substat revealed at +5'));
+    expect(button('Clear Your Echo')).toBeDisabled();
+    await user.click(button('Cancel'));
+
+    await addSubstat(user, 'Crit Rate', '8.1%');
+    await user.click(button('Add the Substat revealed at +10'));
+    await user.click(button('HP%'));
+    await user.click(button('Clear Your Echo'));
+    expect(screen.queryByRole('button', { name: '8.6%' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument();
+    expect(screen.getByText('Tune Stage 0/5 (+0)')).toBeInTheDocument();
+    expect(document.activeElement).toBe(button('Add the Substat revealed at +5'));
+  });
 });
 
 describe('Results for the table in focus', () => {
