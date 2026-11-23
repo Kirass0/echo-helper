@@ -145,3 +145,21 @@
   stroke-dasharray: 1.5 4;
   stroke-linecap: round;
 }
+
+/* On a phone the legend takes its own line under the heading, as in the ticket 16 prototype. */
+@media (max-width: 600px) {
+  .head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+  }
+
+  .legend {
+    margin: 0;
+  }
+
+  .status {
+    top: 3.6em;
+    right: 10px;
+  }
+}

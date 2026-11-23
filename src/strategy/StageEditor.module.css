@@ -193,6 +193,26 @@
   cursor: pointer;
 }
 
+/* On a phone, the sheet's Substats: one per line, with 18px boxes (spec §14). */
+.sheetOptions {
+  display: grid;
+  gap: 2px;
+  margin: 0 0 10px;
+}
+
+.sheetOptions .option {
+  gap: 9px;
+  padding: 5px 2px;
+  line-height: 1.25;
+}
+
+.sheetOptions input {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .discardBar span {
     transition: none;

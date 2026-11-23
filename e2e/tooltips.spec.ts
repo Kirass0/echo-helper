@@ -1,10 +1,17 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('Tooltips', () => {
-  test('a term opens its tooltip below itself, within 290px and the viewport', async ({ page }) => {
+  test('a term opens its tooltip below itself, within 290px and the viewport', async ({
+    page,
+    isMobile,
+  }) => {
     await page.goto('#evaluation');
     await page.getByRole('combobox', { name: 'Add a Weight Table' }).selectOption('Mornye');
-    const term = page.getByRole('button', { name: 'Weight Table', exact: true });
+    // On a phone the cards have no header row; the list's heading carries the term.
+    const term = page.getByRole('button', {
+      name: isMobile ? 'Substat Weight Tables' : 'Weight Table',
+      exact: true,
+    });
     await term.focus();
     const tooltip = page.getByRole('tooltip');
     await expect(tooltip).toHaveText('Determines how much each Substat is worth.');

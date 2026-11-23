@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { findTable, BUILT_IN_TABLES } from '../catalogue/catalogue';
 import { ABOUT_SECTION_FOR_TAB } from '../app/tabs';
 import { About } from './About';
-import { PHONE_QUERY } from './usePhoneLayout';
+import { PHONE_QUERY } from '../ui/usePhoneLayout';
 
 const SECTIONS = [
   ['about-what-echo-helper-does', 'What Echo Helper does'],

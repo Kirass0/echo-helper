@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { subscribeToHash } from '../app/useHashTab';
 import { currentSection } from './currentSection';
 import { ABOUT_SECTIONS } from './sections';
-import { usePhoneLayout } from './usePhoneLayout';
+import { usePhoneLayout } from '../ui/usePhoneLayout';
 import styles from './About.module.css';
 
 /** The index of the section the URL hash points to, or null. */

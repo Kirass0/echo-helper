@@ -1,32 +1,4 @@
-/*
- * A centred modal dialog on desktop (spec §13): the panel surface, no shadow. The <dialog> is only a frame; its content
- * carries the border, surface and scrolling, so a click lands on the <dialog> itself only on the dimmed area outside.
- */
-.dialog {
-  position: fixed;
-  inset: 0;
-  margin: auto;
-  width: min(460px, calc(100vw - 24px));
-  overflow: visible;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--ink);
-}
-
-.dialog::backdrop {
-  background: var(--backdrop);
-}
-
-.content {
-  max-height: calc(100vh - 24px);
-  overflow: auto;
-  padding: var(--pad);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--panel);
-}
-
+/* What the weights dialog and the confirmations show inside their frame, `ui/Modal`. */
 .title {
   display: flex;
   align-items: center;
