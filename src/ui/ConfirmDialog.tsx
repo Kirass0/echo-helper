@@ -1,6 +1,5 @@
 import { useId } from 'react';
-// The weights dialog's text and buttons, so both dialogs look alike (spec §13).
-import styles from '../evaluation/WeightsDialog.module.css';
+import styles from './dialog.module.css';
 import { Modal } from './Modal';
 
 export interface ConfirmDialogProps {

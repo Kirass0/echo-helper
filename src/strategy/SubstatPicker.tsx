@@ -10,7 +10,7 @@ import {
 } from 'react';
 import type { SubstatType } from '../core/gameData';
 import { SUBSTAT_DISPLAY_ORDER, SUBSTAT_NAMES } from '../evaluation/substats';
-import dialogStyles from '../evaluation/WeightsDialog.module.css';
+import dialogStyles from '../ui/dialog.module.css';
 import { Modal } from '../ui/Modal';
 import { usePhoneLayout } from '../ui/usePhoneLayout';
 import styles from './StageEditor.module.css';

@@ -20,7 +20,9 @@ import { usePhoneLayout } from '../ui/usePhoneLayout';
 import compare from './Compare.module.css';
 import { CompareBlock } from './CompareBlock';
 import { ExamplePicker } from './ExamplePicker';
-import { ResultsBar, ResultsPanel, unfinishedMessage } from './ResultsPanel';
+import { ResultsBar } from './ResultsBar';
+import { ResultsPanel } from './ResultsPanel';
+import { unfinishedMessage } from './unfinishedMessage';
 import { StageEditor } from './StageEditor';
 import { emptyStrategy, finishedStrategy, type StrategyDraft } from './strategyDraft';
 import { StrategySummary } from './StrategySummary';
@@ -266,8 +268,8 @@ export function UpgradeStrategy({
 
 /**
  * What the live region says (spec §15): a strategy's failure or unfinished-rule message, named while comparing, as soon
- * as it shows; else, once every strategy's results settle, the Success Rate, or A's and B's while comparing. The phone's
- * sticky bar repeats the Success Rate unspoken.
+ * as it shows; else, once every strategy's results settle, the Success Rate, or A's and B's while comparing. The
+ * phone's sticky bar repeats the Success Rate unspoken.
  */
 function announce(strategies: Partial<Record<StrategyName, HeldStrategy>>): Announcement | null {
   const held = Object.entries(strategies) as [StrategyName, HeldStrategy][];
@@ -278,12 +280,12 @@ function announce(strategies: Partial<Record<StrategyName, HeldStrategy>>): Anno
     if (unfinishedStage !== null)
       return { message: named(name, unfinishedMessage(unfinishedStage)) };
   }
-  if (!held.every(([, { settled }]) => settled)) return null;
-  const rates = held.map(([name, { result }]) =>
-    held.length > 1
-      ? `${name} ${formatRate(result?.successRate ?? 0)}`
-      : formatRate(result?.successRate ?? 0),
-  );
+  const rates: string[] = [];
+  for (const [name, strategy] of held) {
+    if (!strategy.settled) return null;
+    const rate = formatRate(strategy.result.successRate);
+    rates.push(held.length > 1 ? `${name} ${rate}` : rate);
+  }
   return { line: `Success Rate: ${rates.join(', ')}` };
 }
 

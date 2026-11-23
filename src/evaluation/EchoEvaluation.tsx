@@ -93,12 +93,17 @@ export function EchoEvaluation({
       : 'done';
   const focusedState = focused === null ? 'done' : stateOf(focused);
   const focusedResult = focused === null ? undefined : results[focused];
+  // A calculation failure is spoken as soon as it shows (spec §15): the focused table's as the Results panel says it,
+  // another listed table's named.
+  const failedOther = listed.find((name) => name !== focused && stateOf(name) === 'failed');
   const announcement: Announcement | null =
     focusedState === 'failed'
       ? { message: CALCULATION_FAILED }
-      : focused !== null && focusedResult && settled(focused)
-        ? { line: settledLine(focusedResult) }
-        : null;
+      : failedOther !== undefined
+        ? { message: `${failedOther}: ${CALCULATION_FAILED}` }
+        : focused !== null && focusedResult && settled(focused)
+          ? { line: settledLine(focusedResult) }
+          : null;
 
   function add(name: string) {
     update((state) => ({ listed: [...state.listed, name], focused: name }));

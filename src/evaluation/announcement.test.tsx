@@ -80,23 +80,39 @@ describe("Echo Evaluation's live region", () => {
   });
 
   it('speaks the calculation failure as soon as it shows, never "Calculating…"', async () => {
-    const calculator = inProcessCalculator(() => {
-      const jobs = createEchoEvaluationJobs();
-      return {
-        echoEvaluation: {
-          keepOnly: jobs.keepOnly,
-          run: (input: Parameters<typeof jobs.run>[0]) => {
-            if (input.table.name === 'Atk only') throw new RangeError('Out of memory');
-            return jobs.run(input);
-          },
-        },
-      };
-    });
-    const user = open(calculator);
+    const user = open(failingFor('Atk only'));
     await chooseTable(user, 'Atk only');
     const failed = "Couldn't calculate this. Reload the page to try again.";
     await within(screen.getByRole('region', { name: 'Results' })).findByText(failed);
     expect(region()).toHaveTextContent(failed);
     expect(region()).not.toHaveTextContent('Calculating…');
   });
+
+  it("speaks a listed table's calculation failure, naming it, while another table is focused", async () => {
+    const user = open(failingFor('Atk only'));
+    await chooseTable(user, 'Atk only');
+    await chooseTable(user, 'Crit Rate only');
+    await waitFor(() =>
+      expect(region()).toHaveTextContent(
+        "Atk only: Couldn't calculate this. Reload the page to try again.",
+      ),
+    );
+    expect(region()).not.toHaveTextContent('Calculating…');
+  });
 });
+
+/** A calculator whose Echo Evaluation of one table is always given up. */
+function failingFor(tableName: string): Calculator {
+  return inProcessCalculator(() => {
+    const jobs = createEchoEvaluationJobs();
+    return {
+      echoEvaluation: {
+        keepOnly: jobs.keepOnly,
+        run: (input: Parameters<typeof jobs.run>[0]) => {
+          if (input.table.name === tableName) throw new RangeError('Out of memory');
+          return jobs.run(input);
+        },
+      },
+    };
+  });
+}
