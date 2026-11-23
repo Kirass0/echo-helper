@@ -14,6 +14,10 @@ Issues and specs for this repo live as markdown files in `.scratch/`.
 
 The implementer ticks each acceptance-criterion box (`- [x]`) as it meets it, in the feature commit. A criterion it couldn't meet stays open, with the reason under `## Comments`. Set `Status: done` only once every box is ticked; `src/tickets.test.ts` fails on a `done` ticket with an open box.
 
+## Finishing a feature
+
+After committing a ticket's or a spec's work, check its feature folder. If it is complete (every ticket in `.scratch/<feature-slug>/issues/` is `done`, or a spec without tickets is fully implemented), ask the user whether to delete the whole `.scratch/<feature-slug>/` folder. On a yes, delete it and amend the deletion into that commit. If tickets are still open, keep the folder.
+
 ## When a skill says "publish to the issue tracker"
 
 Create a new file under `.scratch/<feature-slug>/` (creating the directory if needed).
