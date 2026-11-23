@@ -14,6 +14,8 @@ import styles from './Tooltip.module.css';
 /** Why a tooltip is open. It stays open while any reason holds. */
 type Reason = 'hover' | 'focus' | 'tap';
 
+/** How long the mouse must rest on the trigger before it opens, so that passing over it opens nothing. */
+const HOVER_DELAY_MS = 500;
 /** How long the pointer may be off both the trigger and the tooltip before it closes, to cross the gap. */
 const HOVER_GRACE_MS = 120;
 /** The gap between the trigger and the tooltip, and the least margin from the viewport edge. */
@@ -30,9 +32,9 @@ export interface TooltipOptions {
 }
 
 /**
- * A plain-text tooltip for one trigger (spec §10, §15): opens on hover, keyboard focus and (optionally) tap, stays open
- * while the pointer is over the trigger or the tooltip, and closes on a tap elsewhere or Escape, which leaves focus
- * where it is. It sits below the trigger, or above if there's no room below.
+ * A plain-text tooltip for one trigger (spec §10, §15): opens on a half-second hover, and at once on keyboard focus
+ * and (optionally) tap. It stays open while the pointer is over the trigger or the tooltip, and closes on a tap
+ * elsewhere or Escape, which leaves focus where it is. It sits below the trigger, or above if there's no room below.
  *
  * Returns the props to spread on the trigger and the tooltip element to render anywhere (it portals to the body, so
  * no overflow clips it and it adds nothing to the names of the trigger's ancestors).
@@ -42,8 +44,11 @@ export function useTooltip({ text, describes, openOnTap }: TooltipOptions) {
   const [reasons, setReasons] = useState<ReadonlySet<Reason>>(new Set());
   const triggerRef = useRef<HTMLElement | null>(null);
   const tooltipRef = useRef<HTMLSpanElement | null>(null);
+  const enterTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [place, setPlace] = useState<{ left: number; top: number } | null>(null);
+  /** The mouse is resting on the trigger and it will open when the hover delay ends. */
+  const [pending, setPending] = useState(false);
   const open = reasons.size > 0;
 
   const add = (reason: Reason) =>
@@ -56,22 +61,50 @@ export function useTooltip({ text, describes, openOnTap }: TooltipOptions) {
       return next;
     });
 
-  const enter = (event: PointerEvent) => {
+  // The trigger opens on hover only after a rest; the tooltip, hoverable only once shown, keeps it open at once.
+  const enterTrigger = (event: PointerEvent) => {
+    if (event.pointerType !== 'mouse') return;
+    clearTimeout(leaveTimer.current);
+    clearTimeout(enterTimer.current);
+    if (open) {
+      add('hover');
+      return;
+    }
+    setPending(true);
+    enterTimer.current = setTimeout(() => {
+      setPending(false);
+      add('hover');
+    }, HOVER_DELAY_MS);
+  };
+  const cancelPending = () => {
+    clearTimeout(enterTimer.current);
+    setPending(false);
+  };
+  const enterTooltip = (event: PointerEvent) => {
     if (event.pointerType !== 'mouse') return;
     clearTimeout(leaveTimer.current);
     add('hover');
   };
   const leave = (event: PointerEvent) => {
     if (event.pointerType !== 'mouse') return;
+    cancelPending();
     clearTimeout(leaveTimer.current);
     leaveTimer.current = setTimeout(() => drop('hover'), HOVER_GRACE_MS);
   };
-  useEffect(() => () => clearTimeout(leaveTimer.current), []);
+  useEffect(
+    () => () => {
+      clearTimeout(enterTimer.current);
+      clearTimeout(leaveTimer.current);
+    },
+    [],
+  );
 
-  // Escape and a tap elsewhere close it, whatever opened it.
+  // Escape and a tap elsewhere close it, whatever opened it, and cancel a hover that hasn't opened it yet.
+  const listening = open || pending;
   useEffect(() => {
-    if (!open) return;
+    if (!listening) return;
     const close = () => {
+      cancelPending();
       clearTimeout(leaveTimer.current);
       setReasons(new Set());
     };
@@ -89,7 +122,7 @@ export function useTooltip({ text, describes, openOnTap }: TooltipOptions) {
       document.removeEventListener('keydown', onKey);
       document.removeEventListener('pointerdown', onPointerDown);
     };
-  }, [open]);
+  }, [listening]);
 
   // Below the trigger, or above if there's no room; kept inside the viewport sideways.
   useLayoutEffect(() => {
@@ -119,7 +152,7 @@ export function useTooltip({ text, describes, openOnTap }: TooltipOptions) {
       triggerRef.current = element;
     },
     'aria-describedby': describes ? id : undefined,
-    onPointerEnter: enter,
+    onPointerEnter: enterTrigger,
     onPointerLeave: leave,
     onFocus: (event: FocusEvent<HTMLElement>) => {
       if (focusVisible(event.currentTarget)) add('focus');
@@ -141,7 +174,7 @@ export function useTooltip({ text, describes, openOnTap }: TooltipOptions) {
       className={styles.tooltip}
       hidden={!open}
       style={place ? { left: place.left, top: place.top } : undefined}
-      onPointerEnter={enter}
+      onPointerEnter={enterTooltip}
       onPointerLeave={leave}
     >
       {text}

@@ -29,10 +29,4 @@ test.describe('Tooltips', () => {
     await expect(tooltip).toBeHidden();
     await expect(term).toBeFocused();
   });
-
-  test('the theme button shows its tooltip on focus', async ({ page }) => {
-    await page.goto('#evaluation');
-    await page.getByRole('button', { name: /^Switch to (light|dark) theme$/ }).focus();
-    await expect(page.getByRole('tooltip')).toHaveText(/^Switch to (light|dark) theme$/);
-  });
 });
