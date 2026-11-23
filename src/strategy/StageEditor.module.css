@@ -213,6 +213,39 @@
   margin: 0;
 }
 
+/* On a phone: each stage's name and Discard Rate above its rules; a rule's first line holds "and", the kind picker and
+   × at the right edge, its phrase wrapping below (spec §14). */
+@media (max-width: 600px) {
+  .stage {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+
+  .stageName {
+    font-size: 0.98em;
+  }
+
+  .box {
+    padding-left: 10px;
+  }
+
+  .kindLine {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    width: 100%;
+  }
+
+  .kindLine select {
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+
+  .kindLine > :last-child {
+    margin-left: auto;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .discardBar span {
     transition: none;

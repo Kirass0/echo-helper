@@ -6,6 +6,7 @@ import { fadedWhen } from '../ui/CalculationStatus';
 import { IconButton } from '../ui/IconButton';
 import { CrossIcon } from '../ui/icons';
 import { Term } from '../ui/Term';
+import { usePhoneLayout } from '../ui/usePhoneLayout';
 import {
   addRuleGroup,
   addRule,
@@ -248,6 +249,7 @@ function RuleRow({
   onRemove(): void;
   onUpdate(fields: Partial<Omit<RuleDraft, 'id'>>): void;
 }) {
+  const phone = usePhoneLayout();
   // A rule waiting for its thresholds isn't unfinished: they come by themselves.
   const problem = calculating.length > 0 ? null : ruleProblem(rule);
   const problemId = useId();
@@ -361,28 +363,48 @@ function RuleRow({
       break;
   }
 
+  const kindPicker = (
+    <select
+      aria-label="Kind of rule"
+      value={rule.kind}
+      onChange={(event) => onUpdate({ kind: event.target.value as RuleKind })}
+    >
+      {KINDS.map(([kind, label]) => (
+        <option key={kind} value={kind}>
+          {label}
+        </option>
+      ))}
+    </select>
+  );
+  const remove = (
+    <IconButton
+      label="Remove this rule"
+      icon={<CrossIcon />}
+      danger
+      data-remove-rule
+      onClick={onRemove}
+    />
+  );
+
   return (
     <div className={`${styles.rule} ${problem ? styles.unfinished : ''}`} data-rule>
-      {joined && <span className={styles.and}>and</span>}
-      <select
-        aria-label="Kind of rule"
-        value={rule.kind}
-        onChange={(event) => onUpdate({ kind: event.target.value as RuleKind })}
-      >
-        {KINDS.map(([kind, label]) => (
-          <option key={kind} value={kind}>
-            {label}
-          </option>
-        ))}
-      </select>{' '}
-      {phrase}
-      <IconButton
-        label="Remove this rule"
-        icon={<CrossIcon />}
-        danger
-        data-remove-rule
-        onClick={onRemove}
-      />
+      {phone ? (
+        // On a phone, line 1 holds "and", the kind picker and × at the right edge; the phrase wraps below (spec §14).
+        <>
+          <span className={styles.kindLine}>
+            {joined && <span className={styles.and}>and</span>}
+            {kindPicker}
+            {remove}
+          </span>
+          {phrase}
+        </>
+      ) : (
+        <>
+          {joined && <span className={styles.and}>and</span>}
+          {kindPicker} {phrase}
+          {remove}
+        </>
+      )}
       {problem && (
         <span id={problemId} className={styles.problem}>
           {problem.message}
