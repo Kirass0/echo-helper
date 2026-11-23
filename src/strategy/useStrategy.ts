@@ -12,11 +12,23 @@ import { fillThresholds, loadExample, type LoadedExample, type PendingThreshold 
 import { finishedStrategy, type StrategyDraft } from './strategyDraft';
 
 /** One strategy as held on Upgrade Strategy: Strategy A (the only one unless comparing) or Strategy B. */
-export interface HeldStrategy {
+export type HeldStrategy = HeldStrategyBase &
+  (
+    | {
+        /** Whether the results are those of the strategy as it is now: nothing pending, unfinished or given up. */
+        readonly settled: true;
+        readonly result: UpgradeStrategyResult;
+      }
+    | {
+        readonly settled: false;
+        /** The latest results; null before the first arrives. */
+        readonly result: UpgradeStrategyResult | null;
+      }
+  );
+
+interface HeldStrategyBase {
   readonly draft: StrategyDraft;
   setDraft(draft: StrategyDraft): void;
-  /** The latest results; null before the first arrives. */
-  readonly result: UpgradeStrategyResult | null;
   /** The first Tune Stage holding an unfinished rule, while there is one. */
   readonly unfinishedStage: number | null;
   /** Whether the results are from before the last change: a rule is unfinished, or thresholds are pending. */
@@ -71,16 +83,23 @@ export function useStrategy(
         ? 'calculating'
         : 'done';
 
+  const { result } = calculated;
   return {
     draft,
     setDraft(next) {
       pending.forgetFailure();
       setDraft(next);
     },
-    result: calculated.result,
     unfinishedStage,
     waiting: pending.example !== null || unfinishedStage !== null,
     state,
+    ...(result !== null &&
+    input !== null &&
+    !calculated.pending &&
+    !pending.calculating &&
+    state === 'done'
+      ? { settled: true as const, result }
+      : { settled: false as const, result }),
     calculating: pending.example?.thresholds ?? [],
     loadExample(example) {
       const loaded = loadExample(example);

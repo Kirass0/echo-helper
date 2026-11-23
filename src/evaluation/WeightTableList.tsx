@@ -15,6 +15,7 @@ import { CrossIcon, SlidersIcon } from '../ui/icons';
 import { formatChance, formatEchoScore } from './format';
 import { INVALID_NUMBER_MESSAGE, parseNonNegativeNumber } from '../ui/nonNegativeNumber';
 import { Term } from '../ui/Term';
+import { usePhoneLayout } from '../ui/usePhoneLayout';
 import { CustomTag, NEW_TABLE, TableOptions } from './TableOptions';
 import { TERM_TOOLTIPS } from './termTooltips';
 import styles from './WeightTableList.module.css';
@@ -77,15 +78,18 @@ export function WeightTableList({
     <TableOptions custom={customTables.filter(offered)} builtIn={builtInTables.filter(offered)} />
   );
 
+  const phone = usePhoneLayout();
+  /** The list, holding its rows or cards: they alone have sliders and × buttons. */
+  const listRef = useRef<HTMLElement>(null);
+
   // A row's × moves focus to the next row's ×, or to the add picker (spec §15), once the row is gone.
-  const tableRef = useRef<HTMLTableElement>(null);
   const addRef = useRef<HTMLSelectElement>(null);
   const focusAfterRemoving = useRef<number | null>(null);
   useLayoutEffect(() => {
     const index = focusAfterRemoving.current;
     if (index === null) return;
     focusAfterRemoving.current = null;
-    const removeButtons = tableRef.current?.querySelectorAll<HTMLElement>('[data-remove]');
+    const removeButtons = listRef.current?.querySelectorAll<HTMLElement>('[data-remove]');
     (removeButtons?.[index] ?? addRef.current)?.focus();
   }, [rows]);
 
@@ -101,92 +105,106 @@ export function WeightTableList({
     if (!closed) return;
     if (document.activeElement !== null && document.activeElement !== document.body) return;
     const row = dialogOpenedFrom.current;
-    const sliders = tableRef.current?.querySelectorAll<HTMLElement>('[data-weights]');
+    const sliders = listRef.current?.querySelectorAll<HTMLElement>('[data-weights]');
     const next = row === null ? undefined : (sliders?.[row] ?? sliders?.[row - 1]);
     (next ?? addRef.current)?.focus();
   }, [weightsDialogOpen]);
 
+  /** What a row, or a card, shows and does. */
+  const rowProps = (row: ListedRow, index: number): RowProps => ({
+    row,
+    isFocused: row.name === focused,
+    isCustom: customNames.has(row.name),
+    options: options((table) => table.name === row.name || !listedNames.has(table.name)),
+    onFocus: () => onFocus(row.name),
+    onSwap: (name) => onSwap(index, name),
+    onRemove: () => {
+      focusAfterRemoving.current = index;
+      onRemove(index);
+    },
+    onTargetsChange: (targets) => onTargetsChange(row.name, targets),
+    onOpenWeights: () => {
+      dialogOpenedFrom.current = index;
+      onOpenWeights(row.name);
+    },
+  });
+
   return (
-    <section className={styles.list} aria-labelledby="weight-tables-heading">
+    <section ref={listRef} className={styles.list} aria-labelledby="weight-tables-heading">
       <h2 id="weight-tables-heading" className={styles.heading}>
-        Substat Weight Tables
+        {/* On a phone the cards have no header row: the heading carries the term's tooltip instead. */}
+        {phone ? (
+          <Term tooltip={TERM_TOOLTIPS['Substat Weight Table']}>Substat Weight Tables</Term>
+        ) : (
+          'Substat Weight Tables'
+        )}
       </h2>
-      {rows.length > 0 && (
-        <table ref={tableRef} className={styles.table}>
-          <colgroup>
-            <col className={styles.nameColumn} />
-            <col className={styles.targetColumn} />
-            <col className={styles.targetColumn} />
-            <col className={styles.scoreColumn} />
-            <col className={styles.chanceColumn} />
-            <col className={styles.chanceColumn} />
-            <col className={styles.iconColumn} />
-            <col className={styles.iconColumn} />
-          </colgroup>
-          <thead>
-            <tr>
-              <th scope="col">
-                <Term tooltip={TERM_TOOLTIPS['Substat Weight Table']}>Weight Table</Term>
-              </th>
-              <th scope="col" className={styles.figureHeader}>
-                <Term tooltip={TERM_TOOLTIPS['Target Score']}>
-                  <TwoLines first="Target" second="Score" />
-                </Term>
-              </th>
-              <th scope="col" className={styles.figureHeader}>
-                <Term tooltip={TERM_TOOLTIPS['ER Target Score']}>
-                  <TwoLines first="ER Target" second="Score" />
-                </Term>
-              </th>
-              <th scope="col" className={styles.figureHeader}>
-                <Term tooltip={TERM_TOOLTIPS['Echo Score']}>
-                  <TwoLines first="Echo" second="Score" />
-                </Term>
-              </th>
-              <th scope="col" className={styles.figureHeader}>
-                <Term tooltip={TERM_TOOLTIPS['Target Chance']}>
-                  <TwoLines first="Target" second="Chance" />
-                </Term>
-              </th>
-              <th scope="col" className={styles.figureHeader}>
-                <Term tooltip={TERM_TOOLTIPS['ER Target Chance']}>
-                  <TwoLines first="ER Target" second="Chance" />
-                </Term>
-              </th>
-              <th scope="col">
-                <span className={styles.hidden}>Weights</span>
-              </th>
-              <th scope="col">
-                <span className={styles.hidden}>Remove</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
+      {rows.length > 0 &&
+        (!phone ? (
+          <div className={styles.scroller}>
+            <table className={styles.table}>
+              <colgroup>
+                <col className={styles.nameColumn} />
+                <col className={styles.targetColumn} />
+                <col className={styles.targetColumn} />
+                <col className={styles.scoreColumn} />
+                <col className={styles.chanceColumn} />
+                <col className={styles.chanceColumn} />
+                <col className={styles.iconColumn} />
+                <col className={styles.iconColumn} />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th scope="col">
+                    <Term tooltip={TERM_TOOLTIPS['Substat Weight Table']}>Weight Table</Term>
+                  </th>
+                  <th scope="col" className={styles.figureHeader}>
+                    <Term tooltip={TERM_TOOLTIPS['Target Score']}>
+                      <TwoLines first="Target" second="Score" />
+                    </Term>
+                  </th>
+                  <th scope="col" className={styles.figureHeader}>
+                    <Term tooltip={TERM_TOOLTIPS['ER Target Score']}>
+                      <TwoLines first="ER Target" second="Score" />
+                    </Term>
+                  </th>
+                  <th scope="col" className={styles.figureHeader}>
+                    <Term tooltip={TERM_TOOLTIPS['Echo Score']}>
+                      <TwoLines first="Echo" second="Score" />
+                    </Term>
+                  </th>
+                  <th scope="col" className={styles.figureHeader}>
+                    <Term tooltip={TERM_TOOLTIPS['Target Chance']}>
+                      <TwoLines first="Target" second="Chance" />
+                    </Term>
+                  </th>
+                  <th scope="col" className={styles.figureHeader}>
+                    <Term tooltip={TERM_TOOLTIPS['ER Target Chance']}>
+                      <TwoLines first="ER Target" second="Chance" />
+                    </Term>
+                  </th>
+                  <th scope="col">
+                    <span className={styles.hidden}>Weights</span>
+                  </th>
+                  <th scope="col">
+                    <span className={styles.hidden}>Remove</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row, index) => (
+                  <Row key={index} {...rowProps(row, index)} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <ul className={styles.cards} aria-labelledby="weight-tables-heading">
             {rows.map((row, index) => (
-              <Row
-                key={index}
-                row={row}
-                isFocused={row.name === focused}
-                isCustom={customNames.has(row.name)}
-                options={options(
-                  (table) => table.name === row.name || !listedNames.has(table.name),
-                )}
-                onFocus={() => onFocus(row.name)}
-                onSwap={(name) => onSwap(index, name)}
-                onRemove={() => {
-                  focusAfterRemoving.current = index;
-                  onRemove(index);
-                }}
-                onTargetsChange={(targets) => onTargetsChange(row.name, targets)}
-                onOpenWeights={() => {
-                  dialogOpenedFrom.current = index;
-                  onOpenWeights(row.name);
-                }}
-              />
+              <Card key={index} {...rowProps(row, index)} />
             ))}
-          </tbody>
-        </table>
-      )}
+          </ul>
+        ))}
       <select
         ref={addRef}
         className={styles.add}
@@ -220,17 +238,7 @@ const TwoLines = ({ first, second }: { first: string; second: string }) => (
 const isControl = (target: EventTarget) =>
   target instanceof Element && target.closest('button, input, select, a, label') !== null;
 
-function Row({
-  row,
-  isFocused,
-  isCustom,
-  options,
-  onFocus,
-  onSwap,
-  onRemove,
-  onTargetsChange,
-  onOpenWeights,
-}: {
+interface RowProps {
   row: ListedRow;
   isFocused: boolean;
   isCustom: boolean;
@@ -240,70 +248,123 @@ function Row({
   onRemove(): void;
   onTargetsChange(targets: TargetTexts): void;
   onOpenWeights(): void;
-}) {
-  const { name, result, state = 'done' } = row;
-  const faded = fadedWhen(state !== 'done');
+}
+
+/**
+ * What a row and a card share: its picker, its two target boxes, its sliders and ×, its error line, its fade, and how
+ * it is put in focus. Each lays these out its own way.
+ */
+function useRowParts({
+  row,
+  isFocused,
+  isCustom,
+  options,
+  onFocus,
+  onSwap,
+  onRemove,
+  onTargetsChange,
+  onOpenWeights,
+}: RowProps) {
+  const { name, result, targetText, erTargetText, state = 'done' } = row;
   const errorId = useId();
-  const targetInvalid = parseNonNegativeNumber(row.targetText).invalid;
-  const erTargetInvalid = parseNonNegativeNumber(row.erTargetText).invalid;
+  const targetInvalid = parseNonNegativeNumber(targetText).invalid;
+  const erTargetInvalid = parseNonNegativeNumber(erTargetText).invalid;
+  return {
+    name,
+    result,
+    isFocused,
+    state,
+    faded: fadedWhen(state !== 'done'),
+    errorId,
+    error: targetInvalid || erTargetInvalid ? INVALID_NUMBER_MESSAGE : '',
+    /** The table's picker, its Custom tag after it. */
+    picker: (fitClassName?: string) => (
+      <>
+        <FittedSelect
+          shown={name}
+          fitClassName={fitClassName}
+          title={name}
+          aria-label={`Swap ${name} for another Weight Table`}
+          value={name}
+          onChange={(event) => onSwap(event.target.value)}
+        >
+          {options}
+        </FittedSelect>
+        {isCustom && <CustomTag />}
+      </>
+    ),
+    targetInput: (
+      <TargetInput
+        label={`Target Score for ${name}`}
+        text={targetText}
+        invalid={targetInvalid}
+        errorId={errorId}
+        onChange={(text) => onTargetsChange({ targetText: text, erTargetText })}
+      />
+    ),
+    erTargetInput: (
+      <TargetInput
+        label={`ER Target Score for ${name}`}
+        text={erTargetText}
+        invalid={erTargetInvalid}
+        errorId={errorId}
+        onChange={(text) => onTargetsChange({ targetText, erTargetText: text })}
+      />
+    ),
+    weightsButton: (
+      <IconButton
+        label={`Weights of ${name}`}
+        icon={<SlidersIcon />}
+        className={styles.iconButton}
+        data-weights=""
+        onClick={onOpenWeights}
+      />
+    ),
+    removeButton: (
+      <IconButton
+        label={`Remove ${name}`}
+        icon={<CrossIcon />}
+        danger
+        className={styles.iconButton}
+        data-remove=""
+        onClick={onRemove}
+      />
+    ),
+    /** The row's own focus: a tab stop before its controls; a click outside them, Enter or Space puts it in focus. */
+    focusProps: {
+      tabIndex: 0,
+      'aria-current': isFocused ? ('true' as const) : undefined,
+      onClick(event: MouseEvent) {
+        if (!isControl(event.target)) onFocus();
+      },
+      onKeyDown(event: KeyboardEvent) {
+        if (event.target !== event.currentTarget) return;
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onFocus();
+        }
+      },
+    },
+  };
+}
 
-  function handleClick(event: MouseEvent) {
-    if (!isControl(event.target)) onFocus();
-  }
-
-  function handleKeyDown(event: KeyboardEvent) {
-    if (event.target !== event.currentTarget) return;
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      onFocus();
-    }
-  }
+function Row(props: RowProps) {
+  const parts = useRowParts(props);
+  const { result, faded, state, errorId } = parts;
 
   return (
-    <tr
-      tabIndex={0}
-      aria-current={isFocused ? 'true' : undefined}
-      className={isFocused ? styles.focused : undefined}
-      onClick={handleClick}
-      onKeyDown={handleKeyDown}
-    >
+    <tr className={parts.isFocused ? styles.focused : undefined} {...parts.focusProps}>
       <td>
-        <div className={styles.nameCell}>
-          <FittedSelect
-            shown={name}
-            fitClassName={styles.pickerFit}
-            title={name}
-            aria-label={`Swap ${name} for another Weight Table`}
-            value={name}
-            onChange={(event) => onSwap(event.target.value)}
-          >
-            {options}
-          </FittedSelect>
-          {isCustom && <CustomTag />}
-        </div>
+        <div className={styles.nameCell}>{parts.picker(styles.pickerFit)}</div>
       </td>
       <td className={styles.targetCell}>
-        <TargetInput
-          label={`Target Score for ${name}`}
-          text={row.targetText}
-          invalid={targetInvalid}
-          errorId={errorId}
-          onChange={(targetText) => onTargetsChange({ targetText, erTargetText: row.erTargetText })}
-        />
+        {parts.targetInput}
         {/* One error line for both boxes, in a line every row keeps free; it may run across the next columns. */}
         <span id={errorId} className={styles.error}>
-          {targetInvalid || erTargetInvalid ? INVALID_NUMBER_MESSAGE : ''}
+          {parts.error}
         </span>
       </td>
-      <td className={styles.targetCell}>
-        <TargetInput
-          label={`ER Target Score for ${name}`}
-          text={row.erTargetText}
-          invalid={erTargetInvalid}
-          errorId={errorId}
-          onChange={(erTargetText) => onTargetsChange({ targetText: row.targetText, erTargetText })}
-        />
-      </td>
+      <td className={styles.targetCell}>{parts.erTargetInput}</td>
       <td className={`${styles.figure} ${faded ?? ''}`}>
         {result ? formatEchoScore(result.echoScore) : NONE}
       </td>
@@ -323,26 +384,85 @@ function Row({
           <CalculationStatus state={state} inline />
         </span>
       </td>
-      <td className={styles.icon}>
-        <IconButton
-          label={`Weights of ${name}`}
-          icon={<SlidersIcon />}
-          className={styles.iconButton}
-          data-weights=""
-          onClick={onOpenWeights}
-        />
-      </td>
-      <td className={styles.icon}>
-        <IconButton
-          label={`Remove ${name}`}
-          icon={<CrossIcon />}
-          danger
-          className={styles.iconButton}
-          data-remove=""
-          onClick={onRemove}
-        />
-      </td>
+      <td className={styles.icon}>{parts.weightsButton}</td>
+      <td className={styles.icon}>{parts.removeButton}</td>
     </tr>
+  );
+}
+
+/**
+ * A table's card on a phone (spec §14): line 1 its picker, Custom tag, sliders and ×; line 2 its targets, labelled
+ * above; line 3 its Echo Score and chances. The sliders and × come after the targets, so the tab order is a row's.
+ */
+function Card(props: RowProps) {
+  const parts = useRowParts(props);
+  const { name, result, faded, state, errorId } = parts;
+
+  return (
+    <li
+      className={[styles.card, parts.isFocused && styles.focusedCard].filter(Boolean).join(' ')}
+      {...parts.focusProps}
+    >
+      <div className={styles.cardName}>{parts.picker(styles.cardPicker)}</div>
+      <div className={styles.cardTargets}>
+        <label className={styles.cardField}>
+          Target Score
+          {parts.targetInput}
+        </label>
+        <label className={styles.cardField}>
+          ER Target Score
+          {parts.erTargetInput}
+        </label>
+      </div>
+      {/* The line every card keeps free for its target error and, from the right, its calculation status. */}
+      <div className={styles.cardStatusLine}>
+        <span id={errorId} className={styles.cardError}>
+          {parts.error}
+        </span>
+        <span className={styles.cardStatus}>
+          <CalculationStatus state={state} inline />
+        </span>
+      </div>
+      <div className={`${styles.cardFigures} ${faded ?? ''}`}>
+        <CardFigure label="Echo Score" table={name}>
+          {result ? formatEchoScore(result.echoScore) : NONE}
+        </CardFigure>
+        <CardFigure label="Target Chance" table={name}>
+          <Chance result={result} chance={(r) => r.targetChance} verdict={(r) => r.reachesTarget} />
+        </CardFigure>
+        <CardFigure label="ER Target Chance" table={name}>
+          <Chance
+            result={result}
+            chance={(r) => r.erTargetChance}
+            verdict={(r) => r.reachesErTarget}
+          />
+        </CardFigure>
+      </div>
+      <div className={styles.cardIcons}>
+        {parts.weightsButton}
+        {parts.removeButton}
+      </div>
+    </li>
+  );
+}
+
+/** One of a card's figures, under its label; named for its table, as the target boxes are, apart from the boxes'. */
+function CardFigure({
+  label,
+  table,
+  children,
+}: {
+  label: string;
+  table: string;
+  children: ReactNode;
+}) {
+  return (
+    <div role="group" aria-label={`${label} for ${table}`} className={styles.cardFigure}>
+      <span className={styles.cardFigureLabel} aria-hidden="true">
+        {label}
+      </span>
+      <span className={styles.cardFigureValue}>{children}</span>
+    </div>
   );
 }
 

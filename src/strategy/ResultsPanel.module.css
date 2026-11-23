@@ -7,8 +7,8 @@
 /* "Calculating…" at the top right, level with the Success Rate. */
 .calculating {
   position: absolute;
-  top: calc(var(--pad) + 10px);
-  right: var(--pad);
+  top: calc(var(--panel-pad) + 10px);
+  right: var(--panel-pad);
 }
 
 .staleMessage {
@@ -29,40 +29,6 @@
 
 .label {
   margin: 0;
-}
-
-/* Segments meet with 2px gaps in the panel colour. */
-.bar {
-  display: flex;
-  gap: 2px;
-  height: 16px;
-  border-radius: var(--radius-s);
-  overflow: hidden;
-  margin: 12px 0 6px;
-}
-
-.bar span {
-  display: block;
-  flex-basis: 0;
-  min-width: 1px;
-  height: 100%;
-}
-
-.legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 12px;
-  font-size: 0.8em;
-  color: var(--mute);
-}
-
-.legend i {
-  display: inline-block;
-  width: 9px;
-  height: 9px;
-  border-radius: 2px;
-  margin-right: 4px;
-  vertical-align: -1px;
 }
 
 .heading {
@@ -90,4 +56,21 @@
 
 .none {
   margin: var(--gap) 0 0;
+}
+
+/* Tablet: one column with the results above the stages; on a phone they follow the stages (spec §14). */
+@media (max-width: 820px) {
+  .panel {
+    position: static;
+  }
+
+  .panel:focus {
+    outline: none;
+  }
+}
+
+@media (min-width: 601px) and (max-width: 820px) {
+  .panel {
+    order: -1;
+  }
 }

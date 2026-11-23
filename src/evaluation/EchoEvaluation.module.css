@@ -8,6 +8,7 @@
 
 .right {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--gap);
   min-width: 0;
 }
@@ -23,6 +24,7 @@
 
 /* One line whatever the name, so switching focus moves nothing; the full name is in the title. */
 .tableNameText {
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

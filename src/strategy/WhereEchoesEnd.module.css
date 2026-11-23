@@ -1,0 +1,44 @@
+/* Segments meet with 2px gaps in the panel colour. */
+.bar {
+  display: flex;
+  gap: 2px;
+  height: 16px;
+  border-radius: var(--radius-s);
+  overflow: hidden;
+  margin: 12px 0 6px;
+}
+
+.bar span {
+  display: block;
+  flex-basis: 0;
+  min-width: 1px;
+  height: 100%;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: 0.8em;
+  color: var(--mute);
+}
+
+.legend i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  margin-right: 4px;
+  vertical-align: -1px;
+}
+
+/* The sticky bar's: thinner, with no legend, filling what its row leaves. */
+.compact {
+  flex: 1;
+  min-width: 0;
+}
+
+.compact .bar {
+  height: 10px;
+  margin: 0;
+}

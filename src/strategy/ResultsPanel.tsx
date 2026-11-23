@@ -1,3 +1,4 @@
+import type { Ref } from 'react';
 import type { UpgradeStrategyResult } from '../calculation/protocol';
 import {
   formatEchoesStarted,
@@ -8,8 +9,9 @@ import {
 import { CalculationStatus, fadedWhen, type CalculationState } from '../ui/CalculationStatus';
 import surfaces from '../ui/surfaces.module.css';
 import { Term } from '../ui/Term';
-import { stageName } from './StageEditor';
 import { STRATEGY_TOOLTIPS } from './termTooltips';
+import { unfinishedMessage } from './unfinishedMessage';
+import { WhereEchoesEnd } from './WhereEchoesEnd';
 import styles from './ResultsPanel.module.css';
 
 export interface ResultsPanelProps {
@@ -21,6 +23,8 @@ export interface ResultsPanelProps {
   unfinishedStage: number | null;
   /** Whether the results have been calculating for a while, or couldn't be calculated (spec §11). */
   state?: CalculationState;
+  /** The panel, for the phone's "Results" link to move focus to. */
+  ref?: Ref<HTMLElement>;
 }
 
 /** The results panel beside the stages (spec §8): Success Rate, where Echoes end, cost and Echo Scores. */
@@ -29,9 +33,15 @@ export function ResultsPanel({
   stale,
   unfinishedStage,
   state = 'done',
+  ref,
 }: ResultsPanelProps) {
   return (
-    <section className={`${surfaces.panel} ${styles.panel}`} aria-label="Results">
+    <section
+      ref={ref}
+      className={`${surfaces.panel} ${styles.panel}`}
+      aria-label="Results"
+      tabIndex={-1}
+    >
       {/*
        * Laid over the panel's top right, beside the Success Rate, so it appearing moves nothing; before the first
        * results, in the empty panel itself.
@@ -41,10 +51,7 @@ export function ResultsPanel({
       </span>
       {state === 'failed' && <CalculationStatus state="failed" />}
       {unfinishedStage !== null && (
-        <p className={styles.staleMessage}>
-          Results are from before your last change. Finish the highlighted rule at{' '}
-          {stageName(unfinishedStage)} to update them.
-        </p>
+        <p className={styles.staleMessage}>{unfinishedMessage(unfinishedStage)}</p>
       )}
       {result && (
         <div className={fadedWhen(stale)}>
@@ -103,52 +110,5 @@ function Row({ label, value }: { label: string; value: string }) {
       <th scope="row">{label}</th>
       <td>{value}</td>
     </tr>
-  );
-}
-
-/**
- * The "where Echoes end" bar: a segment per Tune Stage that discards, in its stage colour, then gold for Successful,
- * with 2px gaps and a legend entry per segment. It has no label and is hidden from screen readers: its numbers are on
- * screen as text.
- */
-function WhereEchoesEnd({ result }: { result: UpgradeStrategyResult }) {
-  const segments = [
-    ...result.discards
-      .filter(({ discardRate }) => discardRate > 0)
-      .map(({ tuneStage, discardRate }) => ({
-        key: `stage-${tuneStage}`,
-        share: discardRate,
-        colour: `var(--st${tuneStage})`,
-        legend: `${tuneStage}/5`,
-        title: `Discarded at ${stageName(tuneStage)}: ${formatRate(discardRate)}`,
-      })),
-    ...(result.successRate > 0
-      ? [
-          {
-            key: 'successful',
-            share: result.successRate,
-            colour: 'var(--succ)',
-            legend: 'Successful',
-            title: `Successful: ${formatRate(result.successRate)}`,
-          },
-        ]
-      : []),
-  ];
-  return (
-    <div aria-hidden="true">
-      <div className={styles.bar}>
-        {segments.map(({ key, share, colour, title }) => (
-          <span key={key} title={title} style={{ flexGrow: share, background: colour }} />
-        ))}
-      </div>
-      <div className={styles.legend}>
-        {segments.map(({ key, colour, legend }) => (
-          <span key={key}>
-            <i style={{ background: colour }} />
-            {legend}
-          </span>
-        ))}
-      </div>
-    </div>
   );
 }

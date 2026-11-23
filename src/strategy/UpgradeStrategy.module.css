@@ -77,3 +77,32 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* The phone's sticky results bar covers the bottom of the screen: the page ends above it (spec §14). */
+.withBar {
+  padding-bottom: calc(var(--gap) + 64px + env(safe-area-inset-bottom));
+}
+
+/* The prototype 16 `.us-head` on a phone: the Weight Table picker, the example picker and Compare a line each. */
+@media (max-width: 600px) {
+  .head {
+    gap: 8px;
+  }
+
+  .head > * {
+    width: 100%;
+  }
+
+  .head .field {
+    justify-content: space-between;
+  }
+
+  .head .pickerFit {
+    flex: 1;
+    max-width: none;
+  }
+
+  .button {
+    padding: 7px 12px;
+  }
+}

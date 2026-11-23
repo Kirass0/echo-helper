@@ -1,0 +1,46 @@
+/* What every dialog shows inside its frame, `ui/Modal`: its title or message, and its buttons (spec §13). */
+.title {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  margin: 0 0 12px;
+  font-size: 1.15em;
+  line-height: 1.25;
+}
+
+.message {
+  margin: 0 0 12px;
+  color: var(--mute);
+}
+
+/* Right-aligned, the main action on the far right. */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.button {
+  padding: 5px 14px;
+  border: 1px solid var(--field-line);
+  border-radius: var(--radius-s);
+  background: var(--panel);
+  cursor: pointer;
+}
+
+.button:hover {
+  border-color: var(--acc);
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.primary {
+  border-color: var(--acc);
+  background: var(--acc);
+  color: var(--acc-ink);
+}

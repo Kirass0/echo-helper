@@ -1,6 +1,6 @@
-import { useId, useLayoutEffect, useRef, useState } from 'react';
-// The weights dialog's frame and buttons, so both dialogs look alike (spec §13).
-import styles from '../evaluation/WeightsDialog.module.css';
+import { useId } from 'react';
+import styles from './dialog.module.css';
+import { Modal } from './Modal';
 
 export interface ConfirmDialogProps {
   /** The question, which also names the dialog. */
@@ -13,57 +13,24 @@ export interface ConfirmDialogProps {
 }
 
 /**
- * A native modal `<dialog>` asking one question, with Cancel and a confirming button. Escape or a click outside
- * cancels; focus goes back to the opener on closing.
+ * A modal `<dialog>` (a bottom sheet on a phone) asking one question, with Cancel and a confirming button. Escape or a
+ * click outside cancels; focus goes back to the opener on closing.
  */
 export function ConfirmDialog({ message, confirm, onConfirm, onCancel }: ConfirmDialogProps) {
-  const [opener] = useState(() => document.activeElement);
-  const dialogRef = useRef<HTMLDialogElement>(null);
   const messageId = useId();
-  const pressedOutside = useRef(false);
-  useLayoutEffect(() => {
-    const dialog = dialogRef.current;
-    dialog?.showModal();
-    return () => {
-      dialog?.close();
-      if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
-    };
-  }, [opener]);
-
   return (
-    <dialog
-      ref={dialogRef}
-      className={styles.dialog}
-      aria-labelledby={messageId}
-      onCancel={(event) => {
-        event.preventDefault();
-        onCancel();
-      }}
-      onPointerDown={(event) => {
-        pressedOutside.current = event.target === event.currentTarget;
-      }}
-      onClick={(event) => {
-        if (pressedOutside.current && event.target === event.currentTarget) onCancel();
-        pressedOutside.current = false;
-      }}
-    >
-      <div className={styles.content}>
-        <p id={messageId} className={styles.message}>
-          {message}
-        </p>
-        <div className={styles.actions}>
-          <button type="button" className={styles.button} onClick={onCancel}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className={`${styles.button} ${styles.primary}`}
-            onClick={onConfirm}
-          >
-            {confirm}
-          </button>
-        </div>
+    <Modal labelledBy={messageId} onDismiss={onCancel}>
+      <p id={messageId} className={styles.message}>
+        {message}
+      </p>
+      <div className={styles.actions}>
+        <button type="button" className={styles.button} onClick={onCancel}>
+          Cancel
+        </button>
+        <button type="button" className={`${styles.button} ${styles.primary}`} onClick={onConfirm}>
+          {confirm}
+        </button>
       </div>
-    </dialog>
+    </Modal>
   );
 }

@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { subscribeToHash } from '../app/useHashTab';
 import { currentSection } from './currentSection';
 import { ABOUT_SECTIONS } from './sections';
-import { usePhoneLayout } from './usePhoneLayout';
+import { scrollToTop } from '../ui/reducedMotion';
+import { usePhoneLayout } from '../ui/usePhoneLayout';
 import styles from './About.module.css';
 
 /** The index of the section the URL hash points to, or null. */
@@ -18,10 +19,6 @@ function useLinkedSection(): number | null {
 
 // A section counts as reached once its top is this close to the top of the viewport, in px.
 const REACHED = 80;
-
-const reducedMotion = () =>
-  typeof window.matchMedia === 'function' &&
-  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /**
  * The About tab (spec §9): seven sections, each at its `#about-<section>` anchor. On desktop a sticky side panel lists
@@ -44,7 +41,7 @@ export function About() {
     const element = sectionRefs.current[linked];
     if (!element) return;
     if (element instanceof HTMLDetailsElement) element.open = true;
-    element.scrollIntoView?.({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'start' });
+    scrollToTop(element);
   }, [linked]);
 
   // The side panel follows the scroll.

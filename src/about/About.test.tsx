@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { findTable, BUILT_IN_TABLES } from '../catalogue/catalogue';
 import { ABOUT_SECTION_FOR_TAB } from '../app/tabs';
 import { About } from './About';
-import { PHONE_QUERY } from './usePhoneLayout';
+import { atPhoneWidth } from '../test/phoneWidth';
 
 const SECTIONS = [
   ['about-what-echo-helper-does', 'What Echo Helper does'],
@@ -136,33 +136,26 @@ describe('About', () => {
     );
   });
 
-  it('on a phone, is an accordion that opens the linked section and lets several stay open', () => {
-    const matchMedia = window.matchMedia;
-    window.matchMedia = ((query: string) => ({
-      matches: query === PHONE_QUERY,
-      media: query,
-      addEventListener: () => {},
-      removeEventListener: () => {},
-    })) as unknown as typeof window.matchMedia;
-    try {
-      window.location.hash = '#about-upgrade-strategies';
-      render(<About />);
-      expect(screen.queryByRole('navigation', { name: 'About sections' })).not.toBeInTheDocument();
-      const strategies = section('about-upgrade-strategies');
-      const credits = section('about-credits');
-      expect(strategies.tagName).toBe('DETAILS');
-      expect(strategies).toHaveAttribute('open');
-      expect(credits).not.toHaveAttribute('open');
-      within(credits).getByText('Credits').click();
-      expect(credits).toHaveAttribute('open');
-      expect(strategies).toHaveAttribute('open');
-    } finally {
-      window.matchMedia = matchMedia;
-    }
-  });
-
   it('has no theme button', () => {
     render(<About />);
     expect(screen.queryByRole('button', { name: /theme/ })).not.toBeInTheDocument();
+  });
+});
+
+describe('About on a phone', () => {
+  atPhoneWidth();
+
+  it('is an accordion that opens the linked section and lets several stay open', () => {
+    window.location.hash = '#about-upgrade-strategies';
+    render(<About />);
+    expect(screen.queryByRole('navigation', { name: 'About sections' })).not.toBeInTheDocument();
+    const strategies = section('about-upgrade-strategies');
+    const credits = section('about-credits');
+    expect(strategies.tagName).toBe('DETAILS');
+    expect(strategies).toHaveAttribute('open');
+    expect(credits).not.toHaveAttribute('open');
+    within(credits).getByText('Credits').click();
+    expect(credits).toHaveAttribute('open');
+    expect(strategies).toHaveAttribute('open');
   });
 });

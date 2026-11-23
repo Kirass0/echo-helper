@@ -6,6 +6,7 @@ import { fadedWhen } from '../ui/CalculationStatus';
 import { IconButton } from '../ui/IconButton';
 import { CrossIcon } from '../ui/icons';
 import { Term } from '../ui/Term';
+import { usePhoneLayout } from '../ui/usePhoneLayout';
 import {
   addRuleGroup,
   addRule,
@@ -60,6 +61,8 @@ export function StageEditor({
   narrow = false,
   onChange,
 }: StageEditorProps) {
+  // One subscription for the whole editor, its rules laid out by it.
+  const phone = usePhoneLayout();
   const listRef = useRef<HTMLDivElement>(null);
   const focusAfter = useRef<FocusAfter | null>(null);
 
@@ -97,6 +100,7 @@ export function StageEditor({
             discardRate={discardRates?.[index] ?? 0}
             stale={stale}
             calculating={calculating}
+            phone={phone}
             onAddBox={() =>
               change(addRuleGroup(draft, tuneStage), {
                 kind: 'added',
@@ -138,6 +142,7 @@ function Stage({
   discardRate,
   stale,
   calculating,
+  phone,
   onAddBox,
   onAddRule,
   onRemoveRule,
@@ -148,6 +153,8 @@ function Stage({
   discardRate: number;
   stale: boolean;
   calculating: readonly PendingThreshold[];
+  /** Whether the screen is phone width. */
+  phone: boolean;
   onAddBox(): void;
   onAddRule(box: number): void;
   onRemoveRule(box: number, rule: number): void;
@@ -206,6 +213,7 @@ function Stage({
                         .filter(({ ruleId }) => ruleId === rule.id)
                         .map(({ field }) => field)}
                       joined={index > 0}
+                      phone={phone}
                       onRemove={() => onRemoveRule(box, index)}
                       onUpdate={(fields) => onUpdateRule(box, index, fields)}
                     />
@@ -238,6 +246,7 @@ function RuleRow({
   rule,
   calculating,
   joined,
+  phone,
   onRemove,
   onUpdate,
 }: {
@@ -245,6 +254,8 @@ function RuleRow({
   /** The fields waiting for a Top x% threshold. */
   calculating: readonly ThresholdField[];
   joined: boolean;
+  /** Whether the screen is phone width. */
+  phone: boolean;
   onRemove(): void;
   onUpdate(fields: Partial<Omit<RuleDraft, 'id'>>): void;
 }) {
@@ -361,28 +372,48 @@ function RuleRow({
       break;
   }
 
+  const kindPicker = (
+    <select
+      aria-label="Kind of rule"
+      value={rule.kind}
+      onChange={(event) => onUpdate({ kind: event.target.value as RuleKind })}
+    >
+      {KINDS.map(([kind, label]) => (
+        <option key={kind} value={kind}>
+          {label}
+        </option>
+      ))}
+    </select>
+  );
+  const remove = (
+    <IconButton
+      label="Remove this rule"
+      icon={<CrossIcon />}
+      danger
+      data-remove-rule
+      onClick={onRemove}
+    />
+  );
+
   return (
     <div className={`${styles.rule} ${problem ? styles.unfinished : ''}`} data-rule>
-      {joined && <span className={styles.and}>and</span>}
-      <select
-        aria-label="Kind of rule"
-        value={rule.kind}
-        onChange={(event) => onUpdate({ kind: event.target.value as RuleKind })}
-      >
-        {KINDS.map(([kind, label]) => (
-          <option key={kind} value={kind}>
-            {label}
-          </option>
-        ))}
-      </select>{' '}
-      {phrase}
-      <IconButton
-        label="Remove this rule"
-        icon={<CrossIcon />}
-        danger
-        data-remove-rule
-        onClick={onRemove}
-      />
+      {phone ? (
+        // On a phone, line 1 holds "and", the kind picker and × at the right edge; the phrase wraps below (spec §14).
+        <>
+          <span className={styles.kindLine}>
+            {joined && <span className={styles.and}>and</span>}
+            {kindPicker}
+            {remove}
+          </span>
+          {phrase}
+        </>
+      ) : (
+        <>
+          {joined && <span className={styles.and}>and</span>}
+          {kindPicker} {phrase}
+          {remove}
+        </>
+      )}
       {problem && (
         <span id={problemId} className={styles.problem}>
           {problem.message}

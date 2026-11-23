@@ -5,6 +5,7 @@ import { App } from '../app/App';
 import type { Calculator } from '../calculation/newestInputWins';
 import type { WeightTableData } from '../catalogue/catalogue';
 import { inProcessCalculator } from '../test/inProcessCalculator';
+import { atPhoneWidth } from '../test/phoneWidth';
 
 // Small tables, so each calculation is instant. Only Crit Rate is weighted: 6.0 per Reference Roll (7.5).
 const TABLES: readonly WeightTableData[] = [
@@ -70,7 +71,10 @@ async function addCountRule(user: User, n: number, substats: string[]) {
 
 async function pickSubstats(user: User, opener: HTMLElement, substats: string[]) {
   await user.click(opener);
-  const popover = screen.getByRole('group', { name: 'Substats' });
+  // A popover on desktop, a sheet on a phone.
+  const popover =
+    screen.queryByRole('group', { name: 'Substats' }) ??
+    screen.getByRole('dialog', { name: 'Substats' });
   for (const name of substats) await user.click(within(popover).getByRole('checkbox', { name }));
   await user.keyboard('{Escape}');
 }
@@ -834,5 +838,119 @@ describe('comparing two strategies', () => {
     asked.mockClear();
     await user.selectOptions(picker(), 'Atk only');
     expect(asked.mock.calls.map(([strategy]) => strategy)).toEqual(['A', 'B']);
+  });
+});
+
+describe('the Substat Count picker on a phone', () => {
+  atPhoneWidth();
+
+  it('is a sheet of one checkbox per Substat with Done, which keeps the picks', async () => {
+    const user = await openWithTable();
+    await user.click(within(stage(1)).getByRole('button', { name: '+ add a rule' }));
+    await user.click(within(stage(1)).getByRole('button', { name: 'pick Substats' }));
+    const sheet = screen.getByRole('dialog', { name: 'Substats' });
+    expect(within(sheet).getAllByRole('checkbox')).toHaveLength(13);
+    await user.click(within(sheet).getByRole('checkbox', { name: 'Crit Rate' }));
+    await user.click(within(sheet).getByRole('checkbox', { name: 'Crit Damage' }));
+    await user.click(within(sheet).getByRole('button', { name: 'Done' }));
+    expect(screen.queryByRole('dialog', { name: 'Substats' })).toBeNull();
+    expect(within(stage(1)).getByRole('button', { name: 'Crit Rate, Crit Damage' })).toHaveFocus();
+  });
+
+  it('closes on Escape, giving focus back to its button', async () => {
+    const user = await openWithTable();
+    await user.click(within(stage(1)).getByRole('button', { name: '+ add a rule' }));
+    await user.click(within(stage(1)).getByRole('button', { name: 'pick Substats' }));
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog', { name: 'Substats' })).toBeNull();
+    expect(within(stage(1)).getByRole('button', { name: 'pick Substats' })).toHaveFocus();
+  });
+});
+
+describe('Upgrade Strategy on a phone', () => {
+  atPhoneWidth();
+
+  const resultsBar = () => screen.getByRole('complementary', { name: 'Results summary' });
+
+  it('keeps the Success Rate in a bar whose "Results" link takes focus to the results panel', async () => {
+    const user = await openWithTable();
+    await addCountRule(user, 1, ['Crit Rate']);
+    await within(results()).findByText('7.7%');
+    expect(resultsBar()).toHaveTextContent('7.7% Success Rate');
+    await user.click(within(resultsBar()).getByRole('button', { name: 'Results' }));
+    expect(results()).toHaveFocus();
+  });
+
+  it('shows no bar while there is no Weight Table', () => {
+    open();
+    expect(screen.queryByRole('complementary', { name: 'Results summary' })).toBeNull();
+  });
+
+  it('puts a rule’s × on its first line, right after the kind picker, so Tab reaches it before the phrase', async () => {
+    const user = await openWithTable();
+    await user.click(within(stage(1)).getByRole('button', { name: '+ add a rule' }));
+    expect(within(stage(1)).getByRole('combobox', { name: 'Kind of rule' })).toHaveFocus();
+    await user.tab();
+    expect(within(stage(1)).getByRole('button', { name: 'Remove this rule' })).toHaveFocus();
+    await user.tab();
+    expect(within(stage(1)).getByRole('combobox', { name: 'How many' })).toHaveFocus();
+  });
+
+  const side = (name: 'A' | 'B') => screen.getByRole('button', { name: `Strategy ${name}` });
+
+  it('compares one strategy at a time, switched by "Strategy A | Strategy B", with no bar', async () => {
+    const user = await openWithTable();
+    await addCountRule(user, 1, ['Crit Rate']);
+    await startComparing(user);
+
+    // The new, empty Strategy B shows first.
+    expect(side('B')).toHaveAttribute('aria-pressed', 'true');
+    expect(side('A')).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.queryByRole('region', { name: 'Strategy A' })).toBeNull();
+    expect(
+      within(panelStage('B', 1)).getByRole('button', { name: '+ add a rule' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('complementary', { name: 'Results summary' })).toBeNull();
+
+    await user.click(side('A'));
+    expect(side('A')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByRole('region', { name: 'Strategy B' })).toBeNull();
+    expect(strategyPanel('A')).toHaveTextContent('at least 1 of Crit Rate');
+    // Each keeps its Edit or Done view.
+    await user.click(within(strategyPanel('A')).getByRole('button', { name: 'Edit' }));
+    await user.click(side('B'));
+    await user.click(side('A'));
+    expect(
+      within(panelStage('A', 1)).getByRole('combobox', { name: 'Kind of rule' }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Stop comparing' }));
+    expect(screen.queryByRole('button', { name: 'Strategy A' })).toBeNull();
+    expect(resultsBar()).toHaveTextContent('7.7% Success Rate');
+  });
+
+  it('stacks each "B compared with A" row: the label, then A, B and the pill', async () => {
+    const user = await openWithTable();
+    await startComparing(user);
+    await addCountRuleToB(user, 1, ['Crit Rate']);
+
+    const row = (label: string) =>
+      within(comparison())
+        .getAllByRole('listitem')
+        .find((item) => item.textContent?.startsWith(label));
+    await waitFor(() => expect(row('Echoes started')).toHaveTextContent('B 13.00'));
+    expect(within(comparison()).queryByRole('table')).toBeNull();
+    expect(row('Echoes started')).toHaveTextContent(
+      'Echoes started per Successful Echo A 1.00 B 13.00 ▼+1200.0% worse',
+    );
+    expect(within(comparison()).getAllByRole('listitem')).toHaveLength(6);
+  });
+
+  it('labels the paired chart’s stages "1/5" … "5/5" and "Succ."', async () => {
+    const user = await openWithTable();
+    await startComparing(user);
+    expect(within(comparison()).getByTestId('paired-chart')).toHaveTextContent(
+      /^AB1\/52\/53\/54\/55\/5Succ\.$/,
+    );
   });
 });

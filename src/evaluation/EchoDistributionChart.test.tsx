@@ -1,6 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import type { ChanceAtOrAbove, EchoEvaluationResult } from '../calculation/protocol';
+import { atPhoneWidth } from '../test/phoneWidth';
 import { EchoDistributionChart, type ChartedListedTable } from './EchoDistributionChart';
 
 function result(
@@ -161,5 +162,29 @@ describe('the Echo distribution chart', () => {
     expect(screen.getByRole('heading', { name: 'Echo distribution' })).toBeInTheDocument();
     expect(chart()).toHaveTextContent('Final Echo Score');
     expect(chart()).toHaveTextContent('Chance');
+  });
+});
+
+describe('the Echo distribution chart on a phone', () => {
+  atPhoneWidth();
+  const wide = listed('Wide', [
+    { threshold: 0, chance: 1 },
+    { threshold: 14, chance: 0.5 },
+  ]);
+
+  it('is drawn 360 units wide, with about 4 axis ticks', () => {
+    render(<EchoDistributionChart tables={[wide]} focused="Wide" />);
+    expect(chart().getAttribute('viewBox')?.split(' ')[2]).toBe('360');
+    expect(xTicks()).toEqual(['0', '5', '10']);
+  });
+
+  it('has the short legend names', () => {
+    render(<EchoDistributionChart tables={[cantarella]} focused="Cantarella" />);
+    const legend = screen.getByRole('list', { name: 'Legend' });
+    expect(
+      within(legend)
+        .getAllByRole('listitem')
+        .map((item) => item.textContent),
+    ).toEqual(['Cantarella', 'Others', 'Target', 'ER']);
   });
 });

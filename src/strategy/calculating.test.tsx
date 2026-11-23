@@ -1,5 +1,5 @@
 // Upgrade Strategy while results are pending, and when they can't be calculated (spec §11).
-import { act, render, screen, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { App } from '../app/App';
@@ -8,6 +8,7 @@ import type { StrategyName } from '../calculation/protocol';
 import { createUpgradeStrategyJobs } from '../calculation/upgradeStrategyJob';
 import type { WeightTableData } from '../catalogue/catalogue';
 import { inProcessCalculator } from '../test/inProcessCalculator';
+import { atPhoneWidth } from '../test/phoneWidth';
 
 const TABLES: readonly WeightTableData[] = [
   { name: 'Crit Rate only', weights: { Critical_Rate: 6 } },
@@ -128,5 +129,23 @@ describe('a strategy that can’t be calculated', () => {
     expect(await within(strategyPanel('B')).findByText(FAILED)).toBeInTheDocument();
     expect(within(strategyPanel('A')).queryByText(FAILED)).toBeNull();
     expect(strategyPanel('A')).toHaveTextContent(/Success Rate \d+\.\d%/);
+  });
+});
+
+describe('a pending strategy on a phone', () => {
+  atPhoneWidth();
+
+  it('shows "Calculating…" in the sticky bar too', async () => {
+    const { calculator, release } = holdingStrategies('A');
+    const user = open(calculator);
+    await user.selectOptions(picker(), 'Crit Rate only');
+    release();
+    const bar = await screen.findByRole('complementary', { name: 'Results summary' });
+    expect(within(bar).queryByText(CALCULATING)).toBeNull();
+
+    await user.selectOptions(picker(), 'Atk only');
+    expect(await within(bar).findByText(CALCULATING)).toBeInTheDocument();
+    release();
+    await waitFor(() => expect(within(bar).queryByText(CALCULATING)).toBeNull());
   });
 });

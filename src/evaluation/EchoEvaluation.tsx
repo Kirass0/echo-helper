@@ -9,15 +9,18 @@ import type {
   ListedTableInput,
 } from '../calculation/protocol';
 import {
+  CALCULATION_FAILED,
   CalculatingSlot,
   CalculationStatus,
   fadedWhen,
   type CalculationState,
 } from '../ui/CalculationStatus';
+import { LiveRegion, type Announcement } from '../ui/LiveRegion';
 import surfaces from '../ui/surfaces.module.css';
 import { useLongPending } from '../ui/useLongPending';
 import { forgetTable, renameTable } from './rememberedByName';
 import { EchoDistributionChart } from './EchoDistributionChart';
+import { formatChance, formatEchoScore } from './format';
 import { withoutRows } from './echoEvaluationEntry';
 import { ResultBoxes } from './ResultBoxes';
 import { CustomTag } from './TableOptions';
@@ -80,7 +83,7 @@ export function EchoEvaluation({
     });
     return tables.length ? { substats, tables, focusedTableName: focused } : null;
   }, [substats, listed, focused, targets, allTables]);
-  const { results, stateOf } = useEchoEvaluationResults(calculator, input);
+  const { results, stateOf, settled } = useEchoEvaluationResults(calculator, input);
   // The chart shows every listed table: it fades while any is calculating, and says so if any was given up.
   const listedStates = listed.map(stateOf);
   const chartState: CalculationState = listedStates.includes('failed')
@@ -89,6 +92,18 @@ export function EchoEvaluation({
       ? 'calculating'
       : 'done';
   const focusedState = focused === null ? 'done' : stateOf(focused);
+  const focusedResult = focused === null ? undefined : results[focused];
+  // A calculation failure is spoken as soon as it shows (spec §15): the focused table's as the Results panel says it,
+  // another listed table's named.
+  const failedOther = listed.find((name) => name !== focused && stateOf(name) === 'failed');
+  const announcement: Announcement | null =
+    focusedState === 'failed'
+      ? { message: CALCULATION_FAILED }
+      : failedOther !== undefined
+        ? { message: `${failedOther}: ${CALCULATION_FAILED}` }
+        : focused !== null && focusedResult && settled(focused)
+          ? { line: settledLine(focusedResult) }
+          : null;
 
   function add(name: string) {
     update((state) => ({ listed: [...state.listed, name], focused: name }));
@@ -142,6 +157,7 @@ export function EchoEvaluation({
 
   return (
     <div className={styles.layout}>
+      <LiveRegion announcement={announcement} />
       <div className={`${surfaces.panel} ${styles.echo}`}>
         <YourEcho substats={substats} onChange={(changed) => update({ substats: changed })} />
       </div>
@@ -223,6 +239,18 @@ export function EchoEvaluation({
   );
 }
 
+/**
+ * The line spoken once the focused table's results settle (spec §15): its Target Chance, Reached or Not reached at
+ * 5/5, or its Echo Score if it has no Target Score.
+ */
+function settledLine(result: EchoEvaluationResult): string {
+  if (result.fullyTuned && result.reachesTarget !== null)
+    return `Target Score: ${result.reachesTarget ? 'Reached' : 'Not reached'}`;
+  if (!result.fullyTuned && result.targetChance !== null)
+    return `Target Chance: ${formatChance(result.targetChance)}`;
+  return `Echo Score: ${formatEchoScore(result.echoScore)}`;
+}
+
 /** What came back for a table: for which input, and whether it was a result or the calculation was given up. */
 interface Answer {
   readonly input: EchoEvaluationListInput;
@@ -259,5 +287,10 @@ function useEchoEvaluationResults(calculator: Calculator, input: EchoEvaluationL
     if (answer?.input === input && answer.failed) return 'failed';
     return calculating.has(name) ? 'calculating' : 'done';
   };
-  return { results, stateOf };
+  /** Whether a table's result for the newest input has come. */
+  const settled = (name: string) => {
+    const answer = answers[name];
+    return answer?.input === input && !answer.failed;
+  };
+  return { results, stateOf, settled };
 }
