@@ -27,7 +27,8 @@ test.describe('Custom Weight Tables', () => {
   test('duplicates a built-in, edits a weight and sees the row update', async ({
     page,
   }, testInfo) => {
-    test.skip(testInfo.project.name === 'phone', 'The phone layout comes with ticket 21.');
+    // On a phone the rows are cards, with no header row before them.
+    const phone = testInfo.project.name === 'phone';
     await page.goto('#evaluation');
     await page.getByRole('button', { name: 'Add the Substat revealed at +5' }).click();
     await page.getByRole('button', { name: 'Crit Rate', exact: true }).click();
@@ -49,19 +50,23 @@ test.describe('Custom Weight Tables', () => {
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
 
-    const rows = page.getByRole('table').getByRole('row');
-    await expect(rows).toHaveCount(3);
-    const copy = rows.nth(2);
+    const rows = phone
+      ? page.getByRole('list', { name: 'Substat Weight Tables' }).getByRole('listitem')
+      : page.getByRole('table').getByRole('row');
+    const echoScoreOf = (row: Locator) =>
+      phone ? row.getByRole('group', { name: /^Echo Score for / }) : row.getByRole('cell').nth(3);
+    await expect(rows).toHaveCount(phone ? 2 : 3);
+    const copy = rows.last();
     await expect(copy).toHaveAttribute('aria-current', 'true');
     await expect(copy.getByText('Custom', { exact: true })).toBeVisible();
     // 8.1% Crit Rate is 8.1 / 7.5 Reference Rolls, at a weight of 10.
-    await expect(copy.getByRole('cell').nth(3)).toHaveText('10.80');
+    await expect(echoScoreOf(copy)).toContainText('10.80');
 
     await page.getByRole('button', { name: 'Weights of Mornye (copy)' }).click();
     await dialog.getByRole('button', { name: 'Edit' }).click();
     await dialog.getByRole('textbox', { name: 'Crit Rate', exact: true }).fill('5');
     await dialog.getByRole('button', { name: 'Save' }).click();
-    await expect(copy.getByRole('cell').nth(3)).toHaveText('5.40');
+    await expect(echoScoreOf(copy)).toContainText('5.40');
     // Reload only once the edit is remembered.
     await expect
       .poll(() =>
@@ -78,7 +83,7 @@ test.describe('Custom Weight Tables', () => {
 
     await page.reload();
     await expect(page.getByRole('button', { name: 'Weights of Mornye (copy)' })).toBeVisible();
-    await expect(rows.nth(2).getByRole('cell').nth(3)).toHaveText('5.40');
+    await expect(echoScoreOf(rows.last())).toContainText('5.40');
   });
 });
 
@@ -121,7 +126,7 @@ test.describe('Substat Weight Tables list pickers', () => {
   test('fit their table, even where a browser cannot size a select to its content', async ({
     page,
   }, testInfo) => {
-    test.skip(testInfo.project.name === 'phone', 'The phone layout comes with ticket 21.');
+    test.skip(testInfo.project.name === 'phone', "On a phone a card's picker fills its line.");
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto('#evaluation');
     // As Firefox and Safari, which have no `field-sizing: content`.
@@ -144,7 +149,10 @@ test.describe('the weights dialog', () => {
   test('closes on Escape or a click on the dimmed area, but not on its own edge', async ({
     page,
   }, testInfo) => {
-    test.skip(testInfo.project.name === 'phone', 'The phone layout comes with ticket 21.');
+    test.skip(
+      testInfo.project.name === 'phone',
+      'A full-width sheet has no dimmed area at its side: see phoneEvaluation.spec.ts.',
+    );
     await page.goto('#evaluation');
     await page.getByRole('combobox', { name: 'Add a Weight Table' }).selectOption('Mornye');
     await page.getByRole('button', { name: 'Weights of Mornye' }).click();

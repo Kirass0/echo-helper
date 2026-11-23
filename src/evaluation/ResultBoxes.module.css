@@ -76,20 +76,40 @@
   color: var(--bad);
 }
 
+/*
+ * On a phone (spec §14, ticket 16 prototype B): the two wide boxes share row 1, the other six go three across with
+ * smaller numbers; labels are the full terms and may wrap to two lines, and every box keeps a fixed minimum height.
+ */
 @media (max-width: 600px) {
-  .box.wide {
-    grid-column: span 3;
+  .boxes {
+    gap: 6px;
   }
 
   .box {
-    padding: 8px 10px;
+    padding: 8px 9px;
+    min-height: 66px;
+  }
+
+  .box.wide {
+    min-height: 84px;
+  }
+
+  .label,
+  .reason {
+    font-size: 0.78em;
+    line-height: 1.25;
   }
 
   .value {
-    font-size: 1.1em;
+    font-size: 1.08em;
   }
 
-  .wide .value {
-    font-size: 26px;
+  /*
+   * "Not reached" at 26px is wider than a wide box at 320px, as "Top 21.16%" is than a small one: a value may take
+   * two lines. The rows keep their height: the hidden copies hold "Not reached", and row 2 is as tall as the ER Top
+   * Percent box with its reason.
+   */
+  .value {
+    white-space: normal;
   }
 }

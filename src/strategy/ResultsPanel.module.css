@@ -7,8 +7,8 @@
 /* "Calculating…" at the top right, level with the Success Rate. */
 .calculating {
   position: absolute;
-  top: calc(var(--pad) + 10px);
-  right: var(--pad);
+  top: calc(var(--panel-pad) + 10px);
+  right: var(--panel-pad);
 }
 
 .staleMessage {

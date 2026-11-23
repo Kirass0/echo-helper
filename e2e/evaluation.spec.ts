@@ -35,7 +35,8 @@ test.describe('Echo Evaluation', () => {
   test('compares several tables, and nothing moves when focus, a table or a target changes', async ({
     page,
   }, testInfo) => {
-    test.skip(testInfo.project.name === 'phone', 'The phone layout comes with ticket 21.');
+    // On a phone the rows are cards, with no header row before them.
+    const phone = testInfo.project.name === 'phone';
     await page.goto('#evaluation');
     await page.getByRole('button', { name: 'Add the Substat revealed at +5' }).click();
     await page.getByRole('button', { name: 'Crit Rate', exact: true }).click();
@@ -45,12 +46,16 @@ test.describe('Echo Evaluation', () => {
     await add.selectOption('Mornye');
     await add.selectOption('Jinhsi');
     await add.selectOption('Cartethyia');
-    const rows = page.getByRole('table').getByRole('row');
-    await expect(rows).toHaveCount(4);
+    const rows = phone
+      ? page.getByRole('list', { name: 'Substat Weight Tables' }).getByRole('listitem')
+      : page.getByRole('table').getByRole('row');
+    /** The nth listed table's row, counting from 1. */
+    const row = (n: number) => rows.nth(phone ? n - 1 : n);
+    await expect(rows).toHaveCount(phone ? 3 : 4);
     await expect(page.getByRole('heading', { name: 'Cartethyia' })).toBeVisible();
-    await expect(rows.nth(3)).toHaveAttribute('aria-current', 'true');
+    await expect(row(3)).toHaveAttribute('aria-current', 'true');
     // Each row gets its own Echo Score.
-    for (const index of [1, 2, 3]) await expect(rows.nth(index)).toContainText(/\d+\.\d\d/);
+    for (const n of [1, 2, 3]) await expect(row(n)).toContainText(/\d+\.\d\d/);
 
     const layout = () =>
       page.evaluate(() => {
@@ -59,7 +64,9 @@ test.describe('Echo Evaluation', () => {
         return [
           ...tab.querySelectorAll('section[aria-label="Results"] [role="group"]'),
           ...tab.querySelectorAll('svg[role="img"][aria-label^="Echo distribution"]'),
-          ...tab.querySelectorAll('table tr, table th, select[aria-label="Add a Weight Table"]'),
+          ...tab.querySelectorAll(
+            'table tr, table th, ul[aria-labelledby="weight-tables-heading"] > li, ul[aria-labelledby="weight-tables-heading"] [role="group"], select[aria-label="Add a Weight Table"]',
+          ),
         ].map((element) => {
           // In page coordinates: clicking a row may scroll it into view.
           const { x, y, width, height } = element.getBoundingClientRect();
@@ -68,14 +75,18 @@ test.describe('Echo Evaluation', () => {
       });
     const before = await layout();
 
-    await rows.nth(1).getByRole('cell').nth(3).click();
+    await (
+      phone
+        ? row(1).getByRole('group', { name: 'Echo Score for Mornye' })
+        : row(1).getByRole('cell').nth(3)
+    ).click();
     await expect(page.getByRole('heading', { name: 'Mornye' })).toBeVisible();
     expect(await layout()).toEqual(before);
 
     await page
       .getByRole('combobox', { name: 'Swap Jinhsi for another Weight Table' })
       .selectOption('Qingxiao');
-    await expect(rows.nth(2).getByRole('combobox')).toHaveValue('Qingxiao');
+    await expect(row(2).getByRole('combobox')).toHaveValue('Qingxiao');
     expect(await layout()).toEqual(before);
 
     await page.getByRole('textbox', { name: 'Target Score for Mornye', exact: true }).fill('20');
@@ -138,7 +149,7 @@ test.describe('Echo Evaluation', () => {
   test('keeps each result box one size whatever it shows, at every width', async ({
     page,
   }, testInfo) => {
-    test.skip(testInfo.project.name === 'phone', 'The phone layout comes with ticket 21.');
+    const phone = testInfo.project.name === 'phone';
     await page.goto('#evaluation');
     const addSubstat = async (type: string) => {
       await page.getByRole('button', { name: /^Add the Substat revealed at/ }).click();
@@ -155,7 +166,7 @@ test.describe('Echo Evaluation', () => {
      * At each width: each box's height, marked if anything in it reaches past its edges, and for each row the
      * smallest space under a box's content.
      */
-    const WIDTHS = [1280, 1000, 830];
+    const WIDTHS = phone ? [412, 360, 320] : [1280, 1000, 830];
     async function measure() {
       const sizes: string[] = [];
       const spaceBelow: number[] = [];
@@ -219,7 +230,9 @@ test.describe('Echo Evaluation', () => {
     const verdicts = await measure();
     expect(verdicts.sizes).toEqual(first.sizes);
 
-    // No taller than needed: in each row, some content the boxes can show fills a box to its bottom edge.
+    // No taller than needed: in each row, some content the boxes can show fills a box to its bottom edge. On a phone
+    // the boxes have a fixed minimum height instead (spec §14).
+    if (phone) return;
     const tightest = first.spaceBelow.map((space, i) =>
       Math.min(space, numbers.spaceBelow[i] ?? Infinity, verdicts.spaceBelow[i] ?? Infinity),
     );

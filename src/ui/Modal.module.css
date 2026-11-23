@@ -1,0 +1,73 @@
+/*
+ * A centred modal dialog on desktop (spec §13): the panel surface, no shadow. The <dialog> is only a frame; its content
+ * carries the border, surface and scrolling, so a click lands on the <dialog> itself only on the dimmed area outside.
+ */
+.dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(460px, calc(100vw - 24px));
+  overflow: visible;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+}
+
+.dialog::backdrop {
+  background: var(--backdrop);
+}
+
+.content {
+  max-height: calc(100vh - 24px);
+  overflow: auto;
+  padding: var(--pad);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+/* The grab handle shows only on a phone. */
+.grab {
+  display: none;
+}
+
+/* On a phone, a bottom sheet (spec §14, ticket 16 prototype B): full width, at most 85% of the height. */
+@media (max-width: 600px) {
+  .dialog {
+    inset: auto 0 0;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+  }
+
+  .content {
+    max-height: 85vh;
+    max-height: 85dvh;
+    padding: 8px 16px 16px;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+    border-width: 1px 0 0;
+    border-radius: 14px 14px 0 0;
+  }
+
+  .grab {
+    display: block;
+    width: 40px;
+    height: 4px;
+    margin: 0 auto 10px;
+    border-radius: 99px;
+    background: var(--line);
+  }
+}
+
+@media (max-width: 600px) and (prefers-reduced-motion: no-preference) {
+  .dialog[open] {
+    animation: slide-in 0.2s ease-out;
+  }
+}
+
+@keyframes slide-in {
+  from {
+    transform: translateY(100%);
+  }
+}

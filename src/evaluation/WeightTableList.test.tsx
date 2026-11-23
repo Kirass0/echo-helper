@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import type { WeightTableData } from '../catalogue/catalogue';
 import { inProcessCalculator } from '../test/inProcessCalculator';
 import { EchoEvaluationTab } from '../test/EchoEvaluationTab';
+import { atPhoneWidth } from '../test/phoneWidth';
 
 // Small tables, so each calculation is instant. Crit Rate only weighs Crit Rate 6.0 per Reference Roll (7.5).
 const TABLES: readonly WeightTableData[] = [
@@ -290,5 +291,86 @@ describe('Weight Table rows by keyboard', () => {
 
     await user.keyboard('{Enter}');
     expect(document.activeElement).toBe(addPicker());
+  });
+});
+
+describe('the list on a phone', () => {
+  atPhoneWidth();
+  const list = () => screen.getByRole('list', { name: 'Substat Weight Tables' });
+  const cards = () => within(list()).getAllByRole('listitem');
+  const card = (index: number) => cards()[index] as HTMLElement;
+  /** The card's figure under a label, on its third line. */
+  const figure = (index: number, label: string) =>
+    within(card(index)).getByRole('group', { name: new RegExp(`^${label} for `) });
+  const focusedCardIndex = () =>
+    cards().findIndex((c) => c.getAttribute('aria-current') === 'true');
+
+  it('carries the Substat Weight Table tooltip on the heading, as there is no header row', () => {
+    open();
+    const heading = screen.getByRole('heading', { name: 'Substat Weight Tables' });
+    expect(
+      within(heading).getByRole('button', { name: 'Substat Weight Tables' }),
+    ).toHaveAccessibleDescription('Determines how much each Substat is worth.');
+  });
+
+  it('is one card per table, with no table', async () => {
+    const user = open();
+    await listTables(user, 'Crit Rate only', 'Atk only');
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    expect(cards()).toHaveLength(2);
+    const first = within(card(0));
+    expect(
+      first.getByRole('combobox', { name: 'Swap Crit Rate only for another Weight Table' }),
+    ).toBeInTheDocument();
+    expect(first.getByRole('button', { name: 'Weights of Crit Rate only' })).toBeInTheDocument();
+    expect(first.getByRole('button', { name: 'Remove Crit Rate only' })).toBeInTheDocument();
+    expect(within(card(0)).getByText('Target Score')).toBeVisible();
+    expect(within(card(0)).getByText('ER Target Score')).toBeVisible();
+    expect(first.getByRole('textbox', { name: 'Target Score for Crit Rate only' })).toBeVisible();
+    expect(
+      first.getByRole('textbox', { name: 'ER Target Score for Crit Rate only' }),
+    ).toBeVisible();
+  });
+
+  it('shows each card’s Echo Score and chances, reading Reached or Not reached at 5/5', async () => {
+    const user = open();
+    await addSubstat(user, 'Crit Rate', '7.5%');
+    await listTables(user, 'Crit Rate only');
+    await user.type(targetBox('Crit Rate only'), '6');
+    expect(await within(figure(0, 'Echo Score')).findByText('6.00')).toBeInTheDocument();
+    expect(await within(figure(0, 'Target Chance')).findByText('100.00%')).toBeInTheDocument();
+    expect(within(figure(0, 'ER Target Chance')).getByText('—')).toBeInTheDocument();
+
+    await addSubstat(user, 'HP%', '8.6%');
+    await addSubstat(user, 'Flat DEF', '50');
+    await addSubstat(user, 'Flat HP', '430');
+    await addSubstat(user, 'Energy Regen', '9.2%');
+    await user.type(erTargetBox('Crit Rate only'), '7');
+    expect(await within(figure(0, 'Target Chance')).findByText('Reached')).toBeInTheDocument();
+    expect(
+      await within(figure(0, 'ER Target Chance')).findByText('Not reached'),
+    ).toBeInTheDocument();
+  });
+
+  it('puts a card in focus when tapped outside its controls, but never through them', async () => {
+    const user = open();
+    await listTables(user, 'Crit Rate only', 'Atk only');
+    expect(focusedCardIndex()).toBe(1);
+    await user.click(targetBox('Crit Rate only'));
+    expect(focusedCardIndex()).toBe(1);
+
+    await user.click(figure(0, 'Echo Score'));
+    expect(focusedCardIndex()).toBe(0);
+    expect(resultsHeading()).toHaveTextContent('Crit Rate only');
+  });
+
+  it('keeps the add picker below the cards, and moves focus from a card’s × to the next card’s ×', async () => {
+    const user = open();
+    await listTables(user, 'Crit Rate only', 'Atk only');
+    expect(list().compareDocumentPosition(addPicker())).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    await user.click(button('Remove Crit Rate only'));
+    expect(button('Remove Atk only')).toHaveFocus();
+    await user.click(button('Remove Atk only'));
+    expect(addPicker()).toHaveFocus();
   });
 });

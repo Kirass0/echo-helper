@@ -66,14 +66,18 @@ export function ResultBoxes({ result }: { result: EchoEvaluationResult | null })
         wide
         label={TARGET_LABELS[fullyTuned ? 1 : 0]}
         content={target()}
-        sizes={{ labels: TARGET_LABELS, reasons: [SET_TARGET] }}
+        sizes={{ labels: TARGET_LABELS, reasons: [SET_TARGET], verdicts: true }}
       />
       <Box
         wide
         er
         label={ER_TARGET_LABELS[fullyTuned ? 1 : 0]}
         content={erTarget()}
-        sizes={{ labels: ER_TARGET_LABELS, reasons: [SET_ER_TARGET, NO_ENERGY_REGEN] }}
+        sizes={{
+          labels: ER_TARGET_LABELS,
+          reasons: [SET_ER_TARGET, NO_ENERGY_REGEN],
+          verdicts: true,
+        }}
       />
       <Box label="Echo Score" content={score((r) => r.echoScore)} />
       <Box
@@ -96,7 +100,8 @@ export function ResultBoxes({ result }: { result: EchoEvaluationResult | null })
 /**
  * A box. `sizes` names every reason it can show, and every label when it can have more than one; hidden copies of
  * each label with each reason, stacked under what it shows, give the box the height of the tallest, so it never
- * resizes as its content changes. A box with no `sizes` only ever shows its label and a one-line value.
+ * resizes as its content changes. `verdicts` adds a copy reading "Not reached", the longest verdict, which wraps on a
+ * phone. A box with no `sizes` only ever shows its label and a one-line value.
  */
 function Box({
   label,
@@ -109,7 +114,7 @@ function Box({
   content: BoxContent;
   wide?: boolean;
   er?: boolean;
-  sizes?: { labels?: readonly string[]; reasons: readonly string[] };
+  sizes?: { labels?: readonly string[]; reasons: readonly string[]; verdicts?: boolean };
 }) {
   const labelId = useId();
   const classes = [styles.box, wide && styles.wide, er && styles.er].filter(Boolean).join(' ');
@@ -124,6 +129,13 @@ function Box({
             </span>
           )),
         )}
+      {sizes?.verdicts &&
+        (sizes.labels ?? [label]).map((sizeLabel) => (
+          <span key={`${sizeLabel}|verdict`} className={styles.sizer} aria-hidden="true">
+            <span className={styles.label}>{sizeLabel}</span>
+            <span className={styles.value}>Not reached</span>
+          </span>
+        ))}
       <div role="group" aria-labelledby={labelId} className={styles.shown}>
         <span id={labelId} className={styles.label}>
           {label in TERM_TOOLTIPS ? (

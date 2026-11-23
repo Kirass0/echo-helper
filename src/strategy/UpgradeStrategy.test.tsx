@@ -5,6 +5,7 @@ import { App } from '../app/App';
 import type { Calculator } from '../calculation/newestInputWins';
 import type { WeightTableData } from '../catalogue/catalogue';
 import { inProcessCalculator } from '../test/inProcessCalculator';
+import { atPhoneWidth } from '../test/phoneWidth';
 
 // Small tables, so each calculation is instant. Only Crit Rate is weighted: 6.0 per Reference Roll (7.5).
 const TABLES: readonly WeightTableData[] = [
@@ -834,5 +835,31 @@ describe('comparing two strategies', () => {
     asked.mockClear();
     await user.selectOptions(picker(), 'Atk only');
     expect(asked.mock.calls.map(([strategy]) => strategy)).toEqual(['A', 'B']);
+  });
+});
+
+describe('the Substat Count picker on a phone', () => {
+  atPhoneWidth();
+
+  it('is a sheet of one checkbox per Substat with Done, which keeps the picks', async () => {
+    const user = await openWithTable();
+    await user.click(within(stage(1)).getByRole('button', { name: '+ add a rule' }));
+    await user.click(within(stage(1)).getByRole('button', { name: 'pick Substats' }));
+    const sheet = screen.getByRole('dialog', { name: 'Substats' });
+    expect(within(sheet).getAllByRole('checkbox')).toHaveLength(13);
+    await user.click(within(sheet).getByRole('checkbox', { name: 'Crit Rate' }));
+    await user.click(within(sheet).getByRole('checkbox', { name: 'Crit Damage' }));
+    await user.click(within(sheet).getByRole('button', { name: 'Done' }));
+    expect(screen.queryByRole('dialog', { name: 'Substats' })).toBeNull();
+    expect(within(stage(1)).getByRole('button', { name: 'Crit Rate, Crit Damage' })).toHaveFocus();
+  });
+
+  it('closes on Escape, giving focus back to its button', async () => {
+    const user = await openWithTable();
+    await user.click(within(stage(1)).getByRole('button', { name: '+ add a rule' }));
+    await user.click(within(stage(1)).getByRole('button', { name: 'pick Substats' }));
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog', { name: 'Substats' })).toBeNull();
+    expect(within(stage(1)).getByRole('button', { name: 'pick Substats' })).toHaveFocus();
   });
 });

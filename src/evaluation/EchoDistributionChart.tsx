@@ -3,6 +3,7 @@ import { area, line } from 'd3-shape';
 import type { EchoEvaluationResult } from '../calculation/protocol';
 import { CalculationStatus, fadedWhen, type CalculationState } from '../ui/CalculationStatus';
 import { useTooltip } from '../ui/Tooltip';
+import { usePhoneLayout } from '../ui/usePhoneLayout';
 import {
   BAND_COUNT,
   distributionBands,
@@ -27,11 +28,39 @@ export interface EchoDistributionChartProps {
   readonly state?: CalculationState;
 }
 
-// The drawing's own coordinates; the SVG scales to the panel's width.
-const WIDTH = 720;
-const HEIGHT = 240;
-const MARGIN = { top: 12, right: 14, bottom: 42, left: 58 };
-const PLOT_BOTTOM = HEIGHT - MARGIN.bottom;
+/** The drawing's own coordinates, which the SVG scales to the panel's width, and how many axis ticks it asks for. */
+interface Drawing {
+  readonly width: number;
+  readonly height: number;
+  readonly margin: {
+    readonly top: number;
+    readonly right: number;
+    readonly bottom: number;
+    readonly left: number;
+  };
+  readonly ticks: number;
+}
+
+const DESKTOP: Drawing = {
+  width: 720,
+  height: 240,
+  margin: { top: 12, right: 14, bottom: 42, left: 58 },
+  ticks: 6,
+};
+
+// Narrower on a phone, so its text stays readable once scaled down (spec §14).
+const PHONE: Drawing = {
+  width: 360,
+  height: 210,
+  margin: { top: 12, right: 10, bottom: 40, left: 60 },
+  ticks: 4,
+};
+
+/** The legend's names: the focused table's comes first, then these. */
+const LEGEND_NAMES = {
+  desktop: { others: 'Other tables', target: 'Target Score', erTarget: 'ER Target Score' },
+  phone: { others: 'Others', target: 'Target', erTarget: 'ER' },
+};
 
 /**
  * "Echo distribution" (spec §7): how the Echo's final Echo Score could land for every listed table at once, in 60
@@ -43,6 +72,9 @@ export function EchoDistributionChart({
   focused,
   state = 'done',
 }: EchoDistributionChartProps) {
+  const phone = usePhoneLayout();
+  const drawing = phone ? PHONE : DESKTOP;
+  const { width, height, margin } = drawing;
   // Every listed table's targets set the axis; only tables with a result have a curve.
   const charted = tables.map(({ name, targetScore, erTargetScore, result }): ChartedTable => ({
     name,
@@ -61,7 +93,7 @@ export function EchoDistributionChart({
         <h2 id="echo-distribution-heading" className={styles.heading}>
           Echo distribution
         </h2>
-        <Legend focused={focused} />
+        <Legend focused={focused} names={LEGEND_NAMES[phone ? 'phone' : 'desktop']} />
       </div>
       {/* Laid over the plot's top, so it appearing moves nothing. */}
       <div className={styles.status}>
@@ -69,22 +101,24 @@ export function EchoDistributionChart({
       </div>
       <svg
         className={`${styles.svg} ${fadedWhen(state !== 'done') ?? ''}`}
-        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+        viewBox={`0 0 ${width} ${height}`}
         role="img"
         aria-label={labelOf(focused, focusedTable)}
       >
-        {bands && <Plot bands={bands} focused={focused} focusedTable={focusedTable} />}
+        {bands && (
+          <Plot drawing={drawing} bands={bands} focused={focused} focusedTable={focusedTable} />
+        )}
         <text
           className={styles.axisTitle}
-          x={(MARGIN.left + WIDTH - MARGIN.right) / 2}
-          y={HEIGHT - 4}
+          x={(margin.left + width - margin.right) / 2}
+          y={height - 4}
           textAnchor="middle"
         >
           Final Echo Score
         </text>
         <text
           className={styles.axisTitle}
-          transform={`translate(12 ${(MARGIN.top + PLOT_BOTTOM) / 2}) rotate(-90)`}
+          transform={`translate(12 ${(margin.top + height - margin.bottom) / 2}) rotate(-90)`}
           textAnchor="middle"
         >
           Chance
@@ -95,20 +129,23 @@ export function EchoDistributionChart({
 }
 
 function Plot({
+  drawing: { width, height, margin, ticks },
   bands,
   focused,
   focusedTable,
 }: {
+  drawing: Drawing;
   bands: DistributionBands;
   focused: string;
   focusedTable: ChartedListedTable | null;
 }) {
+  const plotBottom = height - margin.bottom;
   const x = scaleLinear()
     .domain([bands.from, bands.to])
-    .range([MARGIN.left, WIDTH - MARGIN.right]);
+    .range([margin.left, width - margin.right]);
   const y = scaleLinear()
     .domain([0, bands.highestChance || 1])
-    .range([PLOT_BOTTOM, MARGIN.top]);
+    .range([plotBottom, margin.top]);
   const middle = (band: number) =>
     x(bands.from + ((band + 0.5) * (bands.to - bands.from)) / BAND_COUNT);
   const toLine = line<number>()
@@ -116,7 +153,7 @@ function Plot({
     .y((chance) => y(chance));
   const toArea = area<number>()
     .x((_, band) => middle(band))
-    .y0(PLOT_BOTTOM)
+    .y0(plotBottom)
     .y1((chance) => y(chance));
 
   const others = [...bands.chances].filter(([name]) => name !== focused);
@@ -124,13 +161,7 @@ function Plot({
   const yTicks = [0, 0.5, 1].map((share) => share * (bands.highestChance || 1));
   const targetLine = (score: number | null, className: string | undefined) =>
     score === null ? null : (
-      <line
-        className={className}
-        x1={x(score)}
-        x2={x(score)}
-        y1={MARGIN.top - 6}
-        y2={PLOT_BOTTOM}
-      />
+      <line className={className} x1={x(score)} x2={x(score)} y1={margin.top - 6} y2={plotBottom} />
     );
 
   return (
@@ -140,24 +171,24 @@ function Plot({
           <g key={chance}>
             <line
               className={styles.grid}
-              x1={MARGIN.left}
-              x2={WIDTH - MARGIN.right}
+              x1={margin.left}
+              x2={width - margin.right}
               y1={y(chance)}
               y2={y(chance)}
             />
-            <text className={styles.tick} x={MARGIN.left - 6} y={y(chance) + 4} textAnchor="end">
+            <text className={styles.tick} x={margin.left - 6} y={y(chance) + 4} textAnchor="end">
               {`${(chance * 100).toFixed(1)}%`}
             </text>
           </g>
         ))}
       </g>
       <g data-axis="x" data-from={bands.from} data-to={bands.to}>
-        {x.ticks(6).map((score) => (
+        {x.ticks(ticks).map((score) => (
           <text
             key={score}
             className={styles.tick}
             x={x(score)}
-            y={PLOT_BOTTOM + 16}
+            y={plotBottom + 16}
             textAnchor="middle"
           >
             {String(+score.toFixed(2))}
@@ -175,10 +206,10 @@ function Plot({
       )}
       <line
         className={styles.baseline}
-        x1={MARGIN.left}
-        x2={WIDTH - MARGIN.right}
-        y1={PLOT_BOTTOM}
-        y2={PLOT_BOTTOM}
+        x1={margin.left}
+        x2={width - margin.right}
+        y1={plotBottom}
+        y2={plotBottom}
       />
       {targetLine(focusedTable?.targetScore ?? null, styles.target)}
       {targetLine(focusedTable?.erTargetScore ?? null, styles.erTarget)}
@@ -187,7 +218,7 @@ function Plot({
 }
 
 /** The fixed single-line legend: the focused table (truncated, its full name in a tooltip), the others, the targets. */
-function Legend({ focused }: { focused: string }) {
+function Legend({ focused, names }: { focused: string; names: (typeof LEGEND_NAMES)['desktop'] }) {
   const { triggerProps, tooltip } = useTooltip({
     text: focused,
     describes: false,
@@ -204,15 +235,15 @@ function Legend({ focused }: { focused: string }) {
       </li>
       <li>
         <i className={`${styles.key} ${styles.otherKey}`} aria-hidden="true" />
-        Other tables
+        {names.others}
       </li>
       <li>
         <i className={`${styles.key} ${styles.targetKey}`} aria-hidden="true" />
-        Target Score
+        {names.target}
       </li>
       <li>
         <i className={`${styles.key} ${styles.erTargetKey}`} aria-hidden="true" />
-        ER Target Score
+        {names.erTarget}
       </li>
     </ul>
   );

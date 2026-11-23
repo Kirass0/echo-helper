@@ -182,3 +182,146 @@
   display: flex;
   align-items: center;
 }
+
+/* From 601 to 820px (tablet) the list is the desktop table, scrolling sideways once it can't fit (spec §14). */
+.scroller {
+  overflow-x: auto;
+}
+
+.scroller .table {
+  min-width: 620px;
+}
+
+/* On a phone: one card per table (spec §14, ticket 16 prototype B). */
+.cards {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+/* The sliders and × sit at the top right, over the room the first line keeps free for them. */
+.card {
+  position: relative;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+  cursor: pointer;
+}
+
+.card:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: -2px;
+}
+
+/* The accent border, a tint and a left bar; the bar is an inset shadow, so the card keeps its size. */
+.focusedCard {
+  border-color: var(--acc);
+  background: var(--acc-soft);
+  box-shadow: inset 3px 0 0 var(--acc);
+}
+
+.cardName {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 28px;
+  padding-right: 60px;
+}
+
+/* As in the prototype, the picker takes the line, beside the Custom tag and the icons. */
+.cardPicker {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.cardIcons {
+  position: absolute;
+  top: 8px;
+  right: 6px;
+  display: flex;
+  gap: 4px;
+}
+
+.cardTargets {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.cardField {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-size: 0.78em;
+  color: var(--mute);
+}
+
+/* 15px whatever the label's size, so the phone does not zoom into the box. */
+.cardField .number {
+  font-size: 15px;
+  color: var(--ink);
+}
+
+.cardStatusLine {
+  position: relative;
+  height: calc(0.8rem * 1.2 + 2px);
+}
+
+.cardError {
+  position: absolute;
+  left: 0;
+  top: 2px;
+  font-size: 0.8em;
+  line-height: 1.2;
+  white-space: nowrap;
+  color: var(--bad);
+}
+
+.cardStatus {
+  position: absolute;
+  right: 0;
+  top: 2px;
+  font-size: 0.8rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.cardFigures {
+  display: grid;
+  /* The Echo Score only as wide as it needs, so the two chances have room for "Not reached" at 320px. */
+  grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.cardFigure {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  justify-content: space-between;
+  line-height: 1.3;
+}
+
+.cardFigureLabel {
+  font-size: 0.78em;
+  color: var(--mute);
+}
+
+.cardFigureValue {
+  font-size: 1.12rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Reached / Not reached are words, not figures: smaller, to fit a card's column. */
+.cardFigureValue .good,
+.cardFigureValue .bad {
+  font-size: 0.72em;
+}
