@@ -14,8 +14,7 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test",
-    "compare:prototype": "node scripts/comparePrototype.ts"
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@fontsource-variable/onest": "^5.3.1",
