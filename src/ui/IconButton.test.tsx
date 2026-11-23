@@ -1,17 +1,27 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { IconButton } from './IconButton';
 import { PencilIcon } from './icons';
 
+// Advancing with real time too lets user-event's own zero-delay timers run.
+beforeEach(() => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 function renderButton(onClick = () => {}) {
-  const user = userEvent.setup();
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
   render(<IconButton label="Change the Substat at +5" icon={<PencilIcon />} onClick={onClick} />);
   return user;
 }
 
 const button = () => screen.getByRole('button', { name: 'Change the Substat at +5' });
 const tooltip = () => screen.queryByRole('tooltip');
+const wait = (ms: number) => act(() => vi.advanceTimersByTime(ms));
 
 describe('IconButton', () => {
   it('is labelled by its text and shows no tooltip at first', () => {
@@ -20,21 +30,18 @@ describe('IconButton', () => {
     expect(tooltip()).not.toBeInTheDocument();
   });
 
-  it('shows its label as a tooltip on hover', async () => {
+  it('shows no tooltip on hover, however long the pointer rests', async () => {
     const user = renderButton();
     await user.hover(button());
-    expect(tooltip()).toHaveTextContent('Change the Substat at +5');
-    await user.unhover(button());
-    await waitFor(() => expect(tooltip()).not.toBeInTheDocument());
+    await wait(1000);
+    expect(tooltip()).not.toBeInTheDocument();
   });
 
-  it('shows its tooltip on keyboard focus, and Escape closes it without moving focus', async () => {
+  it('shows no tooltip on keyboard focus', async () => {
     const user = renderButton();
     await user.tab();
-    expect(tooltip()).toHaveTextContent('Change the Substat at +5');
-    await user.keyboard('{Escape}');
-    expect(tooltip()).not.toBeInTheDocument();
     expect(button()).toHaveFocus();
+    expect(tooltip()).not.toBeInTheDocument();
   });
 
   it('still acts on a click', async () => {
