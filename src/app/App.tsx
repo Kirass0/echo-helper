@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import { About } from '../about/About';
 import type { Calculator } from '../calculation/newestInputWins';
 import { BUILT_IN_TABLES, findTable, type WeightTableData } from '../catalogue/catalogue';
 import { salvageNotices } from '../customTables/customTablesEntry';
@@ -125,6 +126,7 @@ export function App({ buildDate, calculator, builtInTables = BUILT_IN_TABLES }: 
             />
           )}
         </div>
+        {tab === 'about' && <About />}
       </main>
     </>
   );
