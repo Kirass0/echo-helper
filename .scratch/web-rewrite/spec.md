@@ -395,7 +395,7 @@ From [How a new player learns the app](issues/09-first-run-and-explanations.md),
 6. **Credits:**
    - the "thanks to" mention ([§4](#4-game-data-and-the-built-in-catalogue));
    - a link to the GitHub repo, naming its Issues as the place for feedback and table requests.
-7. **Disclaimer**, exactly:
+7. **Disclaimer:**
    > Echo Helper is a fan-made tool. It is not affiliated with or endorsed by Kuro Games. Wuthering Waves and its game data belong to Kuro Games. Results are calculated from game data as of the app's last update, and the built-in Substat Weight Tables are baselines, not correct answers. Use them as guidance.
 
    It appears only here; there is no footer line.

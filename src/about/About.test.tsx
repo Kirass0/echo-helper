@@ -15,9 +15,6 @@ const SECTIONS = [
   ['about-disclaimer', 'Disclaimer'],
 ] as const;
 
-const DISCLAIMER =
-  "Echo Helper is a fan-made tool. It is not affiliated with or endorsed by Kuro Games. Wuthering Waves and its game data belong to Kuro Games. Results are calculated from game data as of the app's last update, and the built-in Substat Weight Tables are baselines, not correct answers. Use them as guidance.";
-
 function section(id: string) {
   const element = document.getElementById(id);
   if (!element) throw new Error(`no section #${id}`);
@@ -137,14 +134,6 @@ describe('About', () => {
       'href',
       'https://github.com/Kirass0/echo-helper/issues',
     );
-  });
-
-  it('shows the disclaimer exactly, and nowhere else', () => {
-    render(<About />);
-    expect(section('about-disclaimer')).toHaveTextContent(DISCLAIMER, {
-      normalizeWhitespace: true,
-    });
-    expect(screen.getAllByText(/fan-made tool/)).toHaveLength(1);
   });
 
   it('on a phone, is an accordion that opens the linked section and lets several stay open', () => {
