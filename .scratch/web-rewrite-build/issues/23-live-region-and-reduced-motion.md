@@ -6,10 +6,10 @@
 
 **Blocked by:** 19 (Calculation scheduling, pending display, cache budget and failure), 20 (About tab), 22 (Tablet and phone layout: Upgrade Strategy)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] One polite live region speaks one line about 1 s after results settle: on Echo Evaluation the focused table's Target Chance (Reached / Not reached at 5/5), or its Echo Score if it has no Target Score; on Upgrade Strategy the Success Rate, or A's and B's while comparing
-- [ ] The unfinished-rule message and the calculation failure are announced when they appear; "Calculating…" is never announced
-- [ ] `prefers-reduced-motion: reduce` turns off every transition and animation: bar transitions, the sheet slide-in, the accordion, and smooth scrolling for the "Results" link and About anchors (which then jump)
-- [ ] The pending fade still applies but appears instantly
-- [ ] Component tests for the announcement text and its settle delay
+- [x] One polite live region speaks one line about 1 s after results settle: on Echo Evaluation the focused table's Target Chance (Reached / Not reached at 5/5), or its Echo Score if it has no Target Score; on Upgrade Strategy the Success Rate, or A's and B's while comparing
+- [x] The unfinished-rule message and the calculation failure are announced when they appear; "Calculating…" is never announced
+- [x] `prefers-reduced-motion: reduce` turns off every transition and animation: bar transitions, the sheet slide-in, the accordion, and smooth scrolling for the "Results" link and About anchors (which then jump)
+- [x] The pending fade still applies but appears instantly
+- [x] Component tests for the announcement text and its settle delay
