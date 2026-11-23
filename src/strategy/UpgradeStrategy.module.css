@@ -55,6 +55,13 @@
   cursor: not-allowed;
 }
 
+/* The one strategy's Clear all rules, at the top right of its panel. */
+.clearRow {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
 .columns {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 330px;

@@ -53,6 +53,9 @@ export const emptyStrategy = (): StrategyDraft => ({
   stages: Array.from({ length: MAX_TUNE_STAGE }, () => []),
 });
 
+/** Whether any Tune Stage has at least one Rule Group. */
+export const hasRules = (draft: StrategyDraft) => draft.stages.some((boxes) => boxes.length > 0);
+
 let lastId = 0;
 
 /** The lowest value a Substat type can roll. */

@@ -99,6 +99,19 @@ describe('remembering Upgrade Strategy', () => {
     expect(within(panelStage('B', 4)).getByText('Pick at least one Substat.')).toBeInTheDocument();
   });
 
+  it('opens a cleared strategy empty', async () => {
+    const first = open();
+    const { user } = first;
+    await user.selectOptions(picker(), 'Crit Rate only');
+    await user.click(screen.getByRole('button', { name: 'Clear all rules from your strategy' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Clear' }));
+    first.unmount();
+
+    open();
+    for (const n of [1, 2, 3, 4, 5])
+      expect(within(stage(n)).queryByRole('combobox', { name: 'Kind of rule' })).toBeNull();
+  });
+
   it('forgets Strategy B once comparing stops', async () => {
     const first = open();
     const { user } = first;

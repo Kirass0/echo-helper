@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 import type { SubstatEntry } from '../calculation/protocol';
 import { MAX_TUNE_STAGE, possibleRolls, type SubstatType } from '../core/gameData';
+import buttons from '../ui/buttons.module.css';
 import { IconButton } from '../ui/IconButton';
 import { CrossIcon, PencilIcon } from '../ui/icons';
 import { formatSubstatValue } from './format';
@@ -69,6 +70,13 @@ export function YourEcho({ substats, onChange }: YourEchoProps) {
     onChange(next);
     setPicking(null);
     focusNext.current = next.length < MAX_TUNE_STAGE ? ADD : pencilOf(slot);
+  }
+
+  /** Every Substat at once, back to Tune Stage 0/5; an open picker closes. */
+  function clear() {
+    onChange([]);
+    setPicking(null);
+    focusNext.current = ADD;
   }
 
   function remove(slot: number) {
@@ -180,12 +188,24 @@ export function YourEcho({ substats, onChange }: YourEchoProps) {
 
   return (
     <section className={styles.yourEcho} ref={container} aria-label="Your Echo">
-      <h2 className={styles.heading}>
-        Your Echo{' '}
-        <span className={styles.stage}>
-          Tune Stage {tuneStage}/{MAX_TUNE_STAGE} (+{tuneStage * 5})
-        </span>
-      </h2>
+      {/* On a narrow screen the Tune Stage wraps below "Your Echo", and Clear stays on the first row. */}
+      <div className={styles.head}>
+        <h2 className={styles.heading}>
+          <span>Your Echo</span>{' '}
+          <span className={styles.stage}>
+            Tune Stage {tuneStage}/{MAX_TUNE_STAGE} (+{tuneStage * 5})
+          </span>
+        </h2>
+        <button
+          type="button"
+          className={`${buttons.button} ${buttons.danger}`}
+          aria-label="Clear Your Echo"
+          disabled={tuneStage === 0}
+          onClick={clear}
+        >
+          Clear
+        </button>
+      </div>
       <ol className={styles.slots} aria-label="Tune slots">
         {Array.from({ length: MAX_TUNE_STAGE }, (_, slot) => (
           <li

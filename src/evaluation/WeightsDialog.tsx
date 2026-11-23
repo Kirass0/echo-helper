@@ -11,6 +11,7 @@ import {
 import { SUBSTAT_DISPLAY_ORDER, SUBSTAT_NAMES } from './substats';
 import { Modal } from '../ui/Modal';
 import { CustomTag } from './TableOptions';
+import buttons from '../ui/buttons.module.css';
 import dialogStyles from '../ui/dialog.module.css';
 import styles from './WeightsDialog.module.css';
 
@@ -157,7 +158,7 @@ export function WeightsDialog({
             </button>
             <button
               type="button"
-              className={`${dialogStyles.button} ${styles.dangerPrimary}`}
+              className={`${dialogStyles.button} ${buttons.dangerPrimary}`}
               onClick={() => onDelete(table.name)}
             >
               Delete
@@ -177,7 +178,7 @@ export function WeightsDialog({
               <>
                 <button
                   type="button"
-                  className={`${dialogStyles.button} ${styles.danger}`}
+                  className={`${dialogStyles.button} ${buttons.danger}`}
                   onClick={() => setScreen({ kind: 'confirmDelete', name: table.name })}
                 >
                   Delete
