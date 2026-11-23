@@ -79,11 +79,8 @@ export function WeightTableList({
   );
 
   const phone = usePhoneLayout();
-  /** The table, or on a phone the list of cards. */
-  const rowsRef = useRef<HTMLElement | null>(null);
-  const setRowsElement = (element: HTMLElement | null) => {
-    rowsRef.current = element;
-  };
+  /** The list, holding its rows or cards: they alone have sliders and × buttons. */
+  const listRef = useRef<HTMLElement>(null);
 
   // A row's × moves focus to the next row's ×, or to the add picker (spec §15), once the row is gone.
   const addRef = useRef<HTMLSelectElement>(null);
@@ -92,7 +89,7 @@ export function WeightTableList({
     const index = focusAfterRemoving.current;
     if (index === null) return;
     focusAfterRemoving.current = null;
-    const removeButtons = rowsRef.current?.querySelectorAll<HTMLElement>('[data-remove]');
+    const removeButtons = listRef.current?.querySelectorAll<HTMLElement>('[data-remove]');
     (removeButtons?.[index] ?? addRef.current)?.focus();
   }, [rows]);
 
@@ -108,7 +105,7 @@ export function WeightTableList({
     if (!closed) return;
     if (document.activeElement !== null && document.activeElement !== document.body) return;
     const row = dialogOpenedFrom.current;
-    const sliders = rowsRef.current?.querySelectorAll<HTMLElement>('[data-weights]');
+    const sliders = listRef.current?.querySelectorAll<HTMLElement>('[data-weights]');
     const next = row === null ? undefined : (sliders?.[row] ?? sliders?.[row - 1]);
     (next ?? addRef.current)?.focus();
   }, [weightsDialogOpen]);
@@ -133,7 +130,7 @@ export function WeightTableList({
   });
 
   return (
-    <section className={styles.list} aria-labelledby="weight-tables-heading">
+    <section ref={listRef} className={styles.list} aria-labelledby="weight-tables-heading">
       <h2 id="weight-tables-heading" className={styles.heading}>
         {/* On a phone the cards have no header row: the heading carries the term's tooltip instead. */}
         {phone ? (
@@ -145,7 +142,7 @@ export function WeightTableList({
       {rows.length > 0 &&
         (!phone ? (
           <div className={styles.scroller}>
-            <table ref={setRowsElement} className={styles.table}>
+            <table className={styles.table}>
               <colgroup>
                 <col className={styles.nameColumn} />
                 <col className={styles.targetColumn} />
@@ -202,7 +199,7 @@ export function WeightTableList({
             </table>
           </div>
         ) : (
-          <ul ref={setRowsElement} className={styles.cards} aria-labelledby="weight-tables-heading">
+          <ul className={styles.cards} aria-labelledby="weight-tables-heading">
             {rows.map((row, index) => (
               <Card key={index} {...rowProps(row, index)} />
             ))}
@@ -253,15 +250,86 @@ interface RowProps {
   onOpenWeights(): void;
 }
 
-/** What a row and a card share: its targets' validity, its fade, and how it is put in focus. */
-function useRow({ row, isFocused, onFocus }: RowProps) {
-  const { state = 'done' } = row;
+/**
+ * What a row and a card share: its picker, its two target boxes, its sliders and ×, its error line, its fade, and how
+ * it is put in focus. Each lays these out its own way.
+ */
+function useRowParts({
+  row,
+  isFocused,
+  isCustom,
+  options,
+  onFocus,
+  onSwap,
+  onRemove,
+  onTargetsChange,
+  onOpenWeights,
+}: RowProps) {
+  const { name, result, targetText, erTargetText, state = 'done' } = row;
+  const errorId = useId();
+  const targetInvalid = parseNonNegativeNumber(targetText).invalid;
+  const erTargetInvalid = parseNonNegativeNumber(erTargetText).invalid;
   return {
-    faded: fadedWhen(state !== 'done'),
+    name,
+    result,
+    isFocused,
     state,
-    errorId: useId(),
-    targetInvalid: parseNonNegativeNumber(row.targetText).invalid,
-    erTargetInvalid: parseNonNegativeNumber(row.erTargetText).invalid,
+    faded: fadedWhen(state !== 'done'),
+    errorId,
+    error: targetInvalid || erTargetInvalid ? INVALID_NUMBER_MESSAGE : '',
+    /** The table's picker, its Custom tag after it. */
+    picker: (fitClassName?: string) => (
+      <>
+        <FittedSelect
+          shown={name}
+          fitClassName={fitClassName}
+          title={name}
+          aria-label={`Swap ${name} for another Weight Table`}
+          value={name}
+          onChange={(event) => onSwap(event.target.value)}
+        >
+          {options}
+        </FittedSelect>
+        {isCustom && <CustomTag />}
+      </>
+    ),
+    targetInput: (
+      <TargetInput
+        label={`Target Score for ${name}`}
+        text={targetText}
+        invalid={targetInvalid}
+        errorId={errorId}
+        onChange={(text) => onTargetsChange({ targetText: text, erTargetText })}
+      />
+    ),
+    erTargetInput: (
+      <TargetInput
+        label={`ER Target Score for ${name}`}
+        text={erTargetText}
+        invalid={erTargetInvalid}
+        errorId={errorId}
+        onChange={(text) => onTargetsChange({ targetText, erTargetText: text })}
+      />
+    ),
+    weightsButton: (
+      <IconButton
+        label={`Weights of ${name}`}
+        icon={<SlidersIcon />}
+        className={styles.iconButton}
+        data-weights=""
+        onClick={onOpenWeights}
+      />
+    ),
+    removeButton: (
+      <IconButton
+        label={`Remove ${name}`}
+        icon={<CrossIcon />}
+        danger
+        className={styles.iconButton}
+        data-remove=""
+        onClick={onRemove}
+      />
+    ),
     /** The row's own focus: a tab stop before its controls; a click outside them, Enter or Space puts it in focus. */
     focusProps: {
       tabIndex: 0,
@@ -281,50 +349,22 @@ function useRow({ row, isFocused, onFocus }: RowProps) {
 }
 
 function Row(props: RowProps) {
-  const { row, isFocused, isCustom, options, onSwap, onRemove, onTargetsChange, onOpenWeights } =
-    props;
-  const { name, result } = row;
-  const { faded, state, errorId, targetInvalid, erTargetInvalid, focusProps } = useRow(props);
+  const parts = useRowParts(props);
+  const { result, faded, state, errorId } = parts;
 
   return (
-    <tr className={isFocused ? styles.focused : undefined} {...focusProps}>
+    <tr className={parts.isFocused ? styles.focused : undefined} {...parts.focusProps}>
       <td>
-        <div className={styles.nameCell}>
-          <FittedSelect
-            shown={name}
-            fitClassName={styles.pickerFit}
-            title={name}
-            aria-label={`Swap ${name} for another Weight Table`}
-            value={name}
-            onChange={(event) => onSwap(event.target.value)}
-          >
-            {options}
-          </FittedSelect>
-          {isCustom && <CustomTag />}
-        </div>
+        <div className={styles.nameCell}>{parts.picker(styles.pickerFit)}</div>
       </td>
       <td className={styles.targetCell}>
-        <TargetInput
-          label={`Target Score for ${name}`}
-          text={row.targetText}
-          invalid={targetInvalid}
-          errorId={errorId}
-          onChange={(targetText) => onTargetsChange({ targetText, erTargetText: row.erTargetText })}
-        />
+        {parts.targetInput}
         {/* One error line for both boxes, in a line every row keeps free; it may run across the next columns. */}
         <span id={errorId} className={styles.error}>
-          {targetInvalid || erTargetInvalid ? INVALID_NUMBER_MESSAGE : ''}
+          {parts.error}
         </span>
       </td>
-      <td className={styles.targetCell}>
-        <TargetInput
-          label={`ER Target Score for ${name}`}
-          text={row.erTargetText}
-          invalid={erTargetInvalid}
-          errorId={errorId}
-          onChange={(erTargetText) => onTargetsChange({ targetText: row.targetText, erTargetText })}
-        />
-      </td>
+      <td className={styles.targetCell}>{parts.erTargetInput}</td>
       <td className={`${styles.figure} ${faded ?? ''}`}>
         {result ? formatEchoScore(result.echoScore) : NONE}
       </td>
@@ -344,25 +384,8 @@ function Row(props: RowProps) {
           <CalculationStatus state={state} inline />
         </span>
       </td>
-      <td className={styles.icon}>
-        <IconButton
-          label={`Weights of ${name}`}
-          icon={<SlidersIcon />}
-          className={styles.iconButton}
-          data-weights=""
-          onClick={onOpenWeights}
-        />
-      </td>
-      <td className={styles.icon}>
-        <IconButton
-          label={`Remove ${name}`}
-          icon={<CrossIcon />}
-          danger
-          className={styles.iconButton}
-          data-remove=""
-          onClick={onRemove}
-        />
-      </td>
+      <td className={styles.icon}>{parts.weightsButton}</td>
+      <td className={styles.icon}>{parts.removeButton}</td>
     </tr>
   );
 }
@@ -372,59 +395,29 @@ function Row(props: RowProps) {
  * above; line 3 its Echo Score and chances. The sliders and × come after the targets, so the tab order is a row's.
  */
 function Card(props: RowProps) {
-  const { row, isFocused, isCustom, options, onSwap, onRemove, onTargetsChange, onOpenWeights } =
-    props;
-  const { name, result } = row;
-  const { faded, state, errorId, targetInvalid, erTargetInvalid, focusProps } = useRow(props);
+  const parts = useRowParts(props);
+  const { name, result, faded, state, errorId } = parts;
 
   return (
     <li
-      className={[styles.card, isFocused && styles.focusedCard].filter(Boolean).join(' ')}
-      {...focusProps}
+      className={[styles.card, parts.isFocused && styles.focusedCard].filter(Boolean).join(' ')}
+      {...parts.focusProps}
     >
-      <div className={styles.cardName}>
-        <FittedSelect
-          shown={name}
-          fitClassName={styles.cardPicker}
-          title={name}
-          aria-label={`Swap ${name} for another Weight Table`}
-          value={name}
-          onChange={(event) => onSwap(event.target.value)}
-        >
-          {options}
-        </FittedSelect>
-        {isCustom && <CustomTag />}
-      </div>
+      <div className={styles.cardName}>{parts.picker(styles.cardPicker)}</div>
       <div className={styles.cardTargets}>
         <label className={styles.cardField}>
           Target Score
-          <TargetInput
-            label={`Target Score for ${name}`}
-            text={row.targetText}
-            invalid={targetInvalid}
-            errorId={errorId}
-            onChange={(targetText) =>
-              onTargetsChange({ targetText, erTargetText: row.erTargetText })
-            }
-          />
+          {parts.targetInput}
         </label>
         <label className={styles.cardField}>
           ER Target Score
-          <TargetInput
-            label={`ER Target Score for ${name}`}
-            text={row.erTargetText}
-            invalid={erTargetInvalid}
-            errorId={errorId}
-            onChange={(erTargetText) =>
-              onTargetsChange({ targetText: row.targetText, erTargetText })
-            }
-          />
+          {parts.erTargetInput}
         </label>
       </div>
       {/* The line every card keeps free for its target error and, from the right, its calculation status. */}
       <div className={styles.cardStatusLine}>
         <span id={errorId} className={styles.cardError}>
-          {targetInvalid || erTargetInvalid ? INVALID_NUMBER_MESSAGE : ''}
+          {parts.error}
         </span>
         <span className={styles.cardStatus}>
           <CalculationStatus state={state} inline />
@@ -446,21 +439,8 @@ function Card(props: RowProps) {
         </CardFigure>
       </div>
       <div className={styles.cardIcons}>
-        <IconButton
-          label={`Weights of ${name}`}
-          icon={<SlidersIcon />}
-          className={styles.iconButton}
-          data-weights=""
-          onClick={onOpenWeights}
-        />
-        <IconButton
-          label={`Remove ${name}`}
-          icon={<CrossIcon />}
-          danger
-          className={styles.iconButton}
-          data-remove=""
-          onClick={onRemove}
-        />
+        {parts.weightsButton}
+        {parts.removeButton}
       </div>
     </li>
   );

@@ -11,6 +11,7 @@ import {
 import { SUBSTAT_DISPLAY_ORDER, SUBSTAT_NAMES } from './substats';
 import { Modal } from '../ui/Modal';
 import { CustomTag } from './TableOptions';
+import dialogStyles from '../ui/dialog.module.css';
 import styles from './WeightsDialog.module.css';
 
 /** What the dialog opens on: a table's weights, or a draft of a new blank table. */
@@ -48,8 +49,8 @@ const sameDraft = (a: TableDraft, b: TableDraft) =>
 
 /**
  * The one weights dialog (spec §5): a table's weights read-only, and the draft editor for Custom tables. A native modal
- * `<dialog>` (a bottom sheet on a phone); Escape, or a click outside it, closes it and gives focus back to its opener (also while asking to delete,
- * deleting nothing), or acts as Cancel while a draft has unsaved edits.
+ * `<dialog>` (a bottom sheet on a phone); Escape, or a click outside it, closes it and gives focus back to its opener
+ * (also while asking to delete, deleting nothing), or acts as Cancel while a draft has unsaved edits.
  */
 export function WeightsDialog({
   start,
@@ -88,7 +89,9 @@ export function WeightsDialog({
   const headingId = useId();
   const isCustom = (name: string) => customTables.some((table) => table.name === name);
 
-  /** Opens a draft from the `viewed` table, which Cancel goes back to, its weights in the order the view showed them. */
+  /**
+   * Opens a draft from the `viewed` table, which Cancel goes back to, its weights in the order the view showed them.
+   */
   function openDraft(draft: TableDraft, editing: string | null, viewed: WeightTableData) {
     setScreen({
       kind: 'draft',
@@ -141,20 +144,20 @@ export function WeightsDialog({
     body =
       screen.kind === 'confirmDelete' ? (
         <>
-          <p className={styles.message}>
+          <p className={dialogStyles.message}>
             Delete &apos;{table.name}&apos;? This can&apos;t be undone.
           </p>
-          <div className={styles.actions}>
+          <div className={dialogStyles.actions}>
             <button
               type="button"
-              className={styles.button}
+              className={dialogStyles.button}
               onClick={() => setScreen({ kind: 'view', name: table.name })}
             >
               Cancel
             </button>
             <button
               type="button"
-              className={`${styles.button} ${styles.dangerPrimary}`}
+              className={`${dialogStyles.button} ${styles.dangerPrimary}`}
               onClick={() => onDelete(table.name)}
             >
               Delete
@@ -164,24 +167,24 @@ export function WeightsDialog({
       ) : (
         <>
           {!custom && (
-            <p className={styles.message}>
+            <p className={dialogStyles.message}>
               Built-in tables can&apos;t be changed. Duplicate it to make your own.
             </p>
           )}
           <WeightsView weights={table.weights} />
-          <div className={styles.actions}>
+          <div className={dialogStyles.actions}>
             {custom && (
               <>
                 <button
                   type="button"
-                  className={`${styles.button} ${styles.danger}`}
+                  className={`${dialogStyles.button} ${styles.danger}`}
                   onClick={() => setScreen({ kind: 'confirmDelete', name: table.name })}
                 >
                   Delete
                 </button>
                 <button
                   type="button"
-                  className={styles.button}
+                  className={dialogStyles.button}
                   onClick={() => openDraft(editDraft(table), table.name, table)}
                 >
                   Edit
@@ -190,14 +193,14 @@ export function WeightsDialog({
             )}
             <button
               type="button"
-              className={styles.button}
+              className={dialogStyles.button}
               onClick={() => openDraft(copyDraft(table, allNames), null, table)}
             >
               Duplicate
             </button>
             <button
               type="button"
-              className={`${styles.button} ${styles.primary}`}
+              className={`${dialogStyles.button} ${dialogStyles.primary}`}
               onClick={onClose}
             >
               Close
@@ -211,7 +214,7 @@ export function WeightsDialog({
   const tagged = screen.kind !== 'draft' && isCustom(screen.name);
   return (
     <Modal labelledBy={headingId} onDismiss={escape}>
-      <h2 id={headingId} className={styles.title}>
+      <h2 id={headingId} className={dialogStyles.title}>
         <span className={styles.titleText}>{title}</span>
         {tagged && <CustomTag />}
       </h2>
@@ -227,7 +230,10 @@ function heaviestFirst(weights: WeightTableData['weights']): readonly SubstatTyp
   return [...SUBSTAT_DISPLAY_ORDER].sort((a, b) => weightOf(weights, b) - weightOf(weights, a));
 }
 
-/** A table's weights read-only: one column, heaviest first, each with a bar scaled to the heaviest; zeros muted, barless. */
+/**
+ * A table's weights read-only: one column, heaviest first, each with a bar scaled to the heaviest; zeros muted,
+ * barless.
+ */
 function WeightsView({ weights }: { weights: WeightTableData['weights'] }) {
   const heaviest = Math.max(...SUBSTAT_DISPLAY_ORDER.map((type) => weightOf(weights, type)));
   return (
@@ -331,11 +337,15 @@ function DraftEditor({
           </Field>
         ))}
       </div>
-      <div className={styles.actions}>
-        <button type="button" className={styles.button} onClick={onCancel}>
+      <div className={dialogStyles.actions}>
+        <button type="button" className={dialogStyles.button} onClick={onCancel}>
           Cancel
         </button>
-        <button type="submit" className={`${styles.button} ${styles.primary}`} disabled={!canSave}>
+        <button
+          type="submit"
+          className={`${dialogStyles.button} ${dialogStyles.primary}`}
+          disabled={!canSave}
+        >
           Save
         </button>
       </div>
